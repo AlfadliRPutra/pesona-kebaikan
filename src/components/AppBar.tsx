@@ -8,47 +8,106 @@ import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import Badge from "@mui/material/Badge";
-import AdbIcon from "@mui/icons-material/Adb";
-import Typography from "@mui/material/Typography";
+import Image from "next/image";
 
 export default function SimpleAppBar() {
-  const [searchValue, setSearchValue] = React.useState("");
+	const [searchValue, setSearchValue] = React.useState("");
 
-  return (
-    <AppBar position="static" sx={{ backgroundColor: "#fff", color: "#000", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-      <Toolbar>
-        {/* Logo Brand */}
-        <AdbIcon sx={{ mr: 1, color: "#1976d2" }} />
-        <Typography variant="h6" noWrap sx={{ fontWeight: 700, color: "#1976d2", mr: 2 }}>
-          LOGO
-        </Typography>
+	return (
+		<AppBar
+			position="sticky"
+			elevation={0}
+			color="transparent"
+			sx={{
+				top: 0,
+				zIndex: 1200,
+				bgcolor: "transparent",
+				color: "#ffffff",
+				backdropFilter: "none",
+				WebkitBackdropFilter: "none",
+				borderBottom: "none",
+				boxShadow: "none",
+			}}
+		>
+			<Toolbar sx={{ px: 2, minHeight: 64, gap: 1.5, color: "#ffffff" }}>
+				<Box
+					sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}
+				>
+					<Box
+						sx={{
+							width: 100,
+							height: 40,
+							borderRadius: 2.5,
+							overflow: "hidden",
+							position: "relative",
+						}}
+					>
+						<Image
+							src="/brand/logo.png"
+							alt="PK"
+							fill
+							sizes="100px"
+							priority
+							style={{ objectFit: "contain" }}
+						/>
+					</Box>
+				</Box>
 
-        {/* Search Bar */}
-        <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "center" }}>
-          <TextField
-            size="small"
-            placeholder="Cari..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            sx={{
-              width: "100%",
-              maxWidth: 300,
-              backgroundColor: "#f5f5f5",
-              borderRadius: 2,
-              "& .MuiOutlinedInput-root": {
-                border: "none",
-              },
-            }}
-          />
-        </Box>
+				<Box sx={{ flex: 1, px: 0.5 }}>
+					<TextField
+						size="small"
+						placeholder="Cari donasi…"
+						value={searchValue}
+						onChange={(e) => setSearchValue(e.target.value)}
+						fullWidth
+						sx={{
+							"& .MuiOutlinedInput-root": {
+								height: 40,
+								borderRadius: 12,
+								bgcolor: "rgba(255,255,255,0.15)",
+								"& fieldset": { border: "1px solid rgba(255,255,255,0.30)" },
+								"&:hover fieldset": { borderColor: "rgba(97,206,112,0.65)" },
+								"&.Mui-focused fieldset": { borderColor: "#61ce70" },
+								backdropFilter: "blur(8px)",
+							},
+							"& input": { fontSize: 13, color: "#ffffff" },
+							"& .MuiInputBase-input::placeholder": {
+								color: "rgba(255,255,255,0.75)",
+								opacity: 1,
+							},
+						}}
+						InputProps={{
+							startAdornment: (
+								<Box
+									sx={{
+										pl: 1.25,
+										pr: 0.75,
+										color: "rgba(255,255,255,0.90)",
+										fontSize: 16,
+									}}
+								>
+									🔎
+								</Box>
+							),
+						}}
+					/>
+				</Box>
 
-        {/* Notification Icon */}
-        <IconButton color="inherit">
-          <Badge badgeContent={3} color="error">
-            <NotificationsIcon sx={{ color: "#000" }} />
-          </Badge>
-        </IconButton>
-      </Toolbar>
-    </AppBar>
-  );
+				<IconButton
+					sx={{
+						width: 40,
+						height: 40,
+						borderRadius: 12,
+						border: "1px solid rgba(255,255,255,0.18)",
+						bgcolor: "rgba(255,255,255,0.10)",
+						backdropFilter: "blur(10px)",
+					}}
+				>
+					<Badge badgeContent={3} color="error">
+						<NotificationsIcon sx={{ color: "#ffffff" }} />
+					</Badge>
+				</IconButton>
+			</Toolbar>
+		</AppBar>
+	);
 }
