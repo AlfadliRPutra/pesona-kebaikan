@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import "./globals.css";
+import SimpleBottomNavigation from "@/components/BottomNavigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,11 +25,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AppRouterCacheProvider options={{ enableCssLayer: true }}>
+          <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+            <div className="relative w-full max-w-md h-screen max-h-screen bg-white dark:bg-black rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-y-auto">{children}</div>
+              <SimpleBottomNavigation />
+            </div>
+          </div>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );
