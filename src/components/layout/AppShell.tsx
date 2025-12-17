@@ -57,7 +57,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 					overflowY: "auto",
 					bgcolor: "background.default",
 					pb: 12, // Space for bottom nav
-					pt: 0, // AppBar is now sticky/absolute properly handling its own space or overlay
+					pt: appBarVariant === "overlay" ? 0 : 8, // Add space under AppBar for solid variant (Toolbar ~64px)
 				}}
 			>
 				{children}
