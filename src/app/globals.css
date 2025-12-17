@@ -5,6 +5,18 @@
 	--background: #f8fafc; /* Matches MUI Light background.default */
 	--foreground: #0f172a; /* Matches MUI Light text.primary */
 	--brand: #61ce70;
+	--mui-font-family: var(--font-pjs), "Plus Jakarta Sans", system-ui,
+		-apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.MuiTypography-root,
+.MuiButton-root,
+.MuiChip-root,
+.MuiInputBase-root,
+.MuiBottomNavigation-root,
+.MuiBottomNavigationAction-root,
+.MuiBottomNavigationAction-label {
+	font-family: var(--mui-font-family) !important;
 }
 
 @theme inline {
