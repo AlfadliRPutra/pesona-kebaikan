@@ -1,8 +1,18 @@
 import Image from "next/image";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  // if (!session) redirect("/auth/login");
+
   return (
     <div className="flex flex-col items-center justify-start p-6 pb-24">
+      {session && (
+        <div className="mb-4 text-center">
+          <p className="text-lg font-bold">Halo, {session.user?.name || session.user?.email}</p>
+        </div>
+      )}
       <Image className="dark:invert mb-8" src="/next.svg" alt="Next.js logo" width={100} height={20} priority />
       <div className="flex flex-col items-center gap-6 text-center">
         <h1 className="text-2xl font-semibold leading-8 tracking-tight text-black dark:text-zinc-50">To get started, edit the page.tsx file.</h1>
