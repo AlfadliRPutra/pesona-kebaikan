@@ -7,20 +7,12 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Image from "next/image";
 
+import { Campaign } from "@/types";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+
 const PRIMARY = "#61ce70";
 
-type Campaign = {
-	id: string;
-	title: string;
-	organizer: string;
-	category: string;
-	cover: string;
-	target: number;
-	collected: number;
-	donors: number;
-	daysLeft: number;
-	latestUpdate: string;
-};
 
 const popular: Campaign[] = [
 	{
@@ -376,7 +368,7 @@ export default function PopularSection() {
 										sx={{
 											fontSize: 13,
 											fontWeight: 900,
-											color: "#0f172a",
+											color: "text.primary",
 											lineHeight: 1.25,
 											display: "-webkit-box",
 											WebkitLineClamp: 2,

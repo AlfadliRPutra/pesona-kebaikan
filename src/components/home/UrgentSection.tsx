@@ -3,24 +3,12 @@
 import * as React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Image from "next/image";
+import { Campaign } from "@/types";
 
-const PRIMARY = "#61ce70";
-
-type Item = {
-	id: string;
-	title: string;
-	organizer: string;
-	tag?: string;
-	cover: string;
-	target: number;
-	collected: number;
-	daysLeft: number;
-};
-
-const items: Item[] = [
+const items: Campaign[] = [
 	{
 		id: "1",
 		title: "Selamatkan Ratusan Anabul Korban Banjir Sumatra!",
@@ -30,6 +18,7 @@ const items: Item[] = [
 		target: 500000000,
 		collected: 294855927,
 		daysLeft: 68,
+		donors: 3240,
 	},
 	{
 		id: "2",
@@ -40,6 +29,7 @@ const items: Item[] = [
 		target: 800000000,
 		collected: 563200065,
 		daysLeft: 12,
+		donors: 5120,
 	},
 	{
 		id: "3",
@@ -50,6 +40,18 @@ const items: Item[] = [
 		target: 50000000,
 		collected: 18350000,
 		daysLeft: 3,
+		donors: 420,
+	},
+	{
+		id: "4",
+		title: "Bantu Renovasi Sekolah Terdampak Gempa",
+		organizer: "Peduli Pendidikan",
+		tag: "ORG",
+		cover: "/campaign/urgent-1.jpg",
+		target: 150000000,
+		collected: 45000000,
+		daysLeft: 25,
+		donors: 890,
 	},
 ];
 
@@ -70,27 +72,19 @@ function ProgressBarDual({
 	);
 
 	return (
-		<Box
-			sx={{
-				height: 7,
-				borderRadius: 999,
-				overflow: "hidden",
-				display: "flex",
-				bgcolor: "rgba(15,23,42,0.08)",
-			}}
-		>
+		<Box className="h-1.5 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-700">
 			<Box
+				className="transition-all duration-300 ease-out"
 				sx={{
 					width: `${pct}%`,
-					bgcolor: PRIMARY,
-					transition: "width 250ms ease",
+					bgcolor: "primary.main",
 				}}
 			/>
 			<Box
+				className="transition-all duration-300 ease-out"
 				sx={{
 					width: `${100 - pct}%`,
-					bgcolor: "rgba(225,29,72,0.85)",
-					transition: "width 250ms ease",
+					bgcolor: "#e11d48", // rose-600 for urgency gap
 				}}
 			/>
 		</Box>
@@ -129,13 +123,11 @@ export default function UrgentSection() {
 
 		updateArrows();
 		el.addEventListener("scroll", onScroll, { passive: true });
-
-		const ro = new ResizeObserver(() => updateArrows());
-		ro.observe(el);
+		window.addEventListener("resize", updateArrows);
 
 		return () => {
 			el.removeEventListener("scroll", onScroll);
-			ro.disconnect();
+			window.removeEventListener("resize", updateArrows);
 			if (rafRef.current) cancelAnimationFrame(rafRef.current);
 		};
 	}, [updateArrows]);
@@ -178,6 +170,8 @@ export default function UrgentSection() {
 				border: "1px solid rgba(15,23,42,0.10)",
 				boxShadow: "0 14px 26px rgba(15,23,42,.14)",
 				"&:active": { transform: "scale(0.98)" },
+				transition: "all 0.2s ease",
+				"&:hover": { bgcolor: "#fff", transform: "scale(1.05)" },
 			}}
 		>
 			<Box
@@ -194,20 +188,20 @@ export default function UrgentSection() {
 	);
 
 	return (
-		<Box sx={{ px: 2.5, mt: 2.5 }}>
-			{/* Header */}
-			<Box
-				sx={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					mb: 1.5,
-				}}
-			>
-				<Typography sx={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>
-					Penggalangan Dana Mendesak
-				</Typography>
-
+		<Box className="mt-6 px-5 relative group">
+			<Box className="flex items-center justify-between mb-4">
+				<Box className="flex items-center gap-2.5">
+					<Box className="relative flex h-3 w-3">
+						<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+						<span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+					</Box>
+					<Typography
+						className="text-base font-extrabold"
+						sx={{ color: "text.primary" }}
+					>
+						Mendesak & Darurat
+					</Typography>
+				</Box>
 				<Button
 					size="small"
 					variant="text"
@@ -219,246 +213,129 @@ export default function UrgentSection() {
 						borderRadius: 2,
 						"&:hover": { bgcolor: "rgba(15,23,42,.04)" },
 					}}
-					onClick={() => alert("Lihat semua (route menyusul)")}
 				>
 					Lihat semua
 				</Button>
 			</Box>
 
-			{/* Slider wrapper */}
+			{/* Floating arrows */}
+			{canLeft && (
+				<Box
+					className="hidden md:block absolute left-2 top-[140px] z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+				>
+					<ArrowButton dir="left" onClick={scrollPrev} />
+				</Box>
+			)}
+
+			{canRight && (
+				<Box
+					className="hidden md:block absolute right-2 top-[140px] z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+				>
+					<ArrowButton dir="right" onClick={scrollNext} />
+				</Box>
+			)}
+
 			<Box
+				ref={scrollRef}
+				className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4"
 				sx={{
-					position: "relative",
-					// desktop: tombol muncul saat hover, mobile: tetap tampil kalau canLeft/Right
-					"&:hover .urgentNav": { opacity: 1 },
-					"&:focus-within .urgentNav": { opacity: 1 },
+					scrollPaddingLeft: 20,
+					scrollPaddingRight: 20,
 				}}
 			>
-				{/* Floating arrows */}
-				{canLeft && (
+				{items.map((item) => (
 					<Box
-						className="urgentNav"
-						sx={{
-							position: "absolute",
-							left: -6,
-							top: 78,
-							zIndex: 5,
-							// default: mobile tampil, desktop hide sampai hover
-							opacity: { xs: 1, md: 0 },
-							transition: "opacity 160ms ease",
-						}}
+						key={item.id}
+						className="flex-shrink-0 w-[260px] snap-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow duration-300 cursor-pointer"
+						sx={{ bgcolor: "background.paper" }}
 					>
-						<ArrowButton dir="left" onClick={scrollPrev} />
-					</Box>
-				)}
+						{/* Cover */}
+						<Box className="relative h-[140px] rounded-t-2xl overflow-hidden bg-gray-100">
+							<Image
+								src={item.cover}
+								alt={item.title}
+								fill
+								sizes="260px"
+								style={{ objectFit: "cover" }}
+								className="group-hover:scale-105 transition-transform duration-500"
+							/>
+							{/* Tag */}
+							<Box className="absolute top-2 left-2">
+								<Chip
+									label={item.tag === "ORG" ? "ORGANISASI" : "TERVERIFIKASI"}
+									size="small"
+									className="h-5 text-[9px] font-bold bg-white/95 dark:bg-black/80 backdrop-blur-sm shadow-sm"
+									sx={{
+										color:
+											item.tag === "ORG"
+												? "primary.main"
+												: "info.main",
+										border: "1px solid",
+										borderColor: "rgba(255,255,255,0.2)",
+									}}
+								/>
+							</Box>
+							{/* Days Left Badge */}
+							<Box className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+								{item.daysLeft} hari lagi
+							</Box>
+						</Box>
 
-				{canRight && (
-					<Box
-						className="urgentNav"
-						sx={{
-							position: "absolute",
-							right: -6,
-							top: 78,
-							zIndex: 5,
-							opacity: { xs: 1, md: 0 },
-							transition: "opacity 160ms ease",
-						}}
-					>
-						<ArrowButton dir="right" onClick={scrollNext} />
-					</Box>
-				)}
-
-				{/* Slider */}
-				<Box
-					ref={scrollRef}
-					sx={{
-						display: "flex",
-						gap: 1.5,
-						overflowX: "auto",
-						pb: 1,
-						pr: 0.25,
-						scrollSnapType: "x mandatory",
-						WebkitOverflowScrolling: "touch",
-						"&::-webkit-scrollbar": { height: 6 },
-						"&::-webkit-scrollbar-thumb": {
-							background: "rgba(15,23,42,0.18)",
-							borderRadius: 999,
-						},
-						"&::-webkit-scrollbar-track": {
-							background: "rgba(15,23,42,0.06)",
-							borderRadius: 999,
-						},
-					}}
-				>
-					{items.map((c) => {
-						const pct = Math.round((c.collected / c.target) * 100);
-						const needed = Math.max(0, c.target - c.collected);
-
-						return (
-							<Box
-								key={c.id}
-								sx={{
-									minWidth: 260,
-									maxWidth: 260,
-									borderRadius: 3,
-									border: "1px solid rgba(15,23,42,0.08)",
-									bgcolor: "#fff",
-									boxShadow: "0 14px 30px rgba(15,23,42,.08)",
-									overflow: "hidden",
-									scrollSnapAlign: "start",
-								}}
+						{/* Content */}
+						<Box className="p-3">
+							<Typography
+								className="text-[13px] font-bold leading-snug line-clamp-2 min-h-[40px]"
+								sx={{ color: "text.primary" }}
 							>
-								<Box sx={{ position: "relative", height: 140 }}>
+								{item.title}
+							</Typography>
+							
+							<Box className="flex items-center gap-1.5 mt-2 mb-3">
+								<Box className="w-4 h-4 rounded-full bg-gray-200 overflow-hidden relative flex-shrink-0">
 									<Image
-										src={c.cover}
-										alt={c.title}
+										src="/brand/logo.png" 
+										alt={item.organizer}
 										fill
-										sizes="260px"
 										style={{ objectFit: "cover" }}
 									/>
-									<Chip
-										label={`${c.daysLeft} hari lagi`}
-										size="small"
-										sx={{
-											position: "absolute",
-											top: 10,
-											left: 10,
-											height: 24,
-											fontWeight: 900,
-											bgcolor: "rgba(255,255,255,0.92)",
-											backdropFilter: "blur(10px)",
-											"& .MuiChip-label": { px: 1 },
-										}}
-									/>
 								</Box>
-
-								<Box sx={{ p: 1.5 }}>
-									<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-										<Typography
-											sx={{ fontSize: 11.5, color: "rgba(15,23,42,.65)" }}
-										>
-											{c.organizer}
-										</Typography>
-
-										{c.tag && (
-											<Box
-												sx={{
-													fontSize: 10,
-													fontWeight: 900,
-													px: 1,
-													py: "1px",
-													borderRadius: 999,
-													bgcolor: "rgba(97,206,112,0.14)",
-													color: PRIMARY,
-													border: "1px solid rgba(97,206,112,0.28)",
-												}}
-											>
-												{c.tag}
-											</Box>
-										)}
+								<Typography
+									className="text-[10px] font-medium text-gray-500 dark:text-gray-400 truncate"
+								>
+									{item.organizer}
+								</Typography>
+								{item.tag === "ORG" && (
+									<Box className="w-3 h-3 text-blue-500">
+										<svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+											<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+										</svg>
 									</Box>
+								)}
+							</Box>
 
-									<Typography
-										sx={{
-											mt: 0.75,
-											fontSize: 13.5,
-											fontWeight: 900,
-											color: "#0f172a",
-											lineHeight: 1.25,
-											display: "-webkit-box",
-											WebkitLineClamp: 2,
-											WebkitBoxOrient: "vertical",
-											overflow: "hidden",
-											minHeight: 36,
-										}}
-									>
-										{c.title}
-									</Typography>
+							{/* Progress Bar Dual */}
+							<ProgressBarDual
+								collected={item.collected}
+								target={item.target || 0}
+							/>
 
-									<Box sx={{ mt: 1.1 }}>
-										<ProgressBarDual
-											collected={c.collected}
-											target={c.target}
-										/>
-
-										<Box
-											sx={{
-												display: "flex",
-												justifyContent: "space-between",
-												mt: 0.8,
-											}}
-										>
-											<Typography
-												sx={{ fontSize: 11, color: "rgba(15,23,42,.55)" }}
-											>
-												Terkumpul{" "}
-												<Box
-													component="span"
-													sx={{ fontWeight: 900, color: "#0f172a" }}
-												>
-													Rp{rupiah(c.collected)}
-												</Box>
-											</Typography>
-
-											<Typography
-												sx={{ fontSize: 11, color: "rgba(15,23,42,.55)" }}
-											>
-												Target{" "}
-												<Box
-													component="span"
-													sx={{ fontWeight: 900, color: "#0f172a" }}
-												>
-													Rp{rupiah(c.target)}
-												</Box>
-											</Typography>
-										</Box>
-
-										<Typography
-											sx={{
-												mt: 0.35,
-												fontSize: 11,
-												fontWeight: 900,
-												color: "rgba(225,29,72,0.92)",
-											}}
-										>
-											Dibutuhkan Rp{rupiah(needed)}
-										</Typography>
-
-										<Typography
-											sx={{
-												mt: 0.25,
-												fontSize: 11,
-												color: "rgba(15,23,42,.45)",
-											}}
-										>
-											{Math.min(100, pct)}% terkumpul
-										</Typography>
-									</Box>
-
-									<Button
-										fullWidth
-										variant="contained"
-										sx={{
-											mt: 1.25,
-											textTransform: "none",
-											fontWeight: 900,
-											borderRadius: 2.5,
-											py: 1,
-											bgcolor: PRIMARY,
-											color: "#0b1220",
-											boxShadow: "0 14px 26px rgba(97,206,112,.22)",
-											"&:hover": { bgcolor: PRIMARY },
-											"&:active": { transform: "scale(0.99)" },
-										}}
-										onClick={() => alert("Donasi Sekarang (checkout menyusul)")}
-									>
-										Donasi Sekarang
-									</Button>
+							<Box className="flex items-center justify-between mt-2 text-[10px] text-gray-500">
+								<Box>
+									<span className="block text-[10px] text-gray-400">Terkumpul</span>
+									<span className="font-bold text-gray-900 dark:text-gray-100">
+										Rp {rupiah(item.collected)}
+									</span>
+								</Box>
+								<Box className="text-right">
+									<span className="block text-[10px] text-gray-400">Donatur</span>
+									<span className="font-bold text-gray-900 dark:text-gray-100">
+										{item.donors}
+									</span>
 								</Box>
 							</Box>
-						);
-					})}
-				</Box>
+						</Box>
+					</Box>
+				))}
 			</Box>
 		</Box>
 	);

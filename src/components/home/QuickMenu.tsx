@@ -5,43 +5,42 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
-import Image from "next/image";
+import { MenuItem } from "@/types";
 
-type MenuItem = {
-	label: string;
-	emoji: string;
-	isNew?: boolean;
-	iconSrc?: string; // nanti taruh icon di public/quick-menu/
-};
+// Icons
+import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
+import MosqueIcon from "@mui/icons-material/Mosque";
+import CampaignIcon from "@mui/icons-material/Campaign";
+import EventRepeatIcon from "@mui/icons-material/EventRepeat";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import HandshakeIcon from "@mui/icons-material/Handshake";
+import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
+import SavingsIcon from "@mui/icons-material/Savings";
 
 const menus: MenuItem[] = [
-	{ label: "Donasi", emoji: "💚", iconSrc: "/quick-menu/donasi.png" },
-	{ label: "Zakat", emoji: "🕌", iconSrc: "/quick-menu/zakat.png" },
-	{ label: "Galang Dana", emoji: "📣", iconSrc: "/quick-menu/galang.png" },
+	{ label: "Donasi", icon: <VolunteerActivismIcon fontSize="large" color="primary" /> },
+	{ label: "Zakat", icon: <MosqueIcon fontSize="large" color="primary" /> },
+	{ label: "Galang Dana", icon: <CampaignIcon fontSize="large" color="primary" /> },
 	{
 		label: "Donasi Otomatis",
-		emoji: "🗓️",
-		iconSrc: "/quick-menu/otomatis.png",
+		icon: <EventRepeatIcon fontSize="large" color="primary" />,
 	},
 	{
-		label: "Kitabisa Experience",
-		emoji: "✨",
+		label: "Experience",
 		isNew: true,
-		iconSrc: "/quick-menu/experience.png",
+		icon: <AutoAwesomeIcon fontSize="large" color="primary" />,
 	},
 	{
 		label: "Kolaborasi CSR",
-		emoji: "🤝",
 		isNew: true,
-		iconSrc: "/quick-menu/csr.png",
+		icon: <HandshakeIcon fontSize="large" color="primary" />,
 	},
 	{
-		label: "Asuransi SalingJaga",
-		emoji: "🛡️",
+		label: "SalingJaga",
 		isNew: true,
-		iconSrc: "/quick-menu/asuransi.png",
+		icon: <HealthAndSafetyIcon fontSize="large" color="primary" />,
 	},
-	{ label: "Dana Abadi", emoji: "🌿", iconSrc: "/quick-menu/abadi.png" },
+	{ label: "Dana Abadi", icon: <SavingsIcon fontSize="large" color="primary" /> },
 ];
 
 export default function QuickMenu() {
@@ -56,7 +55,7 @@ export default function QuickMenu() {
 	return (
 		<Box sx={{ px: 2.5, mt: 2 }}>
 			<Typography
-				sx={{ fontSize: 16, fontWeight: 800, color: "#0f172a", mb: 1.5 }}
+				sx={{ fontSize: 16, fontWeight: 800, color: "text.primary", mb: 1.5 }}
 			>
 				Mau berbuat baik apa hari ini?
 			</Typography>
@@ -67,7 +66,7 @@ export default function QuickMenu() {
 					gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
 					gap: 1.25,
 					borderRadius: 3,
-					bgcolor: "#fff",
+					bgcolor: "background.paper",
 				}}
 			>
 				{menus.map((m) => (
@@ -86,7 +85,7 @@ export default function QuickMenu() {
 							userSelect: "none",
 							transition: "transform 120ms ease, background-color 120ms ease",
 							"&:active": { transform: "scale(0.98)" },
-							"&:hover": { backgroundColor: "rgba(15,23,42,0.03)" },
+							"&:hover": { backgroundColor: "action.hover" },
 						}}
 					>
 						{/* Badge BARU */}
@@ -105,6 +104,7 @@ export default function QuickMenu() {
 									color: "#fff",
 									bgcolor: "#e11d48",
 									boxShadow: "0 10px 20px rgba(225,29,72,.22)",
+									zIndex: 1,
 								}}
 							>
 								BARU
@@ -126,17 +126,7 @@ export default function QuickMenu() {
 								overflow: "hidden",
 							}}
 						>
-							{m.iconSrc ? (
-								<Image
-									src={m.iconSrc}
-									alt={m.label}
-									width={34}
-									height={34}
-									style={{ objectFit: "contain" }}
-								/>
-							) : (
-								<Box sx={{ fontSize: 22 }}>{m.emoji}</Box>
-							)}
+							{m.icon}
 						</Box>
 
 						{/* Label */}
@@ -145,7 +135,7 @@ export default function QuickMenu() {
 								mt: 0.9,
 								fontSize: 12,
 								fontWeight: 600,
-								color: "rgba(15,23,42,.85)",
+								color: "text.primary",
 								lineHeight: 1.2,
 								px: 0.5,
 								display: "-webkit-box",
@@ -160,7 +150,7 @@ export default function QuickMenu() {
 				))}
 			</Box>
 
-			<Box sx={{ mt: 2, height: 1, bgcolor: "rgba(15,23,42,0.06)" }} />
+			<Box sx={{ mt: 2, height: 1, bgcolor: "divider" }} />
 
 			{/* Toast */}
 			<Snackbar
@@ -175,9 +165,9 @@ export default function QuickMenu() {
 					variant="filled"
 					sx={{
 						borderRadius: 3,
-						bgcolor: "rgba(15,23,42,0.92)",
-						color: "#fff",
-						"& .MuiAlert-icon": { color: "#fff" },
+						bgcolor: "text.primary",
+						color: "background.paper",
+						"& .MuiAlert-icon": { color: "background.paper" },
 					}}
 				>
 					{msg}

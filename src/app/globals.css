@@ -2,8 +2,8 @@
 @import "tailwindcss";
 
 :root {
-	--background: #ffffff;
-	--foreground: #171717;
+	--background: #f8fafc; /* Matches MUI Light background.default */
+	--foreground: #0f172a; /* Matches MUI Light text.primary */
 	--brand: #61ce70;
 }
 
@@ -11,15 +11,18 @@
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-primary: var(--brand);
+	--color-primary-soft: color-mix(in srgb, var(--brand), transparent 88%);
+	--color-primary-shadow: color-mix(in srgb, var(--brand), transparent 78%);
 	--font-sans: var(--font-pjs);
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--background: #0a0a0a;
-		--foreground: #ededed;
+		--background: #0b1220; /* Matches MUI Dark background.default */
+		--foreground: #f8fafc; /* Matches MUI Dark text.primary */
 	}
 }
+
 html,
 body {
 	background: var(--background);
@@ -42,4 +45,60 @@ body {
 .no-scrollbar {
 	-ms-overflow-style: none; /* IE and Edge */
 	scrollbar-width: none; /* Firefox */
+}
+
+/* Custom Component Styles */
+
+/* Bottom Navigation */
+.bottom-nav {
+	height: 72px !important;
+	padding-left: 8px;
+	padding-right: 8px;
+	background-color: transparent !important;
+}
+
+.bottom-nav .MuiBottomNavigationAction-root {
+	min-width: 0 !important;
+	padding-left: 8px !important;
+	padding-right: 8px !important;
+	color: var(--foreground);
+	opacity: 0.55;
+	transition: all 180ms ease !important;
+}
+
+.bottom-nav .MuiBottomNavigationAction-label {
+	font-size: 10px !important;
+	margin-top: 2px;
+	transition: all 180ms ease !important;
+}
+
+.bottom-nav .MuiSvgIcon-root {
+	font-size: 24px !important;
+	transition: transform 180ms ease, filter 180ms ease !important;
+}
+
+.bottom-nav .MuiBottomNavigationAction-wrapper {
+	gap: 4px;
+}
+
+/* Active State */
+.bottom-nav .Mui-selected {
+	color: var(--brand) !important;
+	opacity: 1 !important;
+}
+
+.bottom-nav .Mui-selected .MuiBottomNavigationAction-label {
+	display: none !important;
+}
+
+.bottom-nav .MuiBottomNavigationAction-root.Mui-selected .MuiSvgIcon-root {
+	transform: scale(1.06);
+	filter: drop-shadow(0 10px 18px var(--color-primary-shadow));
+}
+
+.bottom-nav .MuiBottomNavigationAction-root.Mui-selected .MuiBottomNavigationAction-wrapper {
+	padding-top: 6px;
+	padding-bottom: 6px;
+	border-radius: 12px;
+	background-color: var(--color-primary-soft);
 }

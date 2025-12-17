@@ -3,34 +3,40 @@
 import * as React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Image from "next/image";
+import { Category, Campaign } from "@/types";
+import { alpha, useTheme } from "@mui/material/styles";
 
-const PRIMARY = "#61ce70";
-
-type Category = {
-	id: string;
-	label: string;
-	emoji: string; // sementara, nanti bisa ganti icon png/svg
-};
-
-type Campaign = {
-	id: string;
-	categoryId: string;
-	title: string;
-	organizer: string;
-	cover: string; // taruh file di public/campaign/
-	collected: number;
-	daysLeft: number;
-	recommended?: boolean;
-};
+// Icons
+import ThunderstormIcon from "@mui/icons-material/Thunderstorm";
+import ChildCareIcon from "@mui/icons-material/ChildCare";
+import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
+import GridViewIcon from "@mui/icons-material/GridView";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 const categories: Category[] = [
-	{ id: "bencana", label: "Bencana Alam", emoji: "🌧️" },
-	{ id: "anak", label: "Balita & Anak Sakit", emoji: "🧒" },
-	{ id: "kesehatan", label: "Bantuan Medis & Kesehatan", emoji: "🩺" },
-	{ id: "lainnya", label: "Lainnya", emoji: "➕" },
+	{
+		id: "bencana",
+		label: "Bencana Alam",
+		icon: <ThunderstormIcon sx={{ fontSize: 24 }} />,
+	},
+	{
+		id: "anak",
+		label: "Balita & Anak Sakit",
+		icon: <ChildCareIcon sx={{ fontSize: 24 }} />,
+	},
+	{
+		id: "kesehatan",
+		label: "Bantuan Medis",
+		icon: <MedicalServicesIcon sx={{ fontSize: 24 }} />,
+	},
+	{
+		id: "lainnya",
+		label: "Lainnya",
+		icon: <GridViewIcon sx={{ fontSize: 24 }} />,
+	},
 ];
 
 const campaigns: Campaign[] = [
@@ -117,55 +123,45 @@ function CategoryButton({
 	selected: boolean;
 	onClick: () => void;
 }) {
+	const theme = useTheme();
+	const primaryMain = theme.palette.primary.main;
+
 	return (
 		<Box
 			role="button"
 			tabIndex={0}
 			onClick={onClick}
 			onKeyDown={(e) => e.key === "Enter" && onClick()}
+			className="w-full rounded-xl p-3 cursor-pointer select-none transition-all duration-150 ease-out active:scale-95"
 			sx={{
-				width: "100%",
-				borderRadius: 3,
-				p: 1.25,
-				cursor: "pointer",
-				userSelect: "none",
-				transition:
-					"transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease",
 				border: selected
-					? "1px solid rgba(97,206,112,0.45)"
-					: "1px solid rgba(15,23,42,0.10)",
-				bgcolor: selected ? "rgba(97,206,112,0.14)" : "rgba(255,255,255,0.92)",
+					? `1px solid ${alpha(primaryMain, 0.45)}`
+					: `1px solid ${alpha(theme.palette.text.primary, 0.1)}`,
+				bgcolor: selected
+					? alpha(primaryMain, 0.14)
+					: "background.paper",
 				boxShadow: selected
-					? "0 16px 26px rgba(97,206,112,.14)"
-					: "0 14px 24px rgba(15,23,42,.06)",
-				"&:active": { transform: "scale(0.99)" },
+					? `0 16px 26px ${alpha(primaryMain, 0.14)}`
+					: `0 14px 24px ${alpha(theme.palette.text.primary, 0.06)}`,
 			}}
 		>
 			<Box
+				className="w-11 h-11 rounded-full mx-auto grid place-items-center"
 				sx={{
-					width: 44,
-					height: 44,
-					borderRadius: 999,
-					mx: "auto",
-					display: "grid",
-					placeItems: "center",
-					bgcolor: selected ? "rgba(97,206,112,0.22)" : "rgba(15,23,42,0.06)",
+					bgcolor: selected ? alpha(primaryMain, 0.22) : "action.hover",
 					border: selected
-						? "1px solid rgba(97,206,112,0.30)"
-						: "1px solid rgba(15,23,42,0.08)",
+						? `1px solid ${alpha(primaryMain, 0.3)}`
+						: `1px solid ${alpha(theme.palette.text.primary, 0.08)}`,
+					color: selected ? primaryMain : "text.secondary",
 				}}
 			>
-				<Box sx={{ fontSize: 20 }}>{c.emoji}</Box>
+				{c.icon}
 			</Box>
 
 			<Typography
+				className="mt-2 text-[11.5px] font-black text-center leading-tight"
 				sx={{
-					mt: 1,
-					fontSize: 11.5,
-					fontWeight: 900,
-					textAlign: "center",
-					color: selected ? "rgba(15,23,42,.92)" : "rgba(15,23,42,.72)",
-					lineHeight: 1.15,
+					color: selected ? "text.primary" : "text.secondary",
 				}}
 			>
 				{c.label}
@@ -175,107 +171,79 @@ function CategoryButton({
 }
 
 function CampaignRowCard({ item }: { item: Campaign }) {
+	const theme = useTheme();
+
 	return (
 		<Box
+			className="flex gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800"
 			sx={{
-				display: "flex",
-				gap: 1.25,
-				p: 1.25,
-				borderRadius: 3,
-				border: "1px solid rgba(15,23,42,0.08)",
-				bgcolor: "#fff",
-				boxShadow: "0 14px 24px rgba(15,23,42,.06)",
+				// Use theme values for precise border/shadow matching if needed, but tailwind is fine here
+				bgcolor: "background.paper",
 			}}
 		>
 			{/* Cover */}
-			<Box
-				sx={{
-					position: "relative",
-					width: 110,
-					height: 70,
-					borderRadius: 2,
-					overflow: "hidden",
-					flexShrink: 0,
-					bgcolor: "rgba(15,23,42,.06)",
-				}}
-			>
+			<Box className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
 				<Image
 					src={item.cover}
 					alt={item.title}
 					fill
-					sizes="110px"
+					sizes="96px"
 					style={{ objectFit: "cover" }}
 				/>
-				{item.recommended && (
-					<Box
-						sx={{
-							position: "absolute",
-							top: 8,
-							left: 8,
-							px: 1,
-							py: "2px",
-							borderRadius: 999,
-							fontSize: 9,
-							fontWeight: 900,
-							color: "#fff",
-							bgcolor: "#f97316",
-							boxShadow: "0 12px 20px rgba(249,115,22,.20)",
-						}}
-					>
-						REKOMENDASI
-					</Box>
-				)}
 			</Box>
 
-			{/* Content */}
-			<Box sx={{ minWidth: 0, flex: 1 }}>
-				<Typography
-					sx={{
-						fontSize: 12.5,
-						fontWeight: 900,
-						color: "#0f172a",
-						lineHeight: 1.2,
-						display: "-webkit-box",
-						WebkitLineClamp: 2,
-						WebkitBoxOrient: "vertical",
-						overflow: "hidden",
-					}}
-				>
-					{item.title}
-				</Typography>
-
-				<Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.5 }}>
-					<Typography sx={{ fontSize: 11, color: "rgba(15,23,42,.60)" }}>
+			{/* Info */}
+			<Box className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+				<Box>
+					<Typography
+						variant="caption"
+						className="text-[10px] font-bold uppercase tracking-wider text-primary"
+						sx={{ color: "primary.main" }}
+					>
 						{item.organizer}
 					</Typography>
-					<Chip
-						label="ORG"
-						size="small"
-						sx={{
-							height: 18,
-							bgcolor: "rgba(97,206,112,0.14)",
-							color: PRIMARY,
-							border: "1px solid rgba(97,206,112,0.28)",
-							fontWeight: 900,
-							"& .MuiChip-label": { px: 0.75, fontSize: 10 },
-						}}
-					/>
+					<Typography
+						className="text-[13px] font-bold leading-snug line-clamp-2 mt-0.5"
+						sx={{ color: "text.primary" }}
+					>
+						{item.title}
+					</Typography>
 				</Box>
 
-				<Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
-					<Typography sx={{ fontSize: 11, color: "rgba(15,23,42,.55)" }}>
-						Terkumpul{" "}
-						<Box component="span" sx={{ fontWeight: 900, color: "#0f172a" }}>
-							Rp{rupiah(item.collected)}
-						</Box>
-					</Typography>
-
-					<Typography sx={{ fontSize: 11, color: "rgba(15,23,42,.55)" }}>
-						Sisa hari{" "}
-						<Box component="span" sx={{ fontWeight: 900, color: "#0f172a" }}>
-							{item.daysLeft}
-						</Box>
-					</Typography>
+				<Box>
+					<Box className="flex items-center justify-between text-[11px] mb-1">
+						<span className="text-gray-500">Terkumpul</span>
+						<span className="font-bold text-gray-900 dark:text-gray-100">
+							Rp {rupiah(item.collected)}
+						</span>
+					</Box>
+					{/* Progress Bar */}
+					<Box className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+						<Box
+							className="h-full rounded-full bg-primary"
+							sx={{ width: "65%", bgcolor: "primary.main" }}
+						/>
+					</Box>
+					<Box className="flex items-center gap-1 mt-1.5">
+						<Typography
+							variant="caption"
+							className="text-[10px] text-gray-500"
+						>
+							Sisa hari
+						</Typography>
+						<Chip
+							label={`${item.daysLeft} hari`}
+							size="small"
+							sx={{
+								height: 18,
+								fontSize: 9,
+								fontWeight: 700,
+								bgcolor: alpha(theme.palette.primary.main, 0.1),
+								color: "primary.main",
+								"& .MuiChip-label": { px: 0.8 },
+							}}
+						/>
+					</Box>
 				</Box>
 			</Box>
 		</Box>
@@ -283,70 +251,42 @@ function CampaignRowCard({ item }: { item: Campaign }) {
 }
 
 export default function CategoryChips() {
-	const [active, setActive] = React.useState(categories[0].id);
+	const [selected, setSelected] = React.useState("bencana");
 
-	const list =
-		active === "lainnya"
-			? campaigns.slice(0, 3)
-			: campaigns.filter((c) => c.categoryId === active).slice(0, 3);
+	const filtered = React.useMemo(() => {
+		if (selected === "lainnya") return campaigns;
+		return campaigns.filter((c) => c.categoryId === selected);
+	}, [selected]);
 
 	return (
-		<Box sx={{ px: 2.5, mt: 2.5 }}>
-			<Typography
-				sx={{ fontSize: 16, fontWeight: 900, color: "#0f172a", mb: 1.25 }}
-			>
-				Pilih Kategori Favoritmu
-			</Typography>
+		<Box className="px-5 mt-8 mb-8">
+			<Box className="flex items-center justify-between mb-4">
+				<Typography
+					className="text-base font-extrabold"
+					sx={{ color: "text.primary" }}
+				>
+					Pilih Kategori
+				</Typography>
+			</Box>
 
-			{/* Kategori buttons: fix lebar (4 kolom) */}
-			<Box
-				sx={{
-					display: "grid",
-					gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-					gap: 1.25,
-				}}
-			>
+			{/* Grid Categories */}
+			<Box className="grid grid-cols-4 gap-3">
 				{categories.map((c) => (
 					<CategoryButton
 						key={c.id}
 						c={c}
-						selected={active === c.id}
-						onClick={() => setActive(c.id)}
+						selected={selected === c.id}
+						onClick={() => setSelected(c.id)}
 					/>
 				))}
 			</Box>
 
-			{/* Cards berdasarkan kategori */}
-			<Box sx={{ mt: 1.75, display: "grid", gap: 1.25 }}>
-				{list.map((item) => (
+			{/* List Campaign */}
+			<Box className="mt-5 flex flex-col gap-3">
+				{filtered.map((item) => (
 					<CampaignRowCard key={item.id} item={item} />
 				))}
 			</Box>
-
-			{/* CTA Lihat semua */}
-			<Button
-				fullWidth
-				variant="contained"
-				sx={{
-					mt: 1.75,
-					textTransform: "none",
-					fontWeight: 900,
-					borderRadius: 999,
-					py: 1.05,
-					bgcolor: "rgba(97,206,112,0.16)",
-					color: "#0f172a",
-					border: "1px solid rgba(97,206,112,0.30)",
-					boxShadow: "0 14px 26px rgba(97,206,112,.12)",
-					"&:hover": { bgcolor: "rgba(97,206,112,0.20)" },
-				}}
-				onClick={() =>
-					alert("Lihat semua campaign kategori ini (route menyusul)")
-				}
-			>
-				Lihat semua
-			</Button>
-
-			<Box sx={{ mt: 2, height: 1, bgcolor: "rgba(15,23,42,0.06)" }} />
 		</Box>
 	);
 }

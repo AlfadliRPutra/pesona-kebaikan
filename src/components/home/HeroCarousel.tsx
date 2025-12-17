@@ -22,28 +22,13 @@ export default function HeroCarousel() {
 	}, []);
 
 	return (
-		<Box
-			sx={{
-				position: "relative",
-				width: "100%",
-				height: 360,
-				overflow: "hidden",
-				borderTopLeftRadius: 0,
-				borderTopRightRadius: 0,
-				borderBottomLeftRadius: 24,
-				borderBottomRightRadius: 24,
-				bgcolor: "#0b1220",
-			}}
-		>
+		<Box className="relative w-full h-[360px] overflow-hidden rounded-b-[24px] bg-[#0b1220]">
 			{slides.map((s, i) => (
 				<Box
 					key={s.src}
-					sx={{
-						position: "absolute",
-						inset: 0,
-						opacity: i === active ? 1 : 0,
-						transition: "opacity 700ms ease",
-					}}
+					className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+						i === active ? "opacity-100" : "opacity-0"
+					}`}
 				>
 					<Image
 						src={s.src}
@@ -53,43 +38,18 @@ export default function HeroCarousel() {
 						sizes="420px"
 						style={{ objectFit: "cover" }}
 					/>
-					<Box
-						sx={{
-							position: "absolute",
-							inset: 0,
-							background:
-								"linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.75) 24%, rgba(0,0,0,0.35) 58%, rgba(0,0,0,0.00) 100%)",
-						}}
-					/>
+					<div className="absolute inset-0 bg-gradient-to-b from-black/92 via-black/75 to-transparent to-58% from-0% via-24%" />
 				</Box>
 			))}
-			<Box
-				sx={{
-					position: "absolute",
-					inset: 0,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					textAlign: "center",
-					px: 2.5,
-					pt: "64px",
-					pointerEvents: "none",
-				}}
-			>
-				<Box sx={{ maxWidth: 320 }}>
+			<Box className="absolute inset-0 flex items-center justify-center text-center px-2.5 pt-16 pointer-events-none">
+				<Box className="max-w-[320px]">
 					<Typography
-						sx={{
-							color: "#fff",
-							fontSize: 22,
-							fontWeight: 900,
-							lineHeight: 1.15,
-						}}
+						variant="h1"
+						className="text-white text-[22px] font-black leading-[1.15]"
 					>
 						Mau berbuat baik apa hari ini?
 					</Typography>
-					<Typography
-						sx={{ mt: 1, color: "rgba(255,255,255,.86)", fontSize: 13 }}
-					>
+					<Typography className="mt-1 text-white/85 text-[13px]">
 						Donasi cepat, transparan, dan terasa dampaknya.
 					</Typography>
 				</Box>
