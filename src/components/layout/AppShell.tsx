@@ -19,7 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 		if (!el) return;
 
 		const onScroll = () => {
-			setScrolled(el.scrollTop > 28);
+			setScrolled(el.scrollTop > 280);
 		};
 
 		onScroll();
@@ -35,7 +35,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 			sx={{
 				position: "relative",
 				width: "100%",
-				maxWidth: 480, // Slightly wider for modern mobile feel
+				maxWidth: { xs: "100%", sm: 480 }, // Full width on mobile, capped on desktop
 				height: "100vh",
 				maxHeight: { xs: "100vh", sm: "calc(100vh - 6px)" }, // Full screen on mobile, windowed on desktop (minus padding top/bottom)
 				borderRadius: { xs: 0, sm: 4 },
@@ -57,7 +57,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 					overflowY: "auto",
 					bgcolor: "background.default",
 					pb: 12, // Space for bottom nav
-					pt: 0, // AppBar is now sticky/absolute properly handling its own space or overlay
+					pt: appBarVariant === "overlay" ? 0 : 8, // Add space under AppBar for solid variant (Toolbar ~64px)
 				}}
 			>
 				{children}

@@ -1,52 +1,200 @@
-import Image from "next/image";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function Home() {
-  const session = await auth();
-  // if (!session) redirect("/auth/login");
+import * as React from "react";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Avatar from "@mui/material/Avatar";
+import Button from "@mui/material/Button";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Divider from "@mui/material/Divider";
+import Paper from "@mui/material/Paper";
 
-  return (
-    <div className="flex flex-col items-center justify-start p-6 pb-24">
-      {session && (
-        <div className="mb-4 text-center">
-          <p className="text-lg font-bold">Halo, {session.user?.name || session.user?.email}</p>
-        </div>
-      )}
-      <Image className="dark:invert mb-8" src="/next.svg" alt="Next.js logo" width={100} height={20} priority />
-      <div className="flex flex-col items-center gap-6 text-center">
-        <h1 className="text-2xl font-semibold leading-8 tracking-tight text-black dark:text-zinc-50">To get started, edit the page.tsx file.</h1>
-        <p className="text-base leading-6 text-zinc-600 dark:text-zinc-400">
-          Looking for a starting point or more instructions? Head over to{" "}
-          <a href="https://vercel.com/templates?framework=next.js" className="font-medium text-zinc-950 dark:text-zinc-50">
-            Templates
-          </a>{" "}
-          or the{" "}
-          <a href="https://nextjs.org/learn" className="font-medium text-zinc-950 dark:text-zinc-50">
-            Learning
-          </a>{" "}
-          center.
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 text-sm font-medium mt-8 w-full">
-        <a
-          className="flex items-center justify-center gap-2 rounded-full bg-black text-white py-3 transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
-          href="https://vercel.com/new"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image className="dark:invert" src="/vercel.svg" alt="Vercel logomark" width={16} height={16} />
-          Deploy Now
-        </a>
-        <a
-          className="flex items-center justify-center rounded-full border border-gray-300 py-3 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-900"
-          href="https://nextjs.org/docs"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Documentation
-        </a>
-      </div>
-    </div>
-  );
+// Icons
+import EditIcon from "@mui/icons-material/Edit";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import SecurityIcon from "@mui/icons-material/Security";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import LogoutIcon from "@mui/icons-material/Logout";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+
+function ProfileMenu({
+	icon,
+	label,
+	onClick,
+	danger = false,
+}: {
+	icon: React.ReactNode;
+	label: string;
+	onClick?: () => void;
+	danger?: boolean;
+}) {
+	return (
+		<ListItemButton
+			onClick={onClick}
+			sx={{
+				borderRadius: 2,
+				mb: 0.5,
+				"&:hover": { bgcolor: danger ? "rgba(239,68,68,0.08)" : "rgba(0,0,0,0.04)" },
+			}}
+		>
+			<ListItemIcon
+				sx={{
+					minWidth: 40,
+					color: danger ? "#ef4444" : "rgba(15,23,42,0.6)",
+				}}
+			>
+				{icon}
+			</ListItemIcon>
+			<ListItemText
+				primary={label}
+				primaryTypographyProps={{
+					fontSize: 14,
+					fontWeight: 600,
+					color: danger ? "#ef4444" : "#0f172a",
+				}}
+			/>
+			<ChevronRightIcon
+				sx={{ fontSize: 20, color: "rgba(15,23,42,0.3)" }}
+			/>
+		</ListItemButton>
+	);
+}
+
+export default function ProfilePage() {
+	return (
+		<Box sx={{ px: 2.5, pt: 2.5, pb: 6 }}>
+			<Box sx={{ mb: 3 }}>
+				<Typography sx={{ fontSize: 20, fontWeight: 900, color: "#0f172a" }}>
+					Profil Saya
+				</Typography>
+			</Box>
+
+			{/* Profile Card */}
+			<Paper
+				elevation={0}
+				variant="outlined"
+				sx={{
+					p: 2.5,
+					mb: 3,
+					borderRadius: 4,
+					display: "flex",
+					alignItems: "center",
+					gap: 2,
+					bgcolor: "#fff",
+					borderColor: "rgba(0,0,0,0.08)",
+				}}
+			>
+				<Avatar
+					src="/avatar-placeholder.jpg" // Ganti dengan user.avatar
+					sx={{
+						width: 64,
+						height: 64,
+						bgcolor: "#61ce70",
+						fontSize: 24,
+						fontWeight: 800,
+					}}
+				>
+					A
+				</Avatar>
+				<Box sx={{ flex: 1 }}>
+					<Typography sx={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>
+						Ahmad Fulan
+					</Typography>
+					<Typography sx={{ fontSize: 13, color: "rgba(15,23,42,0.6)" }}>
+						ahmad@example.com
+					</Typography>
+					<Box sx={{ mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
+						<Box
+							sx={{
+								width: 8,
+								height: 8,
+								borderRadius: "50%",
+								bgcolor: "#61ce70",
+							}}
+						/>
+						<Typography
+							sx={{ fontSize: 11, fontWeight: 700, color: "#61ce70" }}
+						>
+							Member Basic
+						</Typography>
+					</Box>
+				</Box>
+				<Button
+					variant="text"
+					size="small"
+					sx={{
+						minWidth: 0,
+						p: 1,
+						borderRadius: "50%",
+						color: "rgba(15,23,42,0.5)",
+					}}
+				>
+					<EditIcon fontSize="small" />
+				</Button>
+			</Paper>
+
+			{/* Menus */}
+			<Box>
+				<Typography
+					sx={{
+						fontSize: 13,
+						fontWeight: 800,
+						color: "rgba(15,23,42,0.5)",
+						mb: 1,
+						ml: 1,
+						textTransform: "uppercase",
+						letterSpacing: 0.5,
+					}}
+				>
+					Akun
+				</Typography>
+				<List disablePadding>
+					<ProfileMenu
+						icon={<AccountCircleIcon />}
+						label="Edit Profil"
+					/>
+					<ProfileMenu
+						icon={<SecurityIcon />}
+						label="Keamanan & Password"
+					/>
+				</List>
+
+				<Divider sx={{ my: 2, borderStyle: "dashed" }} />
+
+				<Typography
+					sx={{
+						fontSize: 13,
+						fontWeight: 800,
+						color: "rgba(15,23,42,0.5)",
+						mb: 1,
+						ml: 1,
+						textTransform: "uppercase",
+						letterSpacing: 0.5,
+					}}
+				>
+					Info Lainnya
+				</Typography>
+				<List disablePadding>
+					<ProfileMenu
+						icon={<HelpOutlineIcon />}
+						label="Pusat Bantuan"
+					/>
+					<ProfileMenu
+						icon={<InfoOutlinedIcon />}
+						label="Tentang Aplikasi"
+					/>
+					<ProfileMenu
+						icon={<LogoutIcon />}
+						label="Keluar"
+						danger
+						onClick={() => alert("Logout clicked")}
+					/>
+				</List>
+			</Box>
+		</Box>
+	);
 }
