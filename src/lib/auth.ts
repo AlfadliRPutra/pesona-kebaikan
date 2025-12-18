@@ -1,13 +1,15 @@
-import NextAuth from "next-auth";
+import type { NextAuthOptions } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const authOptions: NextAuthOptions = {
   ...authConfig,
-  adapter: PrismaAdapter(prisma),
+  // Casting due to adapter type differences across versions
+  adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     Credentials({
       name: "Credentials",
@@ -36,15 +38,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         return {
           id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        };
+          email: user.email ?? undefined,
+          name: user.name ?? undefined,
+          image: user.image ?? undefined,
+        } as { id: string; email?: string | null; name?: string | null; image?: string | null };
       },
     }),
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
-});
+};

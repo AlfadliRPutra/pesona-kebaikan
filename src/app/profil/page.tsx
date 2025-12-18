@@ -75,6 +75,20 @@ export default function ProfilePage() {
 				</Typography>
 			</Box>
 
+			<Button
+				variant="contained"
+				sx={{
+					width: "100%",
+					p: 2,
+					borderRadius: 4,
+					fontSize: 16,
+					fontWeight: 900,
+					color: "#fff",
+				}}
+			>
+				Masuk
+			</Button>
+
 			{/* Profile Card */}
 			<Paper
 				elevation={0}
@@ -144,7 +158,7 @@ export default function ProfilePage() {
 
 			{/* Menus */}
 			<Box>
-				<Typography
+				{/* <Typography
 					sx={{
 						fontSize: 13,
 						fontWeight: 800,
@@ -166,7 +180,7 @@ export default function ProfilePage() {
 						icon={<SecurityIcon />}
 						label="Keamanan & Password"
 					/>
-				</List>
+				</List> */}
 
 				<Divider sx={{ my: 2, borderStyle: "dashed" }} />
 
@@ -190,7 +204,7 @@ export default function ProfilePage() {
 					/>
 					<ProfileMenu
 						icon={<InfoOutlinedIcon />}
-						label="Tentang Aplikasi"
+						label="Tentang Pesona Kebaikan"
 					/>
 					<ProfileMenu
 						icon={<LogoutIcon />}

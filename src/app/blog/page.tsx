@@ -121,18 +121,20 @@ export default function BlogPage() {
 								>
 									{post.excerpt}
 								</Typography>
-								<Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
-									<Button
-										size="small"
-										variant="contained"
-										sx={{
-											textTransform: "none",
-											fontWeight: 800,
-											borderRadius: 2,
-										}}
-									>
-										Baca
-									</Button>
+									<Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+										<Button
+											component="a"
+											href={`/blog/${post.id}`}
+											size="small"
+											variant="contained"
+											sx={{
+												textTransform: "none",
+												fontWeight: 800,
+												borderRadius: 2,
+											}}
+										>
+											Baca
+										</Button>
 									<Button
 										size="small"
 										variant="text"
