@@ -522,13 +522,7 @@ export default function GalangDanaSayaPage() {
 				anchor="bottom"
 				open={openPick}
 				onClose={() => setOpenPick(false)}
-				ModalProps={{
-					BackdropProps: {
-						sx: {
-							bottom: `calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom))`,
-						},
-					},
-				}}
+				ModalProps={{ hideBackdrop: true }}
 				PaperProps={{
 					sx: {
 						bottom: `calc(${BOTTOM_NAV_H}px + env(safe-area-inset-bottom))`,
