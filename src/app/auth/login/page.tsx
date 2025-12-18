@@ -1,12 +1,26 @@
 'use client';
 
 import { Box, Button, TextField, Typography, Link } from "@mui/material";
-import { loginAction } from "@/actions/auth";
 import NextLink from "next/link";
+import { FormEvent } from "react";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    await signIn("credentials", {
+      email,
+      password,
+      callbackUrl: "/profil",
+    });
+  };
+
   return (
-    <Box component="form" className="space-y-6" action={loginAction}>
+    <Box component="form" className="space-y-6" onSubmit={handleSubmit}>
       <div className="text-center">
         <Typography variant="h4" className="font-bold">
           Login
