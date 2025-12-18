@@ -2,26 +2,12 @@
 
 import { Box, Button, TextField, Typography, Link } from "@mui/material";
 import NextLink from "next/link";
+import { FormEvent } from "react";
 import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    await signIn("credentials", {
-      email,
-      password,
-      redirect: true,
-      callbackUrl: "/profil",
-    });
-  }
-
   return (
-    <Box component="form" className="space-y-6" onSubmit={onSubmit}>
+    <Box component="form" className="space-y-6" action={loginAction}>
       <div className="text-center">
         <Typography variant="h4" className="font-bold">
           Login
