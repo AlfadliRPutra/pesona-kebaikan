@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
@@ -18,8 +19,10 @@ import TextField from "@mui/material/TextField";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import PhotoCamera from "@mui/icons-material/PhotoCamera";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 export default function AccountInfoPage() {
+  const router = useRouter();
   const [user, setUser] = React.useState({
     name: "Ahmad Fulan",
     email: "ahmad@example.com",
@@ -55,7 +58,10 @@ export default function AccountInfoPage() {
 
   return (
     <Box sx={{ px: 2.5, pt: 2.5, pb: 6 }}>
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
+        <IconButton onClick={() => router.back()} edge="start" sx={{ color: "#0f172a" }}>
+          <ArrowBackIcon />
+        </IconButton>
         <Typography sx={{ fontSize: 20, fontWeight: 900, color: "#0f172a" }}>
           Informasi Akun
         </Typography>
