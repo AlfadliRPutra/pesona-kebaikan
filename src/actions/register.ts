@@ -10,7 +10,7 @@ export async function registerUser(formData: FormData) {
   const password = formData.get('password') as string
 
   if (!name || !email || !password) {
-    return { error: 'Semua field harus diisi' }
+    redirect('/auth/register?error=Semua%20field%20harus%20diisi')
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -18,7 +18,7 @@ export async function registerUser(formData: FormData) {
   })
 
   if (existingUser) {
-    return { error: 'Email sudah terdaftar' }
+    redirect('/auth/register?error=Email%20sudah%20terdaftar')
   }
 
   const hashedPassword = await bcrypt.hash(password, 10)
