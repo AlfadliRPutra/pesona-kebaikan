@@ -1,11 +1,11 @@
-import prisma from "../src/lib/db";
+import prisma from "@/lib/db";
 
 async function main() {
   const alice = await prisma.user.upsert({
-    where: { email: "alice@prisma.io" },
+    where: { email: "alice@example.com" },
     update: {},
     create: {
-      email: "alice@prisma.io",
+      email: "alice@example.com",
       name: "Alice",
       posts: {
         create: {
@@ -16,11 +16,12 @@ async function main() {
       },
     },
   });
+
   const bob = await prisma.user.upsert({
-    where: { email: "bob@prisma.io" },
+    where: { email: "bob@example.com" },
     update: {},
     create: {
-      email: "bob@prisma.io",
+      email: "bob@example.com",
       name: "Bob",
       posts: {
         create: [
@@ -38,8 +39,10 @@ async function main() {
       },
     },
   });
+
   console.log({ alice, bob });
 }
+
 main()
   .then(async () => {
     await prisma.$disconnect();
