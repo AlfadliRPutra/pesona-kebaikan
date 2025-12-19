@@ -1,12 +1,16 @@
 import prisma from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 async function main() {
+  const hashedPassword = await bcrypt.hash("password123", 10);
+
   const alice = await prisma.user.upsert({
     where: { email: "alice@example.com" },
     update: {},
     create: {
       email: "alice@example.com",
       name: "Alice",
+      password: hashedPassword,
       posts: {
         create: {
           title: "Check out Prisma with Next.js",
@@ -23,6 +27,7 @@ async function main() {
     create: {
       email: "bob@example.com",
       name: "Bob",
+      password: hashedPassword,
       posts: {
         create: [
           {
