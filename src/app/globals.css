@@ -1,5 +1,6 @@
 @layer theme, base, mui, components, utilities;
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 :root {
 	--background: #f8fafc; /* Matches MUI Light background.default */
@@ -28,14 +29,10 @@
 	--font-sans: var(--font-pjs);
 }
 
-/* Dark mode disabled as per user request
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #0b1220; 
-		--foreground: #f8fafc; 
-	}
+.dark {
+	--background: #0b1220;
+	--foreground: #f8fafc;
 }
-*/
 
 html,
 body {

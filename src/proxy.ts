@@ -1,20 +1,30 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "./lib/auth.config";
+import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
-  // Middleware runs in Edge Runtime - no Node.js modules allowed
-  // Use auth() for session checks instead of Prisma
+  const { nextUrl } = req;
+  const isLoggedIn = !!req.auth;
+  // @ts-ignore
+  const userRole = req.auth?.user?.role;
+
+  const isAdminRoute = nextUrl.pathname.startsWith("/admin");
+
+  if (isAdminRoute) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/auth/login", nextUrl));
+    }
+    if (userRole !== "ADMIN") {
+      return NextResponse.redirect(new URL("/profil", nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
 });
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|public).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

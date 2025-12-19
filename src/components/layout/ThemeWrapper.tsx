@@ -3,38 +3,74 @@
 import * as React from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import { lightTheme } from "@/theme";
+import { lightTheme, darkTheme } from "@/theme";
 import { SessionProvider } from "next-auth/react";
 
+export const ColorModeContext = React.createContext({
+  toggleColorMode: () => {},
+  mode: "light" as "light" | "dark",
+});
+
 export default function ThemeWrapper({
-	children,
+  children,
 }: {
-	children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-	// Force light mode as per user request
-	// const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
+  const [mode, setMode] = React.useState<"light" | "dark">("light");
 
-	const theme = React.useMemo(
-		() => lightTheme, // Always use light theme
-		[]
-	);
+  React.useEffect(() => {
+    const savedMode = localStorage.getItem("themeMode") as "light" | "dark";
+    if (savedMode) {
+      setMode(savedMode);
+    }
+  }, []);
 
-	// Prevent hydration mismatch by rendering only after mount
-	const [mounted, setMounted] = React.useState(false);
-	React.useEffect(() => {
-		setMounted(true);
-	}, []);
+  const colorMode = React.useMemo(
+    () => ({
+      toggleColorMode: () => {
+        setMode((prevMode) => {
+          const newMode = prevMode === "light" ? "dark" : "light";
+          localStorage.setItem("themeMode", newMode);
+          return newMode;
+        });
+      },
+      mode,
+    }),
+    [mode]
+  );
 
-	if (!mounted) {
-		return null; // or a loading spinner / default light theme structure
-	}
+  const theme = React.useMemo(
+    () => (mode === "light" ? lightTheme : darkTheme),
+    [mode]
+  );
 
-	return (
-		<SessionProvider>
-			<ThemeProvider theme={theme}>
-				<CssBaseline />
-				{children}
-			</ThemeProvider>
-		</SessionProvider>
-	);
+  // Prevent hydration mismatch
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Sync mode with Tailwind class
+  React.useEffect(() => {
+    if (mode === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [mode]);
+
+  if (!mounted) {
+    return null; 
+  }
+
+  return (
+    <SessionProvider>
+      <ColorModeContext.Provider value={colorMode}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          {children}
+        </ThemeProvider>
+      </ColorModeContext.Provider>
+    </SessionProvider>
+  );
 }

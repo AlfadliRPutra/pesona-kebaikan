@@ -31,6 +31,10 @@ import KeyIcon from "@mui/icons-material/Key";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import InputAdornment from "@mui/material/InputAdornment";
+import { changePassword, getLoginActivities } from "@/actions/security";
+import Snackbar from "@mui/material/Snackbar";
+import CircularProgress from "@mui/material/CircularProgress";
+import LaptopIcon from "@mui/icons-material/Laptop";
 
 export default function SecurityPage() {
 	const router = useRouter();
@@ -43,6 +47,91 @@ export default function SecurityPage() {
 		confirm: false,
 	});
 
+	// Password Change Logic
+	const [isSubmitting, setIsSubmitting] = React.useState(false);
+	const [snackbar, setSnackbar] = React.useState<{
+		open: boolean;
+		message: string;
+		severity: "success" | "error";
+	}>({ open: false, message: "", severity: "success" });
+
+	const handleCloseSnackbar = () =>
+		setSnackbar((prev) => ({ ...prev, open: false }));
+
+	const handleSubmitPassword = async (event: React.FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		setIsSubmitting(true);
+		const formData = new FormData(event.currentTarget);
+		
+		try {
+			const result = await changePassword(null, formData);
+			if (result?.error) {
+				setSnackbar({ open: true, message: result.error, severity: "error" });
+			} else if (result?.success) {
+				setSnackbar({
+					open: true,
+					message: result.success || "Password berhasil diubah",
+					severity: "success",
+				});
+				setOpenPassword(false);
+			}
+		} catch (e) {
+			setSnackbar({
+				open: true,
+				message: "Terjadi kesalahan, coba lagi nanti",
+				severity: "error",
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	// Login Activity Logic
+	const [activities, setActivities] = React.useState<any[]>([]);
+	const [loadingActivities, setLoadingActivities] = React.useState(true);
+
+	React.useEffect(() => {
+		getLoginActivities()
+			.then((data) => {
+				setActivities(data);
+			})
+			.finally(() => {
+				setLoadingActivities(false);
+			});
+	}, []);
+
+	// Helper to parse UA (Basic)
+	const parseUA = (ua: string | null) => {
+		if (!ua) return { device: "Unknown Device", icon: <SmartphoneIcon /> };
+		let device = "Unknown Device";
+		let icon = <SmartphoneIcon />;
+
+		if (ua.includes("Windows")) {
+			device = "Windows PC";
+			icon = <LaptopIcon />;
+		} else if (ua.includes("Macintosh")) {
+			device = "Mac";
+			icon = <LaptopIcon />;
+		} else if (ua.includes("Android")) {
+			device = "Android";
+			icon = <SmartphoneIcon />;
+		} else if (ua.includes("iPhone") || ua.includes("iPad")) {
+			device = "iOS Device";
+			icon = <SmartphoneIcon />;
+		} else if (ua.includes("Linux")) {
+			device = "Linux";
+			icon = <LaptopIcon />;
+		}
+
+		if (ua.includes("Chrome")) device += " (Chrome)";
+		else if (ua.includes("Firefox")) device += " (Firefox)";
+		else if (ua.includes("Safari") && !ua.includes("Chrome"))
+			device += " (Safari)";
+		else if (ua.includes("Edge")) device += " (Edge)";
+
+		return { device, icon };
+	};
+
 	// State for 2FA
 	const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
 
@@ -52,6 +141,20 @@ export default function SecurityPage() {
 
 	return (
 		<Box sx={{ px: 2, pt: 2.5, pb: 6 }}>
+			<Snackbar
+				open={snackbar.open}
+				autoHideDuration={6000}
+				onClose={handleCloseSnackbar}
+				anchorOrigin={{ vertical: "top", horizontal: "center" }}
+			>
+				<Alert
+					onClose={handleCloseSnackbar}
+					severity={snackbar.severity}
+					sx={{ width: "100%" }}
+				>
+					{snackbar.message}
+				</Alert>
+			</Snackbar>
 			{/* Header */}
 			<Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
 				<IconButton
@@ -142,7 +245,7 @@ export default function SecurityPage() {
 					<Divider />
 
 					{/* 2FA */}
-					<ListItemButton sx={{ py: 2 }}>
+					{/* <ListItemButton sx={{ py: 2 }}>
 						<ListItemIcon sx={{ minWidth: 40, color: "#61ce70" }}>
 							<SmartphoneIcon />
 						</ListItemIcon>
@@ -162,7 +265,7 @@ export default function SecurityPage() {
 							onChange={(e) => setTwoFactorEnabled(e.target.checked)}
 							color="success"
 						/>
-					</ListItemButton>
+					</ListItemButton>*/}
 				</List>
 			</Paper>
 
@@ -190,39 +293,58 @@ export default function SecurityPage() {
 					overflow: "hidden",
 				}}
 			>
-				<List disablePadding>
-					<ListItemButton sx={{ py: 2 }}>
-						<ListItemIcon sx={{ minWidth: 40, color: "rgba(15,23,42,0.6)" }}>
-							<SmartphoneIcon />
-						</ListItemIcon>
-						<ListItemText
-							primary="iPhone 13 Pro"
-							secondary="Jakarta, Indonesia • Saat ini"
-							primaryTypographyProps={{
-								fontSize: 14,
-								fontWeight: 600,
-								color: "#0f172a",
-							}}
-							secondaryTypographyProps={{ fontSize: 12, color: "#166534" }}
-						/>
-					</ListItemButton>
-					<Divider component="li" />
-					<ListItemButton sx={{ py: 2 }}>
-						<ListItemIcon sx={{ minWidth: 40, color: "rgba(15,23,42,0.6)" }}>
-							<HistoryIcon />
-						</ListItemIcon>
-						<ListItemText
-							primary="Chrome pada Windows"
-							secondary="Surabaya, Indonesia • 2 hari yang lalu"
-							primaryTypographyProps={{
-								fontSize: 14,
-								fontWeight: 600,
-								color: "#0f172a",
-							}}
-							secondaryTypographyProps={{ fontSize: 12 }}
-						/>
-					</ListItemButton>
-				</List>
+				{loadingActivities ? (
+					<Box sx={{ p: 3, textAlign: "center" }}>
+						<CircularProgress size={24} sx={{ color: "#61ce70" }} />
+					</Box>
+				) : activities.length === 0 ? (
+					<Box sx={{ p: 3, textAlign: "center" }}>
+						<Typography sx={{ fontSize: 14, color: "text.secondary" }}>
+							Belum ada data aktivitas login.
+						</Typography>
+					</Box>
+				) : (
+					<List disablePadding>
+						{activities.map((activity, index) => {
+							const { device, icon } = parseUA(activity.userAgent);
+							const date = new Date(activity.createdAt).toLocaleDateString(
+								"id-ID",
+								{
+									day: "numeric",
+									month: "short",
+									year: "numeric",
+									hour: "2-digit",
+									minute: "2-digit",
+								}
+							);
+							return (
+								<React.Fragment key={activity.id}>
+									<ListItemButton sx={{ py: 2 }}>
+										<ListItemIcon
+											sx={{ minWidth: 40, color: "rgba(15,23,42,0.6)" }}
+										>
+											{icon}
+										</ListItemIcon>
+										<ListItemText
+											primary={device}
+											secondary={`${activity.ipAddress || "IP Unknown"} • ${date}`}
+											primaryTypographyProps={{
+												fontSize: 14,
+												fontWeight: 600,
+												color: "#0f172a",
+											}}
+											secondaryTypographyProps={{
+												fontSize: 12,
+												color: index === 0 ? "#166534" : "text.secondary",
+											}}
+										/>
+									</ListItemButton>
+									{index < activities.length - 1 && <Divider component="li" />}
+								</React.Fragment>
+							);
+						})}
+					</List>
+				)}
 			</Paper>
 
 			{/* Change Password Dialog */}
@@ -233,89 +355,98 @@ export default function SecurityPage() {
 				maxWidth="sm"
 				PaperProps={{ sx: { borderRadius: 3 } }}
 			>
-				<DialogTitle sx={{ fontWeight: 800, fontSize: 18 }}>
-					Ganti Password
-				</DialogTitle>
-				<DialogContent>
-					<Stack spacing={2} sx={{ mt: 1 }}>
-						<TextField
-							label="Password Saat Ini"
-							type={showPassword.current ? "text" : "password"}
-							fullWidth
-							InputProps={{
-								endAdornment: (
-									<InputAdornment position="end">
-										<IconButton
-											onClick={() => handleTogglePassword("current")}
-											edge="end"
-										>
-											{showPassword.current ? <VisibilityOff /> : <Visibility />}
-										</IconButton>
-									</InputAdornment>
-								),
+				<form onSubmit={handleSubmitPassword}>
+					<DialogTitle sx={{ fontWeight: 800, fontSize: 18 }}>
+						Ganti Password
+					</DialogTitle>
+					<DialogContent>
+						<Stack spacing={2} sx={{ mt: 1 }}>
+							<TextField
+								name="currentPassword"
+								label="Password Saat Ini"
+								type={showPassword.current ? "text" : "password"}
+								fullWidth
+								required
+								InputProps={{
+									endAdornment: (
+										<InputAdornment position="end">
+											<IconButton
+												onClick={() => handleTogglePassword("current")}
+												edge="end"
+											>
+												{showPassword.current ? <VisibilityOff /> : <Visibility />}
+											</IconButton>
+										</InputAdornment>
+									),
+								}}
+							/>
+							<TextField
+								name="newPassword"
+								label="Password Baru"
+								type={showPassword.new ? "text" : "password"}
+								fullWidth
+								required
+								InputProps={{
+									endAdornment: (
+										<InputAdornment position="end">
+											<IconButton
+												onClick={() => handleTogglePassword("new")}
+												edge="end"
+											>
+												{showPassword.new ? <VisibilityOff /> : <Visibility />}
+											</IconButton>
+										</InputAdornment>
+									),
+								}}
+							/>
+							<TextField
+								name="confirmPassword"
+								label="Konfirmasi Password Baru"
+								type={showPassword.confirm ? "text" : "password"}
+								fullWidth
+								required
+								InputProps={{
+									endAdornment: (
+										<InputAdornment position="end">
+											<IconButton
+												onClick={() => handleTogglePassword("confirm")}
+												edge="end"
+											>
+												{showPassword.confirm ? <VisibilityOff /> : <Visibility />}
+											</IconButton>
+										</InputAdornment>
+									),
+								}}
+							/>
+							<Alert severity="info" sx={{ fontSize: 12 }}>
+								Password harus terdiri dari minimal 8 karakter.
+							</Alert>
+						</Stack>
+					</DialogContent>
+					<DialogActions sx={{ px: 3, pb: 3 }}>
+						<Button
+							onClick={() => setOpenPassword(false)}
+							sx={{ color: "rgba(15,23,42,0.6)", fontWeight: 600 }}
+							disabled={isSubmitting}
+						>
+							Batal
+						</Button>
+						<Button
+							type="submit"
+							variant="contained"
+							disabled={isSubmitting}
+							sx={{
+								bgcolor: "#61ce70",
+								color: "white",
+								fontWeight: 700,
+								boxShadow: "none",
+								"&:hover": { bgcolor: "#16a34a", boxShadow: "none" },
 							}}
-						/>
-						<TextField
-							label="Password Baru"
-							type={showPassword.new ? "text" : "password"}
-							fullWidth
-							InputProps={{
-								endAdornment: (
-									<InputAdornment position="end">
-										<IconButton
-											onClick={() => handleTogglePassword("new")}
-											edge="end"
-										>
-											{showPassword.new ? <VisibilityOff /> : <Visibility />}
-										</IconButton>
-									</InputAdornment>
-								),
-							}}
-						/>
-						<TextField
-							label="Konfirmasi Password Baru"
-							type={showPassword.confirm ? "text" : "password"}
-							fullWidth
-							InputProps={{
-								endAdornment: (
-									<InputAdornment position="end">
-										<IconButton
-											onClick={() => handleTogglePassword("confirm")}
-											edge="end"
-										>
-											{showPassword.confirm ? <VisibilityOff /> : <Visibility />}
-										</IconButton>
-									</InputAdornment>
-								),
-							}}
-						/>
-						<Alert severity="info" sx={{ fontSize: 12 }}>
-							Password harus terdiri dari minimal 8 karakter, mengandung huruf
-							besar, kecil, dan angka.
-						</Alert>
-					</Stack>
-				</DialogContent>
-				<DialogActions sx={{ px: 3, pb: 3 }}>
-					<Button
-						onClick={() => setOpenPassword(false)}
-						sx={{ color: "rgba(15,23,42,0.6)", fontWeight: 600 }}
-					>
-						Batal
-					</Button>
-					<Button
-						variant="contained"
-						onClick={() => setOpenPassword(false)}
-						sx={{
-							bgcolor: "#61ce70",
-							color: "white",
-							fontWeight: 700,
-							boxShadow: "none",
-							"&:hover": { bgcolor: "#16a34a", boxShadow: "none" },
-						}}
-					>
-						Simpan Password
-					</Button>
-				</DialogActions>
+						>
+							{isSubmitting ? <CircularProgress size={20} color="inherit" /> : "Simpan Password"}
+						</Button>
+					</DialogActions>
+				</form>
 			</Dialog>
 		</Box>
 	);

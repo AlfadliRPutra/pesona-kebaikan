@@ -7,12 +7,18 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id            String          @id @default(cuid())
   name          String?
   email         String          @unique
   emailVerified DateTime?
   image         String?
+  role          Role            @default(USER)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   password      String?
@@ -21,6 +27,17 @@ model User {
   Authenticator Authenticator[]
   posts         Post[]
   sessions      Session[]
+  loginActivities LoginActivity[]
+}
+
+model LoginActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  ipAddress String?
+  userAgent String?
+  location  String? // Optional: can be populated via IP geolocation later
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {
@@ -82,4 +99,22 @@ model Post {
   updatedAt DateTime @updatedAt
   userId    String
   user      User    @relation(fields: [userId], references: [id])
+}
+
+model Faq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String   @db.Text // Text type for longer content
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PageContent {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. 'about', 'terms', 'accountability'
+  title     String
+  content   String   @db.Text // HTML or Markdown content
+  data      Json?    // Structured data (Banner, Vision, Mission, Socials, Org Structure)
+  updatedAt DateTime @updatedAt
 }

@@ -3,9 +3,12 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Role } from "@/generated/prisma";
+import { headers } from "next/headers";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
 	adapter: PrismaAdapter(prisma),
+	session: { strategy: "jwt" },
 	providers: [
 		CredentialsProvider({
 			name: "Credentials",
@@ -20,13 +23,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 				const user = await prisma.user.findUnique({
 					where: { email: credentials.email as string },
-					select: {
-						id: true,
-						email: true,
-						name: true,
-						image: true,
-						password: true,
-					},
 				});
 
 				if (!user || !user.password) {
@@ -42,15 +38,67 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 					return null;
 				}
 
+				// Log activity
+				try {
+					const headersList = await headers();
+					const ip = headersList.get("x-forwarded-for") || "Unknown IP";
+					const userAgent = headersList.get("user-agent") || "Unknown Device";
+
+					const existingActivity = await prisma.loginActivity.findFirst({
+						where: {
+							userId: user.id,
+							ipAddress: ip,
+							userAgent: userAgent,
+						},
+					});
+
+					if (existingActivity) {
+						await prisma.loginActivity.update({
+							where: { id: existingActivity.id },
+							data: { createdAt: new Date() },
+						});
+					} else {
+						await prisma.loginActivity.create({
+							data: {
+								userId: user.id,
+								ipAddress: ip,
+								userAgent: userAgent,
+							},
+						});
+					}
+				} catch (error) {
+					console.error("Failed to log login activity:", error);
+				}
+
 				return {
 					id: user.id,
 					email: user.email,
 					name: user.name,
 					image: user.image,
+					role: user.role,
 				};
 			},
 		}),
 	],
+	callbacks: {
+		async jwt({ token, user }) {
+			if (user) {
+				token.role = user.role as Role;
+				token.id = user.id as string;
+			}
+			return token;
+		},
+		async session({ session, token }) {
+			if (token.sub && session.user) {
+				session.user.id = token.sub;
+			}
+
+			if (token.role && session.user) {
+				session.user.role = token.role as Role;
+			}
+			return session;
+		},
+	},
 	pages: {
 		signIn: "/auth/login",
 	},

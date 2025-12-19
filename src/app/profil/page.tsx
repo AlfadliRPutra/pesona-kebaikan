@@ -86,13 +86,8 @@ export default function ProfilePage() {
 	const { data: session, status } = useSession();
 
 	// FIXME: Dummy user for development access as requested
-	const dummyUser = {
-		name: "Pengguna Tamu",
-		email: "tamu@pesonakebaikan.id",
-		image: null,
-	};
-	const user = session?.user || dummyUser;
-	// const user = session?.user;
+	const user = session?.user;
+	// const user = session?.user || dummyUser;
 
 	const isDummy = user?.email === "tamu@pesonakebaikan.id";
 

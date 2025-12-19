@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
 	Box,
@@ -59,7 +59,15 @@ export default function LoginPage() {
 				return;
 			}
 
-			router.push("/admin");
+			// Force reload session to get latest data
+			const session = await getSession();
+			console.log("Login session:", session); // Debugging
+
+			if (session?.user?.role === "ADMIN") {
+				router.push("/admin");
+			} else {
+				router.push("/profil");
+			}
 		} catch (err) {
 			setError("Terjadi kesalahan saat login");
 			setLoading(false);
