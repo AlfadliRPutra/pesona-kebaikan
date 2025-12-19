@@ -296,6 +296,7 @@ export default function ProfilePage() {
 							<ProfileMenu
 								icon={<SecurityIcon />}
 								label="Keamanan & Password"
+								onClick={() => router.push("/profil/keamanan")}
 							/>
 						</List>
 					</Box>
@@ -318,10 +319,25 @@ export default function ProfilePage() {
 					Info Lainnya
 				</Typography>
 				<List disablePadding>
-					<ProfileMenu icon={<HelpOutlineIcon />} label="Pusat Bantuan" />
+					<ProfileMenu
+						icon={<HelpOutlineIcon />}
+						label="Pusat Bantuan"
+						onClick={() => router.push("/profil/bantuan")}
+					/>
 					<ProfileMenu
 						icon={<InfoOutlinedIcon />}
 						label="Tentang Pesona Kebaikan"
+						onClick={() => router.push("/profil/tentang")}
+					/>
+					<ProfileMenu
+						icon={<DescriptionIcon />}
+						label="Syarat dan Ketentuan"
+						onClick={() => router.push("/profil/syarat-ketentuan")}
+					/>
+					<ProfileMenu
+						icon={<VerifiedUserIcon />}
+						label="Akuntabilitas dan Transparansi"
+						onClick={() => router.push("/profil/akuntabilitas")}
 					/>
 					{user && (
 						<ProfileMenu
