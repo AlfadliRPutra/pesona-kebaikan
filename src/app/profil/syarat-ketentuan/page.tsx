@@ -75,6 +75,7 @@ export default function TermsPage() {
 						2. Definisi
 					</Typography>
 					<Typography
+						component="div"
 						sx={{ fontSize: 14, color: "rgba(15,23,42,0.7)", lineHeight: 1.8 }}
 					>
 						<ul>
