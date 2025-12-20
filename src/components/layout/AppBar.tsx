@@ -23,6 +23,8 @@ import CampaignIcon from "@mui/icons-material/Campaign";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { getNotifications, markAsRead } from "@/actions/notification";
 
 interface SimpleAppBarProps {
 	variant?: "solid" | "overlay";
@@ -31,6 +33,7 @@ interface SimpleAppBarProps {
 export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 	const theme = useTheme();
 	const router = useRouter();
+	const { data: session } = useSession();
 	const [searchValue, setSearchValue] = React.useState("");
 	const [logoSrc, setLogoSrc] = React.useState("/brand/logo.png");
 	const isOverlay = variant === "overlay";
@@ -38,9 +41,26 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 	// Notification State
 	const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(null);
 	const [tabValue, setTabValue] = React.useState(0);
+	const [notifications, setNotifications] = React.useState<any[]>([]);
+	const [unreadCount, setUnreadCount] = React.useState(0);
+
+	React.useEffect(() => {
+		if (session?.user?.id) {
+			fetchNotifications();
+		}
+	}, [session?.user?.id]);
+
+	const fetchNotifications = async () => {
+		if (!session?.user?.id) return;
+		const { notifications, unreadCount } = await getNotifications(session.user.id);
+		setNotifications(notifications);
+		setUnreadCount(unreadCount);
+	};
 
 	const handleOpenNotifications = (event: React.MouseEvent<HTMLButtonElement>) => {
 		setAnchorEl(event.currentTarget);
+		// Optionally refresh notifications on open
+		fetchNotifications();
 	};
 
 	const handleCloseNotifications = () => {
@@ -54,36 +74,10 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 	const open = Boolean(anchorEl);
 	const id = open ? "notification-popover" : undefined;
 
-	// Mock Data
-	const kabarItems = [
-		{
-			id: 1,
-			title: "Donasi Pak Asep Mencapai 50%",
-			desc: "Terima kasih atas partisipasi Anda. Campaign kini sudah setengah jalan!",
-			time: "2 jam lalu",
-		},
-		{
-			id: 2,
-			title: "Bantuan Sekolah Pelosok",
-			desc: "Penyaluran dana tahap 1 telah dilakukan. Cek update terbaru.",
-			time: "1 hari lalu",
-		},
-	];
-
-	const pesanItems = [
-		{
-			id: 1,
-			title: "Admin Pesona Kebaikan",
-			desc: "Selamat datang di Pesona Kebaikan! Lengkapi profil Anda untuk kemudahan berdonasi.",
-			time: "Baru saja",
-		},
-		{
-			id: 2,
-			title: "Verifikasi Akun",
-			desc: "Mohon unggah KTP untuk verifikasi akun penggalang dana.",
-			time: "3 hari lalu",
-		},
-	];
+	// Filter notifications based on tab
+	const displayedNotifications = notifications.filter(n => 
+		tabValue === 0 ? n.type === 'KABAR' : n.type === 'PESAN'
+	);
 
 	// Colors depend on variant
 	const textColor = isOverlay ? "#ffffff" : theme.palette.text.primary;
@@ -205,7 +199,7 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 						color: textColor,
 					}}
 				>
-					<Badge badgeContent={2} color="error">
+					<Badge badgeContent={unreadCount} color="error">
 						<NotificationsIcon color="inherit" />
 					</Badge>
 				</IconButton>
@@ -256,14 +250,33 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 					</Box>
 
 					<Box sx={{ p: 0, overflowY: "auto", maxHeight: 400 }}>
-						{tabValue === 0 && (
-							<List disablePadding>
-								{kabarItems.map((item) => (
+						<List disablePadding>
+							{displayedNotifications.length === 0 ? (
+								<Box sx={{ p: 3, textAlign: "center" }}>
+									<Typography variant="body2" color="text.secondary">
+										Tidak ada notifikasi
+									</Typography>
+								</Box>
+							) : (
+								displayedNotifications.map((item) => (
 									<React.Fragment key={item.id}>
-										<ListItemButton alignItems="flex-start">
+										<ListItemButton 
+											alignItems="flex-start"
+											sx={{ bgcolor: item.isRead ? 'transparent' : alpha(theme.palette.primary.main, 0.05) }}
+											onClick={() => {
+												if (!item.isRead) {
+													markAsRead(item.id);
+													setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n));
+													setUnreadCount(prev => Math.max(0, prev - 1));
+												}
+											}}
+										>
 											<ListItemAvatar>
-												<Avatar sx={{ bgcolor: "#f0fdf4", color: "#16a34a" }}>
-													<CampaignIcon />
+												<Avatar sx={{ 
+													bgcolor: item.type === 'KABAR' ? "#f0fdf4" : "#eff6ff", 
+													color: item.type === 'KABAR' ? "#16a34a" : "#2563eb" 
+												}}>
+													{item.type === 'KABAR' ? <CampaignIcon /> : <AdminPanelSettingsIcon />}
 												</Avatar>
 											</ListItemAvatar>
 											<ListItemText
@@ -288,14 +301,16 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 																lineHeight: 1.4,
 															}}
 														>
-															{item.desc}
+															{item.message}
 														</Typography>
 														<Typography
 															component="span"
 															variant="caption"
 															sx={{ fontSize: 11, color: "#94a3b8" }}
 														>
-															{item.time}
+															{new Date(item.createdAt).toLocaleDateString('id-ID', { 
+																day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+															})}
 														</Typography>
 													</React.Fragment>
 												}
@@ -303,59 +318,9 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 										</ListItemButton>
 										<Divider component="li" />
 									</React.Fragment>
-								))}
-							</List>
-						)}
-						{tabValue === 1 && (
-							<List disablePadding>
-								{pesanItems.map((item) => (
-									<React.Fragment key={item.id}>
-										<ListItemButton alignItems="flex-start">
-											<ListItemAvatar>
-												<Avatar sx={{ bgcolor: "#eff6ff", color: "#2563eb" }}>
-													<AdminPanelSettingsIcon />
-												</Avatar>
-											</ListItemAvatar>
-											<ListItemText
-												primary={
-													<Typography
-														sx={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}
-													>
-														{item.title}
-													</Typography>
-												}
-												secondary={
-													<React.Fragment>
-														<Typography
-															component="span"
-															variant="body2"
-															sx={{
-																display: "block",
-																fontSize: 12,
-																color: "#64748b",
-																mt: 0.5,
-																mb: 0.5,
-																lineHeight: 1.4,
-															}}
-														>
-															{item.desc}
-														</Typography>
-														<Typography
-															component="span"
-															variant="caption"
-															sx={{ fontSize: 11, color: "#94a3b8" }}
-														>
-															{item.time}
-														</Typography>
-													</React.Fragment>
-												}
-											/>
-										</ListItemButton>
-										<Divider component="li" />
-									</React.Fragment>
-								))}
-							</List>
-						)}
+								))
+							)}
+						</List>
 					</Box>
 					<Box
 						sx={{

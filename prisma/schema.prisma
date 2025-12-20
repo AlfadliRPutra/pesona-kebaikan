@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-ts"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -33,6 +33,7 @@ model User {
   // untuk Blog.createdById relation("UserBlogs")
   blogs     Blog[]     @relation("UserBlogs")
   campaigns Campaign[] @relation("UserCampaigns")
+  notifications Notification[]
 }
 
 model LoginActivity {
@@ -274,4 +275,23 @@ model Donation {
   campaign   Campaign @relation(fields: [campaignId], references: [id])
 
   @@index([campaignId])
+}
+
+enum NotificationType {
+  KABAR
+  PESAN
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

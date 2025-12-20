@@ -20,6 +20,7 @@ import {
 	useTheme,
 	Tooltip,
 	Skeleton,
+	Grid,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -219,10 +220,14 @@ export default function AdminTransaksiPage() {
 			.slice(0, 8)
 			.reduce((a, b) => a + (b.amount || 0), 0); // dummy
 		const monthPaid = allPaid.reduce((a, b) => a + (b.amount || 0), 0);
-		const pendingCount = rows.filter((r) => r.status === "pending").length;
+		
+		const pendingRows = rows.filter((r) => r.status === "pending");
+		const pending = pendingRows.reduce((a, b) => a + (b.amount || 0), 0);
+		const pendingCount = pendingRows.length;
+
 		const refundedCount = rows.filter((r) => r.status === "refunded").length;
 
-		return { todayPaid, monthPaid, pendingCount, refundedCount };
+		return { todayPaid, monthPaid, pendingCount, refundedCount, paid: monthPaid, pending };
 	}, [rows]);
 
 	const onRefresh = () => {
@@ -296,65 +301,59 @@ export default function AdminTransaksiPage() {
 
 			{/* Summary cards (compact) */}
 			<Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-				<Grid item xs={12} md={4}>
+				<Grid size={{ xs: 12, md: 4 }}>
 					<Surface sx={{ p: 1.5 }}>
 						<Stack direction="row" spacing={1.2} alignItems="center">
 							<Box
 								sx={{
-									width: 38,
-									height: 38,
-									borderRadius: 2.25,
+									width: 40,
+									height: 40,
+									borderRadius: 999,
+									bgcolor: alpha(theme.palette.success.main, 0.1),
+									color: theme.palette.success.main,
 									display: "grid",
 									placeItems: "center",
-									bgcolor: alpha(theme.palette.success.main, 0.12),
-									color: theme.palette.success.main,
 								}}
 							>
-								<VolunteerActivismRoundedIcon fontSize="small" />
+								<CheckCircleRoundedIcon />
 							</Box>
-							<Box sx={{ flex: 1, minWidth: 0 }}>
+							<Box>
 								<Typography
-									sx={{
-										fontSize: 12,
-										color: "text.secondary",
-										fontWeight: 900,
-									}}
+									variant="body2"
+									sx={{ color: "text.secondary", fontWeight: 700 }}
 								>
-									Donasi Hari Ini
+									Total Terbayar
 								</Typography>
 								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
-									{idr(sum.todayPaid)}
+									{idr(sum.paid)}
 								</Typography>
 							</Box>
 						</Stack>
 					</Surface>
 				</Grid>
 
-				<Grid item xs={12} md={4}>
+				<Grid size={{ xs: 12, md: 4 }}>
 					<Surface sx={{ p: 1.5 }}>
 						<Stack direction="row" spacing={1.2} alignItems="center">
 							<Box
 								sx={{
-									width: 38,
-									height: 38,
-									borderRadius: 2.25,
+									width: 40,
+									height: 40,
+									borderRadius: 999,
+									bgcolor: alpha(theme.palette.info.main, 0.1),
+									color: theme.palette.info.main,
 									display: "grid",
 									placeItems: "center",
-									bgcolor: alpha(theme.palette.primary.main, 0.12),
-									color: theme.palette.primary.main,
 								}}
 							>
-								<ReceiptLongRoundedIcon fontSize="small" />
+								<PaidRoundedIcon />
 							</Box>
-							<Box sx={{ flex: 1, minWidth: 0 }}>
+							<Box>
 								<Typography
-									sx={{
-										fontSize: 12,
-										color: "text.secondary",
-										fontWeight: 900,
-									}}
+									variant="body2"
+									sx={{ color: "text.secondary", fontWeight: 700 }}
 								>
-									Donasi Bulan Ini
+									Bulan Ini
 								</Typography>
 								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
 									{idr(sum.monthPaid)}
@@ -364,34 +363,31 @@ export default function AdminTransaksiPage() {
 					</Surface>
 				</Grid>
 
-				<Grid item xs={12} md={4}>
+				<Grid size={{ xs: 12, md: 4 }}>
 					<Surface sx={{ p: 1.5 }}>
 						<Stack direction="row" spacing={1.2} alignItems="center">
 							<Box
 								sx={{
-									width: 38,
-									height: 38,
-									borderRadius: 2.25,
+									width: 40,
+									height: 40,
+									borderRadius: 999,
+									bgcolor: alpha(theme.palette.warning.main, 0.1),
+									color: theme.palette.warning.main,
 									display: "grid",
 									placeItems: "center",
-									bgcolor: alpha(theme.palette.warning.main, 0.12),
-									color: theme.palette.warning.main,
 								}}
 							>
-								<HourglassBottomRoundedIcon fontSize="small" />
+								<HourglassBottomRoundedIcon />
 							</Box>
-							<Box sx={{ flex: 1, minWidth: 0 }}>
+							<Box>
 								<Typography
-									sx={{
-										fontSize: 12,
-										color: "text.secondary",
-										fontWeight: 900,
-									}}
+									variant="body2"
+									sx={{ color: "text.secondary", fontWeight: 700 }}
 								>
-									Pending / Refund
+									Menunggu Pembayaran
 								</Typography>
 								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
-									{sum.pendingCount} / {sum.refundedCount}
+									{idr(sum.pending)}
 								</Typography>
 							</Box>
 						</Stack>

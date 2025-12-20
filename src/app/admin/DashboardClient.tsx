@@ -181,7 +181,7 @@ function KpiCard({
 					>
 						{React.cloneElement(icon as React.ReactElement, {
 							fontSize: "small",
-						})}
+						} as any)}
 					</Box>
 
 					<IconButton
@@ -604,7 +604,7 @@ export default function DashboardClient({
 
 				{/* KPI Cards */}
 				<Grid container spacing={1.5}>
-					<Grid item xs={12} sm={6} md={3} sx={{ minWidth: 0 }}>
+					<Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ minWidth: 0 }}>
 						<KpiCard
 							title="Campaign Aktif"
 							value={(kpi?.campaignActive ?? 0).toLocaleString("id-ID")}
@@ -619,7 +619,7 @@ export default function DashboardClient({
 						/>
 					</Grid>
 
-					<Grid item xs={12} sm={6} md={3} sx={{ minWidth: 0 }}>
+					<Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ minWidth: 0 }}>
 						<KpiCard
 							title="Donasi Bulan Ini"
 							value={fmtIDR(kpi?.donationMonth ?? 0)}
@@ -629,7 +629,7 @@ export default function DashboardClient({
 						/>
 					</Grid>
 
-					<Grid item xs={12} sm={6} md={3} sx={{ minWidth: 0 }}>
+					<Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ minWidth: 0 }}>
 						<KpiCard
 							title="Pencairan Pending"
 							value={(kpi?.payoutPending ?? 0).toLocaleString("id-ID")}
@@ -639,7 +639,7 @@ export default function DashboardClient({
 						/>
 					</Grid>
 
-					<Grid item xs={12} sm={6} md={3} sx={{ minWidth: 0 }}>
+					<Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ minWidth: 0 }}>
 						<KpiCard
 							title="Total Pengguna"
 							value={(kpi?.usersTotal ?? 0).toLocaleString("id-ID")}
@@ -650,7 +650,7 @@ export default function DashboardClient({
 					</Grid>
 
 					{/* === CHARTS GRID (4 charts) === */}
-					<Grid item xs={12} md={8}>
+					<Grid size={{ xs: 12, md: 8 }}>
 						<ChartCard
 							title="Trend Donasi"
 							subtitle="7 hari terakhir (placeholder, bisa diganti dari backend)"
@@ -721,8 +721,8 @@ export default function DashboardClient({
 									/>
 									<Tooltip
 										contentStyle={tooltipStyle}
-										formatter={(value: number) => [
-											`Rp${value.toLocaleString("id-ID")}`,
+										formatter={(value: any) => [
+											`Rp${Number(value || 0).toLocaleString("id-ID")}`,
 											"Donasi",
 										]}
 									/>
@@ -738,7 +738,7 @@ export default function DashboardClient({
 						</ChartCard>
 					</Grid>
 
-					<Grid item xs={12} md={4}>
+					<Grid size={{ xs: 12, md: 4 }}>
 						<ChartCard
 							title="Metode Pembayaran"
 							subtitle="Komposisi donasi (contoh data)"
@@ -768,7 +768,7 @@ export default function DashboardClient({
 										paddingAngle={3}
 										stroke={alpha(theme.palette.background.paper, 0.0)}
 									>
-										{payMethodDist.map((_, i) => (
+										{payMethodDist.map((_: any, i: number) => (
 											<Cell
 												key={i}
 												fill={
@@ -788,7 +788,7 @@ export default function DashboardClient({
 						</ChartCard>
 					</Grid>
 
-					<Grid item xs={12} md={6}>
+					<Grid size={{ xs: 12, md: 6 }}>
 						<ChartCard
 							title="Sebaran Kategori"
 							subtitle="Campaign per kategori (contoh)"
@@ -829,7 +829,7 @@ export default function DashboardClient({
 										barSize={22}
 										fill={theme.palette.primary.main}
 									>
-										{categoryDist.map((_, index) => (
+										{categoryDist.map((_: any, index: number) => (
 											<Cell
 												key={`cell-${index}`}
 												fill={
@@ -849,7 +849,7 @@ export default function DashboardClient({
 						</ChartCard>
 					</Grid>
 
-					<Grid item xs={12} md={6}>
+					<Grid size={{ xs: 12, md: 6 }}>
 						<ChartCard
 							title="Campaign Dibuat"
 							subtitle="14 hari terakhir (contoh)"
@@ -913,7 +913,7 @@ export default function DashboardClient({
 					</Grid>
 
 					{/* Alur Sistem */}
-					<Grid item xs={12} lg={8}>
+					<Grid size={{ xs: 12, lg: 8 }}>
 						<Panel
 							title="Alur Sistem Campaign"
 							subtitle="Draft → Review → Aktif → Berakhir / Ditolak"
@@ -1076,7 +1076,7 @@ export default function DashboardClient({
 					</Grid>
 
 					{/* Quick tasks + recent queue */}
-					<Grid item xs={12} lg={4}>
+					<Grid size={{ xs: 12, lg: 4 }}>
 						<Panel
 							title="Tugas Admin"
 							subtitle="Akses cepat menu prioritas"
