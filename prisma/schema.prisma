@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-ts"
   output   = "../src/generated/prisma"
 }
 
@@ -13,21 +13,25 @@ enum Role {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?
-  email         String          @unique
-  emailVerified DateTime?
-  image         String?
-  role          Role            @default(USER)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  password      String?
-  phone         String?         @unique
-  accounts      Account[]
-  Authenticator Authenticator[]
-  posts         Post[]
-  sessions      Session[]
+  id              String          @id @default(cuid())
+  name            String?
+  email           String          @unique
+  emailVerified   DateTime?
+  image           String?
+  role            Role            @default(USER)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  password        String?
+  phone           String?         @unique
+
+  accounts        Account[]
+  sessions        Session[]
+  posts           Post[]
+  Authenticator   Authenticator[]
   loginActivities LoginActivity[]
+
+  // untuk Blog.createdById relation("UserBlogs")
+  blogs           Blog[]          @relation("UserBlogs")
 }
 
 model LoginActivity {
@@ -35,9 +39,13 @@ model LoginActivity {
   userId    String
   ipAddress String?
   userAgent String?
-  location  String? // Optional: can be populated via IP geolocation later
+  location  String?
   createdAt DateTime @default(now())
+
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Account {
@@ -54,6 +62,7 @@ model Account {
   session_state     String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
@@ -65,7 +74,11 @@ model Session {
   expires      DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
 }
 
 model VerificationToken {
@@ -85,36 +98,92 @@ model Authenticator {
   credentialDeviceType String
   credentialBackedUp   Boolean
   transports           String?
+
   user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, credentialID])
+  @@index([userId])
 }
 
 model Post {
-  id        Int     @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   title     String
   content   String
   published Boolean
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   userId    String
-  user      User    @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Faq {
   id        String   @id @default(cuid())
   question  String
-  answer    String   @db.Text // Text type for longer content
+  answer    String   @db.Text
   category  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([category])
 }
 
 model PageContent {
   id        String   @id @default(cuid())
-  key       String   @unique // e.g. 'about', 'terms', 'accountability'
+  key       String   @unique // contoh: 'about', 'terms', 'accountability'
   title     String
-  content   String   @db.Text // HTML or Markdown content
-  data      Json?    // Structured data (Banner, Vision, Mission, Socials, Org Structure)
+  content   String   @db.Text // HTML / Markdown
+  data      Json?    // banner, vision, mission, socials, struktur organisasi, dll
+
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum BlogMediaType {
+  image
+  video
+  file
+}
+
+model BlogCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  blogs     Blog[]
+}
+
+model Blog {
+  id          String        @id @default(cuid())
+  title       String
+  content     String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  categoryId  String?
+  category    BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdById String
+  createdBy   User          @relation("UserBlogs", fields: [createdById], references: [id], onDelete: Cascade)
+
+  gallery     BlogMedia[]
+
+  @@index([categoryId])
+  @@index([createdById])
+}
+
+model BlogMedia {
+  id          String        @id @default(cuid())
+  blogId      String
+  blog        Blog          @relation(fields: [blogId], references: [id], onDelete: Cascade)
+
+  type        BlogMediaType
+  url         String
+  isThumbnail Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  @@index([blogId])
 }
