@@ -1,5 +1,12 @@
-import { Box } from "@mui/material";
+import React from "react";
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <Box sx={{ minHeight: "100dvh", bgcolor: "background.default" }}>{children}</Box>;
-}
+const AuthLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <section className="w-full reltive">
+      <div className="auth-layout-pattern"></div>
+      <div className="h-screen flex items-center justify-center">{children}</div>
+    </section>
+  );
+};
+
+export default AuthLayout;
