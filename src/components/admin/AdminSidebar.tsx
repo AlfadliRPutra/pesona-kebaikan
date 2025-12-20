@@ -22,6 +22,7 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DescriptionIcon from "@mui/icons-material/Description";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 
 type MenuItem = {
 	label: string;
@@ -101,6 +102,12 @@ const menus: { title: string; items: MenuItem[] }[] = [
 				href: "/admin/users",
 				icon: <PeopleIcon fontSize="small" />,
 				desc: "Akun, role, status",
+			},
+			{
+				label: "Notifikasi",
+				href: "/admin/notifikasi",
+				icon: <NotificationsIcon fontSize="small" />,
+				desc: "Broadcast & pesan",
 			},
 		],
 	},

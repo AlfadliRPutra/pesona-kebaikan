@@ -19,6 +19,7 @@ import {
 	Pagination,
 	Tooltip,
 	Skeleton,
+	Grid,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -196,6 +197,38 @@ export default function AdminTransaksiPage() {
 		return filtered.slice(start, start + 10);
 	}, [filtered, page]);
 
+	// ===== Summary (dummy dari filtered/rows) =====
+	const sum = React.useMemo(() => {
+		const allPaid = rows.filter((r) => r.status === "paid");
+		const todayPaid = allPaid
+			.slice(0, 8)
+			.reduce((a, b) => a + (b.amount || 0), 0); // dummy
+		const monthPaid = allPaid.reduce((a, b) => a + (b.amount || 0), 0);
+
+		const pendingRows = rows.filter((r) => r.status === "pending");
+		const pending = pendingRows.reduce((a, b) => a + (b.amount || 0), 0);
+		const pendingCount = pendingRows.length;
+
+		const refundedCount = rows.filter((r) => r.status === "refunded").length;
+
+		return {
+			todayPaid,
+			monthPaid,
+			pendingCount,
+			refundedCount,
+			paid: monthPaid,
+			pending,
+		};
+	}, [rows]);
+
+	const onRefresh = () => {
+		setLoading(true);
+		setTimeout(() => {
+			setRows(MOCK);
+			setLoading(false);
+		}, 300);
+	};
+
 	return (
 		<Box sx={{ py: 2 }}>
 			{/* Header */}
@@ -246,6 +279,102 @@ export default function AdminTransaksiPage() {
 					</Button>
 				</Stack>
 			</Stack>
+
+			{/* Summary cards (compact) */}
+			<Grid container spacing={1.5} sx={{ mb: 1.5 }}>
+				<Grid size={{ xs: 12, md: 4 }}>
+					<Surface sx={{ p: 1.5 }}>
+						<Stack direction="row" spacing={1.2} alignItems="center">
+							<Box
+								sx={{
+									width: 40,
+									height: 40,
+									borderRadius: 999,
+									bgcolor: alpha(theme.palette.success.main, 0.1),
+									color: theme.palette.success.main,
+									display: "grid",
+									placeItems: "center",
+								}}
+							>
+								<CheckCircleRoundedIcon />
+							</Box>
+							<Box>
+								<Typography
+									variant="body2"
+									sx={{ color: "text.secondary", fontWeight: 700 }}
+								>
+									Total Terbayar
+								</Typography>
+								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
+									{idr(sum.paid)}
+								</Typography>
+							</Box>
+						</Stack>
+					</Surface>
+				</Grid>
+
+				<Grid size={{ xs: 12, md: 4 }}>
+					<Surface sx={{ p: 1.5 }}>
+						<Stack direction="row" spacing={1.2} alignItems="center">
+							<Box
+								sx={{
+									width: 40,
+									height: 40,
+									borderRadius: 999,
+									bgcolor: alpha(theme.palette.info.main, 0.1),
+									color: theme.palette.info.main,
+									display: "grid",
+									placeItems: "center",
+								}}
+							>
+								<PaidRoundedIcon />
+							</Box>
+							<Box>
+								<Typography
+									variant="body2"
+									sx={{ color: "text.secondary", fontWeight: 700 }}
+								>
+									Bulan Ini
+								</Typography>
+								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
+									{idr(sum.monthPaid)}
+								</Typography>
+							</Box>
+						</Stack>
+					</Surface>
+				</Grid>
+
+				<Grid size={{ xs: 12, md: 4 }}>
+					<Surface sx={{ p: 1.5 }}>
+						<Stack direction="row" spacing={1.2} alignItems="center">
+							<Box
+								sx={{
+									width: 40,
+									height: 40,
+									borderRadius: 999,
+									bgcolor: alpha(theme.palette.warning.main, 0.1),
+									color: theme.palette.warning.main,
+									display: "grid",
+									placeItems: "center",
+								}}
+							>
+								<HourglassBottomRoundedIcon />
+							</Box>
+							<Box>
+								<Typography
+									variant="body2"
+									sx={{ color: "text.secondary", fontWeight: 700 }}
+								>
+									Menunggu Pembayaran
+								</Typography>
+								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
+									{idr(sum.pending)}
+								</Typography>
+							</Box>
+						</Stack>
+					</Surface>
+				</Grid>
+			</Grid>
 
 			{/* Filters */}
 			<Surface sx={{ p: 1.5 }}>

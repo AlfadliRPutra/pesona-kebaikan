@@ -371,7 +371,6 @@ export default function AdminCampaignKategoriPage() {
 							<IconButton
 								onClick={onRefresh}
 								sx={{
-									borderRadius: 2,
 									...softInsetSx(theme),
 								}}
 							>
@@ -773,7 +772,6 @@ export default function AdminCampaignKategoriPage() {
 				PaperProps={{
 					elevation: 0,
 					sx: {
-						borderRadius: 3,
 						...softCardSx(theme),
 						p: 0.5,
 						minWidth: 190,

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { Role, BlogMediaType, CampaignStatus, CampaignMediaType, PaymentMethod } from "@/generated/prisma/enums";
+import { Role, BlogMediaType, CampaignStatus, CampaignMediaType, PaymentMethod, NotificationType } from "@/generated/prisma";
 
 async function upsertPageContent(params: { key: string; title: string; content: string; data?: any }) {
   return prisma.pageContent.upsert({
@@ -350,7 +350,7 @@ async function main() {
     const target = (Math.floor(Math.random() * 20) + 1) * 5000000; // 5jt - 100jt
     
     // Status distribution
-    let status = CampaignStatus.ACTIVE;
+    let status: CampaignStatus = CampaignStatus.ACTIVE;
     const randStatus = Math.random();
     if (randStatus > 0.9) status = CampaignStatus.COMPLETED;
     else if (randStatus > 0.95) status = CampaignStatus.PENDING;
@@ -429,16 +429,42 @@ Mohon doa dan dukungannya untuk kelancaran program ini. Terima kasih orang baik!
     data: donationData
   });
 
-  console.log("✅ Seed selesai:", {
-    adminEmail: admin.email,
-    userEmail: user.email,
-    seededFaqs: faqs.length,
-    seededPageContent: 4,
-    seededCategories: 3,
-    seededCampaignCategories: 4,
-    seededCampaigns: generatedCampaigns.length,
-    seededDonations: 100
+  // ============
+  // NOTIFICATIONS
+  // ============
+  console.log("Seeding Notifications...");
+  await prisma.notification.deleteMany({ where: { userId: user.id } }); // Clear existing for user
+  
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: user.id,
+        title: "Selamat Datang!",
+        message: "Selamat datang di Pesona Kebaikan. Mulailah berbagi kebaikan hari ini.",
+        type: NotificationType.KABAR,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago,
+        isRead: true,
+      },
+      {
+        userId: user.id,
+        title: "Donasi Berhasil",
+        message: "Terima kasih, donasi Anda untuk 'Bantu Adik Rizky' telah diterima.",
+        type: NotificationType.PESAN,
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago,
+        isRead: false,
+      },
+      {
+        userId: user.id,
+        title: "Update Campaign",
+        message: "Campaign 'Renovasi Sekolah Dasar' telah mencapai 50% target!",
+        type: NotificationType.KABAR,
+        createdAt: new Date(), // Just now,
+        isRead: false,
+      }
+    ]
   });
+
+  console.log("Seeding done.");
 }
 
 main()
@@ -446,7 +472,7 @@ main()
     await prisma.$disconnect();
   })
   .catch(async (e) => {
-    console.error("❌ Seed error:", e);
+    console.error(e);
     await prisma.$disconnect();
     process.exit(1);
   });

@@ -15,71 +15,83 @@ import IconButton from "@mui/material/IconButton";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { getNotifications, markAsRead, markAllAsRead } from "@/actions/notification";
+import { alpha } from "@mui/material/styles";
 
 export default function NotificationPage() {
 	const router = useRouter();
+	const { data: session } = useSession();
 	const [tabValue, setTabValue] = React.useState(0);
+	const [notifications, setNotifications] = React.useState<any[]>([]);
+	const [loading, setLoading] = React.useState(true);
+
+	const fetchNotifications = async () => {
+		if (!session?.user?.id) return;
+		try {
+			setLoading(true);
+			const { notifications } = await getNotifications(session.user.id, undefined, 50);
+			setNotifications(notifications);
+		} catch (error) {
+			console.error("Failed to fetch notifications", error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	React.useEffect(() => {
+		if (session?.user?.id) {
+			fetchNotifications();
+		}
+	}, [session?.user?.id]);
 
 	const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
 		setTabValue(newValue);
 	};
 
-	// Mock Data
-	const kabarItems = [
-		{
-			id: 1,
-			title: "Donasi Pak Asep Mencapai 50%",
-			desc: "Terima kasih atas partisipasi Anda. Campaign kini sudah setengah jalan!",
-			time: "2 jam lalu",
-			read: false,
-		},
-		{
-			id: 2,
-			title: "Bantuan Sekolah Pelosok",
-			desc: "Penyaluran dana tahap 1 telah dilakukan. Cek update terbaru.",
-			time: "1 hari lalu",
-			read: true,
-		},
-		{
-			id: 3,
-			title: "Update Pembangunan Masjid",
-			desc: "Fondasi telah selesai dibangun. Lanjutkan dukunganmu!",
-			time: "2 hari lalu",
-			read: true,
-		},
-		{
-			id: 4,
-			title: "Donasi Al-Quran Tersalurkan",
-			desc: "Sebanyak 100 Al-Quran telah diterima oleh santri di Desa Suka Maju.",
-			time: "1 minggu lalu",
-			read: true,
-		},
-	];
+	const handleMarkAsRead = async (id: string) => {
+		await markAsRead(id);
+		setNotifications((prev) =>
+			prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+		);
+		// Optionally trigger a global event or revalidation
+	};
 
-	const pesanItems = [
-		{
-			id: 1,
-			title: "Admin Pesona Kebaikan",
-			desc: "Selamat datang di Pesona Kebaikan! Lengkapi profil Anda untuk kemudahan berdonasi.",
-			time: "Baru saja",
-			read: false,
-		},
-		{
-			id: 2,
-			title: "Verifikasi Akun",
-			desc: "Mohon unggah KTP untuk verifikasi akun penggalang dana.",
-			time: "3 hari lalu",
-			read: true,
-		},
-		{
-			id: 3,
-			title: "Pencairan Dana Disetujui",
-			desc: "Pengajuan pencairan dana untuk Campaign #123 telah disetujui.",
-			time: "4 hari lalu",
-			read: true,
-		},
-	];
+	const handleMarkAllAsRead = async () => {
+		if (!session?.user?.id) return;
+		await markAllAsRead(session.user.id);
+		setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+	};
+
+	const displayedNotifications = notifications.filter((n) =>
+		tabValue === 0 ? n.type === "KABAR" : n.type === "PESAN"
+	);
+
+	const formatDate = (dateString: string) => {
+		const date = new Date(dateString);
+		const now = new Date();
+		const diff = now.getTime() - date.getTime();
+		
+		// If less than 24 hours
+		if (diff < 24 * 60 * 60 * 1000) {
+			if (diff < 60 * 60 * 1000) {
+				const minutes = Math.floor(diff / (60 * 1000));
+				return `${minutes} menit yang lalu`;
+			}
+			const hours = Math.floor(diff / (60 * 60 * 1000));
+			return `${hours} jam yang lalu`;
+		}
+		
+		return date.toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	};
 
 	return (
 		<Box sx={{ pb: 10 }}>
@@ -88,23 +100,37 @@ export default function NotificationPage() {
 				sx={{
 					display: "flex",
 					alignItems: "center",
+					justifyContent: "space-between",
 					gap: 1,
 					p: 2,
 					bgcolor: "background.paper",
 					borderBottom: "1px solid",
 					borderColor: "divider",
+					position: "sticky",
+					top: 0,
+					zIndex: 10,
 				}}
 			>
-				<IconButton onClick={() => router.back()} edge="start" size="small">
-					<ArrowBackIcon />
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<IconButton onClick={() => router.back()} edge="start" size="small">
+						<ArrowBackIcon />
+					</IconButton>
+					<Typography variant="h6" fontWeight={700} sx={{ fontSize: 18 }}>
+						Notifikasi
+					</Typography>
+				</Box>
+				<IconButton 
+					onClick={handleMarkAllAsRead} 
+					title="Tandai semua sudah dibaca"
+					size="small"
+					color="primary"
+				>
+					<DoneAllIcon />
 				</IconButton>
-				<Typography variant="h6" fontWeight={700} sx={{ fontSize: 18 }}>
-					Notifikasi
-				</Typography>
 			</Box>
 
 			{/* Tabs */}
-			<Box sx={{ bgcolor: "background.paper" }}>
+			<Box sx={{ bgcolor: "background.paper", position: "sticky", top: 65, zIndex: 10 }}>
 				<Tabs
 					value={tabValue}
 					onChange={handleTabChange}
@@ -129,114 +155,90 @@ export default function NotificationPage() {
 
 			{/* Content */}
 			<Box>
-				{tabValue === 0 && (
+				{loading ? (
+					<Box sx={{ p: 3, textAlign: "center" }}>
+						<Typography variant="body2" color="text.secondary">
+							Memuat notifikasi...
+						</Typography>
+					</Box>
+				) : (
 					<List disablePadding>
-						{kabarItems.map((item) => (
-							<React.Fragment key={item.id}>
-								<ListItemButton
-									alignItems="flex-start"
-									sx={{
-										bgcolor: item.read ? "transparent" : "rgba(97, 206, 112, 0.05)",
-									}}
-								>
-									<ListItemAvatar>
-										<Avatar sx={{ bgcolor: "#f0fdf4", color: "#16a34a" }}>
-											<CampaignIcon />
-										</Avatar>
-									</ListItemAvatar>
-									<ListItemText
-										primary={
-											<Typography
-												sx={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}
+						{displayedNotifications.length === 0 ? (
+							<Box sx={{ p: 3, textAlign: "center" }}>
+								<Typography variant="body2" color="text.secondary">
+									Belum ada notifikasi
+								</Typography>
+							</Box>
+						) : (
+							displayedNotifications.map((item) => (
+								<React.Fragment key={item.id}>
+									<ListItemButton
+										alignItems="flex-start"
+										onClick={() => !item.isRead && handleMarkAsRead(item.id)}
+										sx={{
+											bgcolor: item.isRead
+												? "transparent"
+												: (theme) => alpha(theme.palette.primary.main, 0.05),
+											transition: "background-color 0.2s",
+										}}
+									>
+										<ListItemAvatar>
+											<Avatar
+												sx={{
+													bgcolor: item.type === "KABAR" ? "#f0fdf4" : "#eff6ff",
+													color: item.type === "KABAR" ? "#16a34a" : "#2563eb",
+												}}
 											>
-												{item.title}
-											</Typography>
-										}
-										secondary={
-											<React.Fragment>
+												{item.type === "KABAR" ? (
+													<CampaignIcon />
+												) : (
+													<AdminPanelSettingsIcon />
+												)}
+											</Avatar>
+										</ListItemAvatar>
+										<ListItemText
+											primary={
 												<Typography
-													component="span"
-													variant="body2"
 													sx={{
-														display: "block",
-														fontSize: 13,
-														color: "#64748b",
-														mt: 0.5,
-														mb: 0.5,
-														lineHeight: 1.5,
+														fontSize: 14,
+														fontWeight: item.isRead ? 500 : 700,
+														color: "#0f172a",
 													}}
 												>
-													{item.desc}
+													{item.title}
 												</Typography>
-												<Typography
-													component="span"
-													variant="caption"
-													sx={{ fontSize: 11, color: "#94a3b8" }}
-												>
-													{item.time}
-												</Typography>
-											</React.Fragment>
-										}
-									/>
-								</ListItemButton>
-								<Divider component="li" />
-							</React.Fragment>
-						))}
-					</List>
-				)}
-				{tabValue === 1 && (
-					<List disablePadding>
-						{pesanItems.map((item) => (
-							<React.Fragment key={item.id}>
-								<ListItemButton
-									alignItems="flex-start"
-									sx={{
-										bgcolor: item.read ? "transparent" : "rgba(37, 99, 235, 0.05)",
-									}}
-								>
-									<ListItemAvatar>
-										<Avatar sx={{ bgcolor: "#eff6ff", color: "#2563eb" }}>
-											<AdminPanelSettingsIcon />
-										</Avatar>
-									</ListItemAvatar>
-									<ListItemText
-										primary={
-											<Typography
-												sx={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}
-											>
-												{item.title}
-											</Typography>
-										}
-										secondary={
-											<React.Fragment>
-												<Typography
-													component="span"
-													variant="body2"
-													sx={{
-														display: "block",
-														fontSize: 13,
-														color: "#64748b",
-														mt: 0.5,
-														mb: 0.5,
-														lineHeight: 1.5,
-													}}
-												>
-													{item.desc}
-												</Typography>
-												<Typography
-													component="span"
-													variant="caption"
-													sx={{ fontSize: 11, color: "#94a3b8" }}
-												>
-													{item.time}
-												</Typography>
-											</React.Fragment>
-										}
-									/>
-								</ListItemButton>
-								<Divider component="li" />
-							</React.Fragment>
-						))}
+											}
+											secondary={
+												<React.Fragment>
+													<Typography
+														component="span"
+														variant="body2"
+														sx={{
+															display: "block",
+															fontSize: 13,
+															color: "#64748b",
+															mt: 0.5,
+															mb: 0.5,
+															lineHeight: 1.5,
+														}}
+													>
+														{item.message}
+													</Typography>
+													<Typography
+														component="span"
+														variant="caption"
+														sx={{ fontSize: 11, color: "#94a3b8" }}
+													>
+														{formatDate(item.createdAt)}
+													</Typography>
+												</React.Fragment>
+											}
+										/>
+									</ListItemButton>
+									<Divider component="li" />
+								</React.Fragment>
+							))
+						)}
 					</List>
 				)}
 			</Box>

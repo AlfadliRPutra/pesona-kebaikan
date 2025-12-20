@@ -23,6 +23,8 @@ import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import StepContent from "@mui/material/StepContent";
+import Grid from "@mui/material/Grid";
+import Tooltip from "@mui/material/Tooltip";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -37,6 +39,10 @@ import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DescriptionIcon from "@mui/icons-material/Description";
+import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
+import CampaignIcon from "@mui/icons-material/Campaign";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 
 function ProfileMenu({ icon, label, onClick, danger = false }: { icon: React.ReactNode; label: string; onClick?: () => void; danger?: boolean }) {
   return (
@@ -93,10 +99,24 @@ function ProfilePageContent() {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
+  // Mock Stats Data
+  const userStats = [
+    { label: 'Total Donasi', value: 'Rp 2.500.000', icon: <VolunteerActivismIcon />, color: '#3b82f6', bg: '#eff6ff' },
+    { label: 'Campaign Diikuti', value: '15', icon: <CampaignIcon />, color: '#8b5cf6', bg: '#f5f3ff' },
+    { label: 'Bergabung Sejak', value: 'Jan 2024', icon: <CalendarMonthIcon />, color: '#10b981', bg: '#ecfdf5' },
+  ];
+
+  // Mock Campaign History
+  const campaignHistory = [
+    { id: 1, title: 'Bantu Korban Banjir Demak', date: '20 Jan 2024', amount: 'Rp 50.000', status: 'Berhasil' },
+    { id: 2, title: 'Sedekah Jumat Berkah', date: '12 Jan 2024', amount: 'Rp 20.000', status: 'Berhasil' },
+    { id: 3, title: 'Wakaf Al-Quran Pelosok', date: '05 Jan 2024', amount: 'Rp 100.000', status: 'Berhasil' },
+  ];
+
   return (
-    <Box sx={{ px: 2, pt: 2.5 }}>
+    <Box sx={{ px: 2, pt: 2.5, pb: 10 }}>
       <Box sx={{ mb: 3 }}>
-        <Typography sx={{ fontSize: 20, fontWeight: 900, color: "#0f172a" }}>Profil Saya</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 900, color: "#0f172a" }}>Profil Saya</Typography>
       </Box>
 
       {status === "loading" ? (
@@ -145,27 +165,33 @@ function ProfilePageContent() {
               gap: 2,
               bgcolor: "#fff",
               borderColor: "rgba(0,0,0,0.08)",
+              position: 'relative',
+              overflow: 'hidden'
             }}
           >
             <Avatar
               src={user.image || "/avatar-placeholder.jpg"}
               sx={{
-                width: 64,
-                height: 64,
+                width: 72,
+                height: 72,
                 bgcolor: "#61ce70",
-                fontSize: 24,
+                fontSize: 28,
                 fontWeight: 800,
+                border: '3px solid #fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}
             >
               {user.name?.[0]?.toUpperCase() || "A"}
             </Avatar>
             <Box sx={{ flex: 1, cursor: "pointer" }} onClick={() => router.push("/profil/akun")}>
               <Stack direction="row" alignItems="center" gap={0.5}>
-                <Typography sx={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{user.name || "Pengguna"}</Typography>
-                {/* Simulated Verified State - could be real later */}
-                <CheckCircleIcon sx={{ fontSize: 16, color: "#61ce70" }} />
+                <Typography sx={{ fontSize: 18, fontWeight: 900, color: "#0f172a" }}>{user.name || "Pengguna"}</Typography>
+                {/* Simulated Verified State */}
+                <Tooltip title="Verified User">
+                    <CheckCircleIcon sx={{ fontSize: 18, color: "#61ce70" }} />
+                </Tooltip>
               </Stack>
-              <Typography sx={{ fontSize: 13, color: "rgba(15,23,42,0.6)" }}>{user.email}</Typography>
+              <Typography sx={{ fontSize: 14, color: "rgba(15,23,42,0.6)" }}>{user.email}</Typography>
               <Box
                 sx={{
                   mt: 0.5,
@@ -182,22 +208,25 @@ function ProfilePageContent() {
                     bgcolor: "#61ce70",
                   }}
                 />
-                <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#61ce70" }}>Member Basic</Typography>
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#61ce70" }}>Member Basic</Typography>
               </Box>
             </Box>
             <IconButton
               sx={{
-                bgcolor: "#f1f5f9",
+                bgcolor: "#f8fafc",
                 color: "#334155",
                 borderRadius: 3,
                 p: 1.5,
-                "&:hover": { bgcolor: "#e2e8f0" },
+                border: '1px solid #e2e8f0',
+                "&:hover": { bgcolor: "#f1f5f9" },
               }}
               onClick={() => router.push("/profil/akun")}
             >
               <EditIcon />
             </IconButton>
           </Paper>
+
+
 
           {/* Verification Banner */}
           <Paper
@@ -236,7 +265,7 @@ function ProfilePageContent() {
               </Box>
               <Box>
                 <Typography sx={{ fontWeight: 800, fontSize: 14, color: "#166534" }}>Verifikasi Akun</Typography>
-                <Typography sx={{ fontSize: 12, color: "#15803d" }}>3 langkah mudah menjadi Verified</Typography>
+                <Typography sx={{ fontSize: 12, color: "#15803d" }}>Lengkapi data diri Anda</Typography>
               </Box>
             </Box>
             <ChevronRightIcon sx={{ fontSize: 20, color: "#15803d" }} />
@@ -283,7 +312,6 @@ function ProfilePageContent() {
           <ProfileMenu icon={<HelpOutlineIcon />} label="Pusat Bantuan" onClick={() => router.push("/profil/bantuan")} />
           <ProfileMenu icon={<InfoOutlinedIcon />} label="Tentang Pesona Kebaikan" onClick={() => router.push("/profil/tentang")} />
           <ProfileMenu icon={<DescriptionIcon />} label="Syarat dan Ketentuan" onClick={() => router.push("/profil/syarat-ketentuan")} />
-          <ProfileMenu icon={<VerifiedUserIcon />} label="Akuntabilitas dan Transparansi" onClick={() => router.push("/profil/akuntabilitas")} />
           {user && (
             <ProfileMenu
               icon={isDummy ? <LoginIcon /> : <LogoutIcon />}
@@ -354,6 +382,16 @@ function ProfilePageContent() {
                   <Typography sx={{ fontSize: 14, fontWeight: 600, color: "#475569" }}>Klik untuk upload foto KTP</Typography>
                   <Typography sx={{ fontSize: 12, color: "#94a3b8" }}>Format: JPG, PNG (Max 2MB)</Typography>
                 </Box>
+                
+                <TextField 
+                    label="Nomor NIK KTP" 
+                    fullWidth 
+                    size="small" 
+                    placeholder="16 digit NIK" 
+                    sx={{ mt: 2 }}
+                    InputProps={{ sx: { borderRadius: 2 } }}
+                />
+
                 <Box sx={{ mb: 2, mt: 2 }}>
                   <Button
                     variant="contained"
@@ -363,6 +401,7 @@ function ProfilePageContent() {
                       textTransform: "none",
                       fontWeight: 700,
                       borderRadius: 2,
+                      boxShadow: 'none'
                     }}
                   >
                     Lanjut
@@ -402,6 +441,67 @@ function ProfilePageContent() {
                       textTransform: "none",
                       fontWeight: 700,
                       borderRadius: 2,
+                      boxShadow: 'none'
+                    }}
+                  >
+                    Lanjut
+                  </Button>
+                  <Button
+                    onClick={handleBack}
+                    sx={{
+                      mt: 1,
+                      mr: 1,
+                      color: "text.secondary",
+                      textTransform: "none",
+                    }}
+                  >
+                    Kembali
+                  </Button>
+                </Box>
+              </StepContent>
+            </Step>
+
+            {/* Step 3: Phone / WhatsApp (New) */}
+             <Step>
+              <StepLabel>
+                <Typography sx={{ fontWeight: 700 }}>Verifikasi WhatsApp</Typography>
+              </StepLabel>
+              <StepContent>
+                <Alert icon={<WhatsAppIcon fontSize="inherit" />} severity="success" sx={{ mb: 2, borderRadius: 2, bgcolor: '#dcfce7', color: '#166534' }}>
+                  Kami akan mengirimkan kode OTP ke WhatsApp Anda.
+                </Alert>
+                <TextField 
+                    label="Nomor WhatsApp" 
+                    fullWidth 
+                    size="small" 
+                    defaultValue={user?.phone || ""}
+                    placeholder="0812xxxx" 
+                    sx={{ mb: 2 }}
+                    InputProps={{ sx: { borderRadius: 2 } }}
+                />
+                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                  <TextField size="small" placeholder="Kode OTP WA" fullWidth InputProps={{ sx: { borderRadius: 2 } }} />
+                  <Button
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: "none",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Kirim Kode
+                  </Button>
+                </Stack>
+                <Box sx={{ mb: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleNext}
+                    sx={{
+                      bgcolor: "#61ce70",
+                      textTransform: "none",
+                      fontWeight: 700,
+                      borderRadius: 2,
+                      boxShadow: 'none'
                     }}
                   >
                     Verifikasi & Lanjut
@@ -421,21 +521,27 @@ function ProfilePageContent() {
               </StepContent>
             </Step>
 
-            {/* Step 3: Selesai */}
+            {/* Step 4: Selesai */}
             <Step>
               <StepLabel>
                 <Typography sx={{ fontWeight: 700 }}>Selesai</Typography>
               </StepLabel>
               <StepContent>
-                <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
-                  Data Anda sedang ditinjau oleh tim kami.
-                </Alert>
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                    <CheckCircleIcon sx={{ fontSize: 48, color: '#61ce70', mb: 2 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Terima Kasih!</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Data Anda telah kami terima dan sedang dalam proses verifikasi 1x24 jam.
+                    </Typography>
+                </Box>
                 <Button
                   onClick={() => setOpenVerification(false)}
                   variant="outlined"
+                  fullWidth
                   sx={{
                     borderRadius: 2,
                     textTransform: "none",
+                    fontWeight: 700
                   }}
                 >
                   Tutup
