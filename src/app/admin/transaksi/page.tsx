@@ -20,6 +20,10 @@ import {
 	Tooltip,
 	Skeleton,
 	Grid,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogActions,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -30,6 +34,9 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import HourglassBottomRoundedIcon from "@mui/icons-material/HourglassBottomRounded";
 import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+
+import { getAdminTransactions } from "@/actions/admin";
 
 const PAGE_SIZE = 10;
 
@@ -42,45 +49,20 @@ type TxRow = {
 	campaignId: string;
 	campaignTitle: string;
 	donorName: string;
+	donorPhone: string;
+	donorEmail: string;
+	message: string;
+	isAnonymous: boolean;
 	amount: number;
 	method: PayMethod;
 	status: TxStatus;
 	refCode: string;
+	account: {
+		name: string;
+		email: string;
+		phone: string;
+	} | null;
 };
-
-const MOCK: TxRow[] = Array.from({ length: 47 }).map((_, i) => {
-	const idx = i + 1;
-	const statusPool: TxStatus[] = ["paid", "pending", "failed", "refunded"];
-	const methodPool: PayMethod[] = [
-		"qris",
-		"va_bca",
-		"va_bri",
-		"gopay",
-		"manual",
-	];
-	const status = statusPool[idx % statusPool.length];
-	const method = methodPool[idx % methodPool.length];
-
-	return {
-		id: `trx-${String(idx).padStart(4, "0")}`,
-		createdAt: `19 Des 2025 ${String(8 + (idx % 10)).padStart(2, "0")}:${String(
-			(idx * 7) % 60
-		).padStart(2, "0")}`,
-		campaignId: `cmp-${String((idx % 12) + 1).padStart(3, "0")}`,
-		campaignTitle:
-			idx % 3 === 0
-				? "Bantu Abi Melawan Kanker Hati"
-				: idx % 3 === 1
-				? "Bangun Kembali Masjid Terdampak Bencana"
-				: "Bantu Biaya Sekolah Anak",
-		donorName: idx % 5 === 0 ? "Anonim" : `Donatur ${idx}`,
-		amount:
-			status === "failed" ? 0 : 10000 * ((idx % 20) + 1) + (idx % 3) * 5000,
-		method,
-		status,
-		refCode: `PK-${Date.now().toString().slice(-6)}-${idx}`,
-	};
-});
 
 function idr(n: number) {
 	if (!n) return "Rp0";
@@ -168,6 +150,7 @@ function Surface({ children, sx }: { children: React.ReactNode; sx?: any }) {
 export default function AdminTransaksiPage() {
 	const [rows, setRows] = React.useState<TxRow[]>([]);
 	const [loading, setLoading] = React.useState(true);
+	const [selected, setSelected] = React.useState<TxRow | null>(null);
 
 	const [q, setQ] = React.useState("");
 	const [status, setStatus] = React.useState<"all" | TxStatus>("all");
@@ -176,11 +159,21 @@ export default function AdminTransaksiPage() {
 	const [page, setPage] = React.useState(1);
 
 	React.useEffect(() => {
-		const t = setTimeout(() => {
-			setRows(MOCK);
-			setLoading(false);
-		}, 350);
-		return () => clearTimeout(t);
+		async function fetch() {
+			setLoading(true);
+			try {
+				const res = await getAdminTransactions();
+				if (res.success && res.data) {
+					// @ts-ignore
+					setRows(res.data);
+				}
+			} catch (e) {
+				console.error(e);
+			} finally {
+				setLoading(false);
+			}
+		}
+		fetch();
 	}, []);
 
 	const filtered = React.useMemo(() => {
@@ -221,12 +214,19 @@ export default function AdminTransaksiPage() {
 		};
 	}, [rows]);
 
-	const onRefresh = () => {
+	const onRefresh = async () => {
 		setLoading(true);
-		setTimeout(() => {
-			setRows(MOCK);
+		try {
+			const res = await getAdminTransactions();
+			if (res.success && res.data) {
+				// @ts-ignore
+				setRows(res.data);
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
 			setLoading(false);
-		}, 300);
+		}
 	};
 
 	return (
@@ -251,7 +251,7 @@ export default function AdminTransaksiPage() {
 				<Stack direction="row" spacing={1} alignItems="center">
 					<Tooltip title="Refresh">
 						<IconButton
-							onClick={() => setLoading(true)}
+							onClick={onRefresh}
 							size="small"
 							sx={{
 								width: 34,
@@ -282,7 +282,7 @@ export default function AdminTransaksiPage() {
 
 			{/* Summary cards (compact) */}
 			<Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-				<Grid size={{ xs: 12, md: 4 }}>
+				<Grid size={{ xs: 12, md: 6 }}>
 					<Surface sx={{ p: 1.5 }}>
 						<Stack direction="row" spacing={1.2} alignItems="center">
 							<Box
@@ -313,7 +313,7 @@ export default function AdminTransaksiPage() {
 					</Surface>
 				</Grid>
 
-				<Grid size={{ xs: 12, md: 4 }}>
+				<Grid size={{ xs: 12, md: 6 }}>
 					<Surface sx={{ p: 1.5 }}>
 						<Stack direction="row" spacing={1.2} alignItems="center">
 							<Box
@@ -338,37 +338,6 @@ export default function AdminTransaksiPage() {
 								</Typography>
 								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
 									{idr(sum.monthPaid)}
-								</Typography>
-							</Box>
-						</Stack>
-					</Surface>
-				</Grid>
-
-				<Grid size={{ xs: 12, md: 4 }}>
-					<Surface sx={{ p: 1.5 }}>
-						<Stack direction="row" spacing={1.2} alignItems="center">
-							<Box
-								sx={{
-									width: 40,
-									height: 40,
-									borderRadius: 999,
-									bgcolor: alpha("#f5a623", 0.1),
-									color: "#f5a623",
-									display: "grid",
-									placeItems: "center",
-								}}
-							>
-								<HourglassBottomRoundedIcon />
-							</Box>
-							<Box>
-								<Typography
-									variant="body2"
-									sx={{ color: "text.secondary", fontWeight: 700 }}
-								>
-									Menunggu Pembayaran
-								</Typography>
-								<Typography sx={{ mt: 0.2, fontSize: 16, fontWeight: 1000 }}>
-									{idr(sum.pending)}
 								</Typography>
 							</Box>
 						</Stack>
@@ -418,7 +387,6 @@ export default function AdminTransaksiPage() {
 						>
 							<MenuItem value="all">Semua Status</MenuItem>
 							<MenuItem value="paid">Berhasil</MenuItem>
-							<MenuItem value="pending">Pending</MenuItem>
 							<MenuItem value="failed">Gagal</MenuItem>
 							<MenuItem value="refunded">Refund</MenuItem>
 						</Select>
@@ -459,7 +427,13 @@ export default function AdminTransaksiPage() {
 									sx={{ borderRadius: 1 }}
 								/>
 						  ))
-						: paginated.map((row) => <TxRowCard key={row.id} row={row} />)}
+						: paginated.map((row) => (
+								<TxRowCard
+									key={row.id}
+									row={row}
+									onClick={() => setSelected(row)}
+								/>
+						  ))}
 				</Stack>
 			</Box>
 
@@ -473,20 +447,190 @@ export default function AdminTransaksiPage() {
 					shape="rounded"
 				/>
 			</Box>
+
+			{/* Detail Dialog */}
+			<Dialog
+				open={Boolean(selected)}
+				onClose={() => setSelected(null)}
+				maxWidth="sm"
+				fullWidth
+				PaperProps={{
+					sx: {
+						borderRadius: 3,
+						bgcolor: "background.paper",
+						backgroundImage: "none",
+					},
+				}}
+			>
+				{selected && (
+					<>
+						<DialogTitle
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								p: 2.5,
+								pb: 1,
+							}}
+						>
+							<Typography sx={{ fontSize: 18, fontWeight: 1000 }}>
+								Detail Transaksi
+							</Typography>
+							<IconButton onClick={() => setSelected(null)} size="small">
+								<CloseRoundedIcon />
+							</IconButton>
+						</DialogTitle>
+						<DialogContent sx={{ p: 2.5 }}>
+							<Stack spacing={2}>
+								<Surface sx={{ p: 2, bgcolor: alpha("#000", 0.03) }}>
+									<Typography
+										align="center"
+										sx={{ fontSize: 13, color: "text.secondary", mb: 0.5 }}
+									>
+										Nominal Donasi
+									</Typography>
+									<Typography
+										align="center"
+										sx={{ fontSize: 32, fontWeight: 1000 }}
+									>
+										{idr(selected.amount)}
+									</Typography>
+									<Stack
+										direction="row"
+										spacing={1}
+										justifyContent="center"
+										sx={{ mt: 1 }}
+									>
+										<Chip
+											label={statusMeta(selected.status).label}
+											size="small"
+											color={statusMeta(selected.status).tone}
+											sx={{ fontWeight: 900 }}
+										/>
+										<Chip
+											label={methodLabel(selected.method)}
+											size="small"
+											variant="outlined"
+											sx={{ fontWeight: 900 }}
+										/>
+									</Stack>
+								</Surface>
+
+								<Stack spacing={1.5}>
+									<InfoRow label="ID Transaksi" value={selected.id} />
+									<InfoRow label="Ref Code" value={selected.refCode} />
+									<InfoRow label="Tanggal" value={selected.createdAt} />
+								</Stack>
+
+								<Divider />
+
+								<Typography sx={{ fontSize: 14, fontWeight: 900 }}>
+									Informasi Donatur
+								</Typography>
+								<Stack spacing={1.5}>
+									<InfoRow label="Nama" value={selected.donorName} />
+									<InfoRow label="Email" value={selected.donorEmail} />
+									<InfoRow label="No. HP" value={selected.donorPhone} />
+									<InfoRow
+										label="Anonim"
+										value={selected.isAnonymous ? "Ya" : "Tidak"}
+									/>
+								</Stack>
+
+								{selected.account && (
+									<>
+										<Divider />
+										<Typography sx={{ fontSize: 14, fontWeight: 900 }}>
+											Informasi Akun (Terdaftar)
+										</Typography>
+										<Stack spacing={1.5}>
+											<InfoRow
+												label="Nama Akun"
+												value={selected.account.name}
+											/>
+											<InfoRow label="Email" value={selected.account.email} />
+											<InfoRow label="No. HP" value={selected.account.phone} />
+										</Stack>
+									</>
+								)}
+
+								<Divider />
+
+								<Typography sx={{ fontSize: 14, fontWeight: 900 }}>
+									Campaign & Pesan
+								</Typography>
+								<Stack spacing={1.5}>
+									<InfoRow label="Campaign" value={selected.campaignTitle} />
+									<Box>
+										<Typography
+											sx={{ fontSize: 12.5, color: "text.secondary", mb: 0.5 }}
+										>
+											Pesan / Doa
+										</Typography>
+										<Paper
+											variant="outlined"
+											sx={{
+												p: 1.5,
+												borderRadius: 2,
+												bgcolor: alpha("#000", 0.02),
+												border: "none",
+											}}
+										>
+											<Typography
+												sx={{
+													fontSize: 13.5,
+													fontStyle:
+														selected.message !== "-" ? "normal" : "italic",
+													color:
+														selected.message !== "-"
+															? "text.primary"
+															: "text.secondary",
+												}}
+											>
+												{selected.message}
+											</Typography>
+										</Paper>
+									</Box>
+								</Stack>
+							</Stack>
+						</DialogContent>
+						<DialogActions sx={{ p: 2.5, pt: 0 }}>
+							<Button
+								fullWidth
+								variant="outlined"
+								onClick={() => setSelected(null)}
+								sx={{ borderRadius: 999, fontWeight: 900, height: 44 }}
+							>
+								Tutup
+							</Button>
+						</DialogActions>
+					</>
+				)}
+			</Dialog>
 		</Box>
 	);
 }
 
-function TxRowCard({ row }: { row: TxRow }) {
+function TxRowCard({ row, onClick }: { row: TxRow; onClick?: () => void }) {
 	const meta = statusMeta(row.status);
 
 	return (
-		<Surface sx={{ p: 2 }}>
+		<Surface
+			sx={{
+				p: 2,
+				cursor: onClick ? "pointer" : "default",
+				transition: "all 0.2s",
+				"&:hover": onClick
+					? { bgcolor: alpha("#ffffff", 0.1), transform: "translateY(-2px)" }
+					: {},
+			}}
+		>
 			<Stack
 				direction="row"
 				spacing={1.5}
 				alignItems="center"
 				sx={{ minWidth: 0 }}
+				onClick={onClick}
 			>
 				<Box
 					sx={{
@@ -520,6 +664,7 @@ function TxRowCard({ row }: { row: TxRow }) {
 						variant="outlined"
 						size="small"
 						endIcon={<ArrowForwardRoundedIcon />}
+						onClick={(e) => e.stopPropagation()}
 						sx={{
 							borderRadius: 999,
 							fontWeight: 900,
@@ -531,5 +676,23 @@ function TxRowCard({ row }: { row: TxRow }) {
 				</Box>
 			</Stack>
 		</Surface>
+	);
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+	return (
+		<Stack
+			direction="row"
+			justifyContent="space-between"
+			alignItems="center"
+			spacing={2}
+		>
+			<Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+				{label}
+			</Typography>
+			<Typography sx={{ fontSize: 13, fontWeight: 900, textAlign: "right" }}>
+				{value}
+			</Typography>
+		</Stack>
 	);
 }

@@ -50,6 +50,10 @@ import {
 	deleteCampaign,
 	addCampaignMedia,
 } from "@/actions/campaign";
+import { getCampaignTransactions } from "@/actions/admin";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import HourglassBottomRoundedIcon from "@mui/icons-material/HourglassBottomRounded";
+import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
 
 type CampaignStatus =
 	| "draft"
@@ -93,6 +97,75 @@ const STATUS_META: Record<
 	pending: { label: "Menunggu Verifikasi", tone: "warning" },
 };
 
+// Transaction Types & Helpers
+type TxStatus = "paid" | "pending" | "failed" | "refunded";
+type PayMethod = "qris" | "va_bca" | "va_bri" | "gopay" | "manual";
+
+type TxRow = {
+	id: string;
+	createdAt: string;
+	campaignId: string;
+	campaignTitle: string;
+	donorName: string;
+	donorPhone: string;
+	donorEmail: string;
+	message: string;
+	isAnonymous: boolean;
+	amount: number;
+	method: PayMethod;
+	status: TxStatus;
+	refCode: string;
+	account: {
+		name: string;
+		email: string;
+		phone: string;
+	} | null;
+};
+
+function statusMeta(status: TxStatus) {
+	switch (status) {
+		case "paid":
+			return {
+				label: "Berhasil",
+				icon: <CheckCircleRoundedIcon fontSize="small" />,
+				tone: "success" as const,
+			};
+		case "pending":
+			return {
+				label: "Pending",
+				icon: <HourglassBottomRoundedIcon fontSize="small" />,
+				tone: "warning" as const,
+			};
+		case "failed":
+			return {
+				label: "Gagal",
+				icon: <ErrorRoundedIcon fontSize="small" />,
+				tone: "error" as const,
+			};
+		case "refunded":
+			return {
+				label: "Refund",
+				icon: <ErrorRoundedIcon fontSize="small" />,
+				tone: "info" as const,
+			};
+	}
+}
+
+function methodLabel(m: PayMethod) {
+	switch (m) {
+		case "qris":
+			return "QRIS";
+		case "va_bca":
+			return "VA BCA";
+		case "va_bri":
+			return "VA BRI";
+		case "gopay":
+			return "GoPay";
+		case "manual":
+			return "Manual";
+	}
+}
+
 function idr(n: number) {
 	if (!n) return "Rp0";
 	const s = Math.round(n).toString();
@@ -122,7 +195,7 @@ export default function AdminCampaignDetailPage() {
 	const [data, setData] = React.useState<any>(null);
 
 	const [tab, setTab] = React.useState<
-		"overview" | "story" | "docs" | "verify" | "timeline"
+		"overview" | "story" | "docs" | "verify" | "timeline" | "transactions"
 	>("overview");
 
 	const [snack, setSnack] = React.useState<{
@@ -135,6 +208,31 @@ export default function AdminCampaignDetailPage() {
 
 	// docs state
 	const [docs, setDocs] = React.useState<DocItem[]>([]);
+
+	// transactions state
+	const [txRows, setTxRows] = React.useState<TxRow[]>([]);
+	const [txLoading, setTxLoading] = React.useState(false);
+
+	const fetchTransactions = React.useCallback(async () => {
+		setTxLoading(true);
+		try {
+			const res = await getCampaignTransactions(id);
+			if (res.success && res.data) {
+				// @ts-ignore
+				setTxRows(res.data);
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
+			setTxLoading(false);
+		}
+	}, [id]);
+
+	React.useEffect(() => {
+		if (tab === "transactions") {
+			fetchTransactions();
+		}
+	}, [tab, fetchTransactions]);
 
 	const fetchData = React.useCallback(async () => {
 		setLoading(true);
@@ -834,6 +932,11 @@ export default function AdminCampaignDetailPage() {
 								active={tab === "timeline"}
 								onClick={() => setTab("timeline")}
 							/>
+							<SegTab
+								label="Transaksi"
+								active={tab === "transactions"}
+								onClick={() => setTab("transactions")}
+							/>
 						</Stack>
 					</Paper>
 
@@ -1186,6 +1289,42 @@ export default function AdminCampaignDetailPage() {
 								{audit.map((e) => (
 									<TimelineRow key={e.id} event={e} />
 								))}
+							</Stack>
+						</Paper>
+					)}
+
+					{tab === "transactions" && (
+						<Paper elevation={0} sx={{ ...shellSx, p: 1.5 }}>
+							<Typography sx={{ fontWeight: 1000, fontSize: 14 }}>
+								Transaksi
+							</Typography>
+							<Typography
+								sx={{ mt: 0.5, fontSize: 12.5, color: "text.secondary" }}
+							>
+								Daftar donasi yang masuk ke campaign ini.
+							</Typography>
+
+							<Divider sx={{ my: 1.25 }} />
+
+							<Stack spacing={1}>
+								{txLoading ? (
+									<Stack alignItems="center" sx={{ py: 4 }}>
+										<CircularProgress size={24} />
+									</Stack>
+								) : txRows.length === 0 ? (
+									<Typography
+										sx={{
+											fontSize: 13,
+											color: "text.secondary",
+											textAlign: "center",
+											py: 4,
+										}}
+									>
+										Belum ada transaksi.
+									</Typography>
+								) : (
+									txRows.map((row) => <TxRowCard key={row.id} row={row} />)
+								)}
 							</Stack>
 						</Paper>
 					)}
@@ -1857,6 +1996,58 @@ function TimelineRow({ event }: { event: AuditEvent }) {
 						)}`,
 					}}
 				/>
+			</Stack>
+		</Paper>
+	);
+}
+
+function TxRowCard({ row }: { row: TxRow }) {
+	const meta = statusMeta(row.status);
+
+	return (
+		<Paper
+			variant="outlined"
+			sx={(t) => ({
+				p: 2,
+				borderRadius: 2.5,
+				borderColor: alpha(t.palette.divider, 1),
+				bgcolor: alpha(
+					t.palette.background.default,
+					t.palette.mode === "dark" ? 0.2 : 1
+				),
+			})}
+		>
+			<Stack
+				direction="row"
+				spacing={1.5}
+				alignItems="center"
+				sx={{ minWidth: 0 }}
+			>
+				<Box
+					sx={{
+						width: 40,
+						height: 40,
+						borderRadius: 2.5,
+						display: "grid",
+						placeItems: "center",
+						bgcolor: alpha(
+							meta.tone === "success" ? "#22c55e" : "#f97316",
+							0.12
+						),
+						color: meta.tone === "success" ? "#22c55e" : "#f97316",
+					}}
+				>
+					{meta.icon}
+				</Box>
+
+				<Box sx={{ flex: 1 }}>
+					<Typography sx={{ fontSize: 13, fontWeight: 1000 }}>
+						{idr(row.amount)} • {row.donorName}
+					</Typography>
+					<Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+						{row.createdAt} • {methodLabel(row.method)} • {row.refCode}
+					</Typography>
+				</Box>
 			</Stack>
 		</Paper>
 	);

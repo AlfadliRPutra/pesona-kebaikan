@@ -51,10 +51,8 @@ export async function getMyDonations() {
 			}),
 			rawDate: d.createdAt.toISOString().split("T")[0],
 			status:
-				d.status === "PAID"
+				d.status === "PAID" || d.status === "PENDING"
 					? "Berhasil"
-					: d.status === "PENDING"
-					? "Menunggu Pembayaran"
 					: d.status,
 			paymentMethod: formatPaymentMethod(d.paymentMethod),
 			prayer: d.message || "",

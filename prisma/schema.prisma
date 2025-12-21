@@ -108,6 +108,32 @@ model Authenticator {
   @@index([userId])
 }
 
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model Withdrawal {
+  id            String           @id @default(cuid())
+  amount        Decimal          @db.Decimal(19, 2)
+  status        WithdrawalStatus @default(PENDING)
+  bankName      String
+  bankAccount   String
+  accountHolder String
+  proofUrl      String?
+  notes         String?          @db.Text
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@index([status])
+}
+
 model Post {
   id        Int      @id @default(autoincrement())
   title     String
@@ -231,6 +257,7 @@ model Campaign {
 
   media     CampaignMedia[]
   donations Donation[]
+  withdrawals Withdrawal[]
 
   @@index([categoryId])
   @@index([createdById])
