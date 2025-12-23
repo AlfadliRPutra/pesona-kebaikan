@@ -30,6 +30,8 @@ import {
 	ListItemText,
 	Snackbar,
 	Alert,
+	Card,
+	CardContent,
 } from "@mui/material";
 import { TransitionProps } from "@mui/material/transitions";
 
@@ -40,6 +42,7 @@ import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
 import MedicalServicesOutlinedIcon from "@mui/icons-material/MedicalServicesOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
@@ -545,11 +548,182 @@ export default function CampaignDetailView({ data }: { data: any }) {
 
 					{/* Tab: Kabar Terbaru */}
 					<CustomTabPanel value={tabValue} index={1}>
-						<Typography
-							sx={{ color: "text.secondary", textAlign: "center", py: 4 }}
-						>
-							Belum ada kabar terbaru.
-						</Typography>
+						{data.updates && data.updates.length > 0 ? (
+							<Stack spacing={0}>
+								{data.updates.map((update: any, index: number) => (
+									<Box key={update.id} sx={{ display: "flex", gap: 2 }}>
+										{/* Timeline Indicator */}
+										<Box
+											sx={{
+												display: "flex",
+												flexDirection: "column",
+												alignItems: "center",
+												minWidth: 40,
+											}}
+										>
+											<Box
+												sx={{
+													width: 40,
+													height: 40,
+													borderRadius: "50%",
+													bgcolor:
+														update.type === "withdrawal"
+															? "#f1f5f9"
+															: "#dcfce7",
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+													border: "4px solid white",
+													boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+													zIndex: 1,
+												}}
+											>
+												{update.type === "withdrawal" ? (
+													<AccountBalanceWalletRoundedIcon
+														sx={{ fontSize: 20, color: "#64748b" }}
+													/>
+												) : (
+													<VerifiedUserIcon
+														sx={{ fontSize: 20, color: "#16a34a" }}
+													/>
+												)}
+											</Box>
+											{index !== data.updates.length - 1 && (
+												<Box
+													sx={{
+														width: 2,
+														flex: 1,
+														bgcolor: "#e2e8f0",
+														my: -1,
+														position: "relative",
+														zIndex: 0,
+													}}
+												/>
+											)}
+										</Box>
+
+										{/* Content */}
+										<Box sx={{ flex: 1, pb: 5 }}>
+											<Box sx={{ mb: 1.5 }}>
+												<Typography
+													variant="caption"
+													sx={{
+														color: "#94a3b8",
+														fontWeight: 600,
+														textTransform: "uppercase",
+														letterSpacing: 0.5,
+														fontSize: 11,
+													}}
+												>
+													{new Date(update.date).toLocaleDateString("id-ID", {
+														day: "numeric",
+														month: "long",
+														year: "numeric",
+													})}
+												</Typography>
+												<Typography
+													variant="h6"
+													sx={{ fontSize: 16, fontWeight: 700, mt: 0.5 }}
+												>
+													{update.title}
+												</Typography>
+											</Box>
+
+											<Paper
+												elevation={0}
+												sx={{
+													p: 2.5,
+													bgcolor: "#f8fafc",
+													borderRadius: 3,
+													border: "1px solid #e2e8f0",
+												}}
+											>
+												<Typography
+													variant="body2"
+													sx={{
+														color: "#334155",
+														lineHeight: 1.7,
+														whiteSpace: "pre-wrap",
+													}}
+												>
+													{update.content}
+												</Typography>
+
+												{update.images && update.images.length > 0 && (
+													<Box
+														sx={{
+															mt: 2,
+															borderRadius: 2,
+															overflow: "hidden",
+															display: "grid",
+															gridTemplateColumns:
+																update.images.length === 1
+																	? "1fr"
+																	: "repeat(2, 1fr)",
+															gap: 0.5,
+														}}
+													>
+														{update.images.map((img: string, i: number) => (
+															<Box
+																key={i}
+																component="img"
+																src={img}
+																alt="Update"
+																sx={{
+																	width: "100%",
+																	height:
+																		update.images.length === 1 ? "auto" : 160,
+																	objectFit: "cover",
+																	gridColumn:
+																		update.images.length % 2 !== 0 && i === 0
+																			? "span 2"
+																			: "auto",
+																}}
+															/>
+														))}
+													</Box>
+												)}
+											</Paper>
+										</Box>
+									</Box>
+								))}
+							</Stack>
+						) : (
+							<Box
+								sx={{
+									textAlign: "center",
+									py: 8,
+									px: 2,
+									bgcolor: "#f8fafc",
+									borderRadius: 4,
+									border: "1px dashed #e2e8f0",
+								}}
+							>
+								<Box
+									sx={{
+										width: 64,
+										height: 64,
+										bgcolor: "#f1f5f9",
+										borderRadius: "50%",
+										display: "flex",
+										alignItems: "center",
+										justifyContent: "center",
+										mx: "auto",
+										mb: 2,
+									}}
+								>
+									<VolunteerActivismIcon
+										sx={{ color: "#94a3b8", fontSize: 32 }}
+									/>
+								</Box>
+								<Typography variant="subtitle1" fontWeight={600} gutterBottom>
+									Belum ada kabar terbaru
+								</Typography>
+								<Typography variant="body2" color="text.secondary">
+									Pemilik campaign belum memposting update apapun.
+								</Typography>
+							</Box>
+						)}
 					</CustomTabPanel>
 				</Box>
 			</Container>
@@ -638,23 +812,23 @@ export default function CampaignDetailView({ data }: { data: any }) {
 							gap: 2,
 						}}
 					>
-							<Box
-								onClick={() => handleShareAction("whatsapp")}
-								sx={{ textAlign: "center", cursor: "pointer" }}
+						<Box
+							onClick={() => handleShareAction("whatsapp")}
+							sx={{ textAlign: "center", cursor: "pointer" }}
+						>
+							<Avatar
+								sx={{
+									bgcolor: "#25D366",
+									width: 50,
+									height: 50,
+									mx: "auto",
+									mb: 1,
+								}}
 							>
-								<Avatar
-									sx={{
-										bgcolor: "#25D366",
-										width: 50,
-										height: 50,
-										mx: "auto",
-										mb: 1,
-									}}
-								>
-									<WhatsAppIcon />
-								</Avatar>
-								<Typography variant="caption">WhatsApp</Typography>
-							</Box>
+								<WhatsAppIcon />
+							</Avatar>
+							<Typography variant="caption">WhatsApp</Typography>
+						</Box>
 						<Box
 							onClick={() => handleShareAction("facebook")}
 							sx={{ textAlign: "center", cursor: "pointer" }}
@@ -683,9 +857,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 							onClick={() => handleShareAction("twitter")}
 							sx={{ textAlign: "center", cursor: "pointer" }}
 						>
-							<Box
-								sx={{ textAlign: "center", cursor: "pointer" }}
-							>
+							<Box sx={{ textAlign: "center", cursor: "pointer" }}>
 								<Avatar
 									sx={{
 										bgcolor: "#1DA1F2",
@@ -704,9 +876,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 							onClick={() => handleShareAction("copy")}
 							sx={{ textAlign: "center", cursor: "pointer" }}
 						>
-							<Box
-								sx={{ textAlign: "center", cursor: "pointer" }}
-							>
+							<Box sx={{ textAlign: "center", cursor: "pointer" }}>
 								<Avatar
 									sx={{
 										bgcolor: "#f1f5f9",

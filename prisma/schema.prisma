@@ -258,6 +258,7 @@ model Campaign {
   media     CampaignMedia[]
   donations Donation[]
   withdrawals Withdrawal[]
+  updates     CampaignUpdate[]
 
   @@index([categoryId])
   @@index([createdById])
@@ -328,4 +329,32 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model CampaignUpdate {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  amount    Decimal? @db.Decimal(19, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  media     CampaignUpdateMedia[]
+
+  @@index([campaignId])
+}
+
+model CampaignUpdateMedia {
+  id        String   @id @default(cuid())
+  url       String
+  type      String   @default("IMAGE")
+  createdAt DateTime @default(now())
+
+  updateId  String
+  update    CampaignUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@index([updateId])
 }
