@@ -8,10 +8,10 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 
 const prismaClientSingleton = () => {
-	return new PrismaClient({ adapter });
+  return new PrismaClient({ adapter });
 };
 declare const globalThis: {
-	prismaGlobalV4: ReturnType<typeof prismaClientSingleton>;
+  prismaGlobalV4: ReturnType<typeof prismaClientSingleton>;
 } & typeof global;
 export const prisma = globalThis.prismaGlobalV4 ?? prismaClientSingleton();
 
