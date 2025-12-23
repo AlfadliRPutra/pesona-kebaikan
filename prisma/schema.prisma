@@ -188,7 +188,8 @@ model BlogCategory {
 model Blog {
   id        String   @id @default(cuid())
   title     String
-  content   String
+  content   String   // WYSIWYG HTML/Markdown
+  headerImage String? // path ke gambar header, contoh: 'uploads/blog/xxx.webp'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -198,20 +199,22 @@ model Blog {
   createdById String
   createdBy   User   @relation("UserBlogs", fields: [createdById], references: [id], onDelete: Cascade)
 
+  // Gallery otomatis: diisi dari parsing konten editor (img src/file video)
   gallery BlogMedia[]
 
   @@index([categoryId])
   @@index([createdById])
 }
 
+// Gallery hanya berisi media yang diupload/insert lewat editor.
+// url: path file di uploads/blog atau link video (YouTube, Vimeo, dll)
 model BlogMedia {
   id     String @id @default(cuid())
   blogId String
   blog   Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
 
   type        BlogMediaType
-  url         String
-  isThumbnail Boolean       @default(false)
+  url         String // path ke file di uploads/blog atau link video
   createdAt   DateTime      @default(now())
 
   @@index([blogId])
