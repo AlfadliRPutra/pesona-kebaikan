@@ -50,11 +50,13 @@ import {
 	deleteCampaign,
 	addCampaignMedia,
 	finishCampaign,
+	updateCampaignStory,
 } from "@/actions/campaign";
 import { getCampaignTransactions } from "@/actions/admin";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import HourglassBottomRoundedIcon from "@mui/icons-material/HourglassBottomRounded";
 import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 type CampaignStatus =
 	| "draft"
@@ -291,7 +293,7 @@ export default function AdminCampaignDetailPage() {
 					}),
 					publicUrl: `/donasi/${c.slug || c.id}`,
 					shortInvite: cleanStory.substring(0, 100) + "...",
-					story: cleanStory,
+					story: c.description, // Use full description (HTML or text)
 				};
 				setData(mappedData);
 
@@ -418,7 +420,9 @@ export default function AdminCampaignDetailPage() {
 	const [confirmReject, setConfirmReject] = React.useState(false);
 
 	const progress = pct(data?.collected || 0, data?.target || 0);
-		const statusMeta = data ? STATUS_META[data.status as CampaignStatus] : STATUS_META.review;
+	const statusMeta = data
+		? STATUS_META[data.status as CampaignStatus]
+		: STATUS_META.review;
 
 	const toneColor = (tone: typeof statusMeta.tone) => {
 		switch (tone) {
@@ -637,7 +641,11 @@ export default function AdminCampaignDetailPage() {
 		setConfirmReject(false);
 		const res = await updateCampaignStatus(id, "REJECTED");
 		if (res.success) {
-			setData((d: any) => ({ ...d, status: "rejected", updatedAt: "Hari ini" }));
+			setData((d: any) => ({
+				...d,
+				status: "rejected",
+				updatedAt: "Hari ini",
+			}));
 			pushAudit({
 				title: "Campaign ditolak",
 				meta: rejectReason ? `Alasan: ${rejectReason}` : "Tanpa alasan.",
@@ -657,13 +665,18 @@ export default function AdminCampaignDetailPage() {
 		}
 	};
 
-	const onSaveStory = () => {
-		pushAudit({
-			title: "Konten campaign disimpan",
-			meta: "Judul/Cerita/Ajakan diperbarui.",
-			tone: "info",
-		});
-		setSnack({ open: true, msg: "Disimpan.", type: "success" });
+	const onSaveStory = async () => {
+		const res = await updateCampaignStory(id, data.title, data.story);
+		if (res.success) {
+			pushAudit({
+				title: "Konten campaign disimpan",
+				meta: "Judul/Cerita diperbarui.",
+				tone: "info",
+			});
+			setSnack({ open: true, msg: "Disimpan.", type: "success" });
+		} else {
+			setSnack({ open: true, msg: "Gagal menyimpan.", type: "error" });
+		}
 	};
 
 	const requiredMissing = docs.filter((d) => d.required && !d.uploaded).length;
@@ -1037,16 +1050,13 @@ export default function AdminCampaignDetailPage() {
 							</FormBlock>
 
 							<FormBlock label="Cerita">
-								<TextField
-									size="small"
+								<RichTextEditor
 									value={data.story}
-									onChange={(e) =>
-										setData((d: any) => ({ ...d, story: e.target.value }))
+									onChange={(val) =>
+										setData((d: any) => ({ ...d, story: val }))
 									}
-									fullWidth
-									multiline
-									minRows={10}
-									sx={fieldSx(theme)}
+									placeholder="Tulis cerita lengkap..."
+									minHeight={300}
 								/>
 								<Typography
 									sx={{ mt: 0.75, fontSize: 12, color: "text.secondary" }}
