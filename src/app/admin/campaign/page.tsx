@@ -200,7 +200,7 @@ export default function AdminCampaignPage() {
 
 	const onEnd = async (id: string) => {
 		if (confirm("Apakah anda yakin ingin mengakhiri campaign ini?")) {
-			await updateCampaignStatus(id, "ENDED");
+			await updateCampaignStatus(id, "COMPLETED");
 			fetchCampaigns();
 		}
 	};

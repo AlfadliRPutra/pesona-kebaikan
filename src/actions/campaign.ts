@@ -322,6 +322,7 @@ export async function getCampaignBySlug(slug: string) {
 					? "ended"
 					: campaign.status.toLowerCase(),
 			description: campaign.story,
+			createdAt: campaign.createdAt,
 			updatedAt: campaign.updatedAt,
 			thumbnail,
 			images: campaign.media.map((m) => m.url),
@@ -501,7 +502,7 @@ export async function updateCampaign(id: string, formData: FormData) {
 
 		const target = parseFloat(targetStr);
 
-		const category = await prisma.category.findFirst({
+		const category = await prisma.campaignCategory.findFirst({
 			where: { name: CATEGORY_TITLE[categoryKey] },
 		});
 

@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Paper,
-  Grid,
   Avatar,
   Stack,
   Button,
@@ -188,9 +187,16 @@ export default function AdminUserDetailClient({ user }: AdminUserDetailClientPro
         </Stack>
       </Box>
 
-      <Grid container spacing={3}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 3,
+          gridTemplateColumns: { xs: '1fr', md: '0.9fr 1.1fr' },
+          alignItems: 'start',
+        }}
+      >
         {/* Left Column: User Profile Card */}
-        <Grid item xs={12} md={4}>
+        <Box>
             <Paper 
                 elevation={0} 
                 sx={{ 
@@ -322,13 +328,20 @@ export default function AdminUserDetailClient({ user }: AdminUserDetailClientPro
                     Top 15% of active donors this month
                 </Typography>
             </Paper>
-        </Grid>
+        </Box>
 
         {/* Right Column: Detailed Stats & Tabs */}
-        <Grid item xs={12} md={8}>
+        <Box>
             {/* Stats Grid */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+                mb: 3,
+              }}
+            >
+                <Box>
                     <Card sx={{ borderRadius: 3, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                         <CardContent>
                             <Stack spacing={1}>
@@ -345,8 +358,8 @@ export default function AdminUserDetailClient({ user }: AdminUserDetailClientPro
                             </Stack>
                         </CardContent>
                     </Card>
-                </Grid>
-                <Grid item xs={12} sm={4}>
+                </Box>
+                <Box>
                     <Card sx={{ borderRadius: 3, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                         <CardContent>
                             <Stack spacing={1}>
@@ -361,8 +374,8 @@ export default function AdminUserDetailClient({ user }: AdminUserDetailClientPro
                             </Stack>
                         </CardContent>
                     </Card>
-                </Grid>
-                <Grid item xs={12} sm={4}>
+                </Box>
+                <Box>
                     <Card sx={{ borderRadius: 3, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                         <CardContent>
                             <Stack spacing={1}>
@@ -376,8 +389,8 @@ export default function AdminUserDetailClient({ user }: AdminUserDetailClientPro
                             </Stack>
                         </CardContent>
                     </Card>
-                </Grid>
-            </Grid>
+                </Box>
+            </Box>
 
             {/* Tabs Section */}
             <Paper sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }} elevation={0}>
@@ -470,8 +483,8 @@ export default function AdminUserDetailClient({ user }: AdminUserDetailClientPro
                     </Box>
                 </CustomTabPanel>
             </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Share Dialog */}
       <Dialog

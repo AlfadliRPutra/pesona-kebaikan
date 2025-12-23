@@ -184,7 +184,7 @@ export default function NotificationClient({ initialNotifications, totalPages, c
                       label={notif.type} 
                       size="small" 
                       color={notif.type === 'KABAR' ? 'primary' : 'secondary'} 
-                      variant="soft" 
+                      variant="outlined" 
                     />
                   </TableCell>
                   <TableCell>

@@ -109,7 +109,7 @@ export default async function CampaignDetailPage({
 		0
 	);
 	const donorCount = new Set(
-		successfulDonations.map((d) => d.donorEmail || d.id)
+		successfulDonations.map((d) => d.userId || d.donorPhone || d.id)
 	).size;
 
 	const progress = Math.min(
@@ -157,9 +157,16 @@ export default async function CampaignDetailPage({
 			</Box>
 
 			<Container maxWidth="lg" sx={{ mt: 3 }}>
-				<Grid container spacing={3}>
+				<Box
+					sx={{
+						display: "grid",
+						gap: 3,
+						gridTemplateColumns: { xs: "1fr", md: "0.9fr 1.1fr" },
+						alignItems: "start",
+					}}
+				>
 					{/* Left Column: Campaign Info */}
-					<Grid item xs={12} md={4}>
+					<Box>
 						<Card
 							elevation={0}
 							sx={{
@@ -360,10 +367,10 @@ export default async function CampaignDetailPage({
 								</Stack>
 							</CardContent>
 						</Card>
-					</Grid>
+					</Box>
 
 					{/* Right Column: Transactions */}
-					<Grid item xs={12} md={8}>
+					<Box>
 						<Typography
 							variant="h6"
 							fontWeight={800}
@@ -558,8 +565,8 @@ export default async function CampaignDetailPage({
 								))}
 							</Stack>
 						)}
-					</Grid>
-				</Grid>
+					</Box>
+				</Box>
 			</Container>
 		</Box>
 	);

@@ -161,9 +161,16 @@ export default function DonationForm({
 				<Typography variant="subtitle1" fontWeight={700} gutterBottom>
 					Pilih Nominal Donasi
 				</Typography>
-				<Grid container spacing={2} sx={{ mb: 2 }}>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)" },
+						gap: 2,
+						mb: 2,
+					}}
+				>
 					{PRESET_AMOUNTS.map((val) => (
-						<Grid item xs={6} sm={4} key={val}>
+						<Box key={val}>
 							<Button
 								variant={amount === val ? "contained" : "outlined"}
 								fullWidth
@@ -182,9 +189,9 @@ export default function DonationForm({
 							>
 								{val.toLocaleString("id-ID")}
 							</Button>
-						</Grid>
+						</Box>
 					))}
-				</Grid>
+				</Box>
 				<TextField
 					fullWidth
 					placeholder="Nominal Lainnya"

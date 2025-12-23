@@ -139,7 +139,7 @@ export default function GalangDanaSayaPage() {
 		setLoading(true);
 		// Fetch ALL to allow client-side filtering and counting
 		const res = await getMyCampaigns(1, 100, "all");
-		if (res.success && res.data) {
+		if (res.success && "data" in res && Array.isArray(res.data)) {
 			const mapped: FundraiseMine[] = res.data.map((c: any) => ({
 				id: c.id,
 				title: c.title,

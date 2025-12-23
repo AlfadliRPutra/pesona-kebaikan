@@ -15,6 +15,7 @@ import {
 	getUrgentCampaigns,
 	getLatestDonations,
 } from "@/actions/campaign";
+import type { Campaign } from "@/types";
 
 export default async function Home() {
 	const [urgentRes, popularRes, donationRes] = await Promise.all([
@@ -23,9 +24,13 @@ export default async function Home() {
 		getLatestDonations(10),
 	]);
 
-	const urgentCampaigns = urgentRes.success ? urgentRes.data : [];
-	const popularCampaigns = popularRes.success ? popularRes.data : [];
-	const latestDonations = donationRes.success ? donationRes.data : [];
+	const urgentCampaigns: Campaign[] = Array.isArray(urgentRes.data)
+		? urgentRes.data
+		: [];
+	const popularCampaigns: Campaign[] = Array.isArray(popularRes.data)
+		? popularRes.data
+		: [];
+	const latestDonations = "data" in donationRes ? donationRes.data : [];
 
 	return (
 		<Box>

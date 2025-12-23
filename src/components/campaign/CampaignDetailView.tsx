@@ -631,8 +631,13 @@ export default function CampaignDetailView({ data }: { data: any }) {
 					</IconButton>
 				</Box>
 				<DialogContent>
-					<Grid container spacing={2}>
-						<Grid item xs={3}>
+					<Box
+						sx={{
+							display: "grid",
+							gridTemplateColumns: "repeat(4, 1fr)",
+							gap: 2,
+						}}
+					>
 							<Box
 								onClick={() => handleShareAction("whatsapp")}
 								sx={{ textAlign: "center", cursor: "pointer" }}
@@ -650,11 +655,15 @@ export default function CampaignDetailView({ data }: { data: any }) {
 								</Avatar>
 								<Typography variant="caption">WhatsApp</Typography>
 							</Box>
-						</Grid>
-						<Grid item xs={3}>
+						<Box
+							onClick={() => handleShareAction("facebook")}
+							sx={{ textAlign: "center", cursor: "pointer" }}
+						>
 							<Box
-								onClick={() => handleShareAction("facebook")}
-								sx={{ textAlign: "center", cursor: "pointer" }}
+								sx={{
+									textAlign: "center",
+									cursor: "pointer",
+								}}
 							>
 								<Avatar
 									sx={{
@@ -669,10 +678,12 @@ export default function CampaignDetailView({ data }: { data: any }) {
 								</Avatar>
 								<Typography variant="caption">Facebook</Typography>
 							</Box>
-						</Grid>
-						<Grid item xs={3}>
+						</Box>
+						<Box
+							onClick={() => handleShareAction("twitter")}
+							sx={{ textAlign: "center", cursor: "pointer" }}
+						>
 							<Box
-								onClick={() => handleShareAction("twitter")}
 								sx={{ textAlign: "center", cursor: "pointer" }}
 							>
 								<Avatar
@@ -688,10 +699,12 @@ export default function CampaignDetailView({ data }: { data: any }) {
 								</Avatar>
 								<Typography variant="caption">Twitter</Typography>
 							</Box>
-						</Grid>
-						<Grid item xs={3}>
+						</Box>
+						<Box
+							onClick={() => handleShareAction("copy")}
+							sx={{ textAlign: "center", cursor: "pointer" }}
+						>
 							<Box
-								onClick={() => handleShareAction("copy")}
 								sx={{ textAlign: "center", cursor: "pointer" }}
 							>
 								<Avatar
@@ -708,8 +721,8 @@ export default function CampaignDetailView({ data }: { data: any }) {
 								</Avatar>
 								<Typography variant="caption">Salin</Typography>
 							</Box>
-						</Grid>
-					</Grid>
+						</Box>
+					</Box>
 				</DialogContent>
 			</Dialog>
 

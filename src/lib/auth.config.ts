@@ -6,8 +6,7 @@ export const authConfig = {
     signIn: "/auth/login",
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
+    authorized({ auth }) {
       // Middleware logic is handled in middleware.ts
       return true;
     },

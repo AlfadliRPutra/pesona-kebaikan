@@ -5,7 +5,7 @@ import Box from "@mui/material/Box";
 import Image from "next/image";
 import Typography from "@mui/material/Typography";
 
-import { Campaign } from "@prisma/client";
+import { Campaign } from "@/types";
 
 const defaultSlides = [
 	{ src: "/brand/carousel1.webp" },
@@ -40,7 +40,7 @@ export default function HeroCarousel({
 		// Combine brand images with campaign images, or just use campaign images
 		// Let's take up to 3 campaign images
 		const campaignSlides = campaigns.slice(0, 3).map((c) => ({
-			src: c.thumbnail || "/defaultimg.webp",
+			src: c.cover || "/defaultimg.webp",
 		}));
 		return [...defaultSlides, ...campaignSlides];
 	}, [campaigns]);
