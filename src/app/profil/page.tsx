@@ -474,7 +474,7 @@ function ProfilePageContent() {
                     label="Nomor WhatsApp" 
                     fullWidth 
                     size="small" 
-                    defaultValue={user?.phone || ""}
+                    defaultValue={""}
                     placeholder="0812xxxx" 
                     sx={{ mb: 2 }}
                     InputProps={{ sx: { borderRadius: 2 } }}

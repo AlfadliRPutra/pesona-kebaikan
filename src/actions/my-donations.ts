@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { PaymentMethod } from "@prisma/client";
+import { PaymentMethod } from "@/generated/prisma/enums";
 
 export async function getMyDonations() {
 	const session = await auth();

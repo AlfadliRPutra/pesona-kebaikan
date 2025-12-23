@@ -418,8 +418,15 @@ export default function UsersClient({ initialUsers, initialTotal, stats }: Users
       </Box>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 5 }}>
-        <Grid item xs={12} sm={4}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 3,
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+          mb: 5,
+        }}
+      >
+        <Box>
           <StatCard
             title="Total Users"
             value={stats.total}
@@ -427,8 +434,8 @@ export default function UsersClient({ initialUsers, initialTotal, stats }: Users
             color="#3b82f6"
             gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
           />
-        </Grid>
-        <Grid item xs={12} sm={4}>
+        </Box>
+        <Box>
           <StatCard
             title="Administrators"
             value={stats.admins}
@@ -436,8 +443,8 @@ export default function UsersClient({ initialUsers, initialTotal, stats }: Users
             color="#10b981"
             gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)"
           />
-        </Grid>
-        <Grid item xs={12} sm={4}>
+        </Box>
+        <Box>
           <StatCard
             title="Standard Users"
             value={stats.users}
@@ -445,8 +452,8 @@ export default function UsersClient({ initialUsers, initialTotal, stats }: Users
             color="#8b5cf6"
             gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
           />
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Controls & Table */}
       <Paper 

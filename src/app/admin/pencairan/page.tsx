@@ -24,9 +24,8 @@ import {
 	DialogContent,
 	DialogActions,
 	Alert,
-	Grid,
 } from "@mui/material";
-import { alpha } from "@mui/material/styles";
+import { alpha, useTheme, SxProps, Theme } from "@mui/material/styles";
 
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
@@ -106,23 +105,30 @@ function statusMeta(status: WithdrawalStatus) {
 
 function Surface({
 	children,
-	sx = {},
+	sx,
 	...props
-}: React.ComponentProps<typeof Paper>) {
+}: { children: React.ReactNode; sx?: SxProps<Theme> } & Omit<
+	React.ComponentProps<typeof Paper>,
+	"sx"
+>) {
+	const theme = useTheme();
+	const baseSx = {
+		borderRadius: 3,
+		borderColor: alpha(theme.palette.divider, 0.6),
+		bgcolor: alpha(
+			theme.palette.background.default,
+			theme.palette.mode === "dark" ? 0.4 : 0.8
+		),
+		backdropFilter: "blur(12px)",
+		boxShadow: theme.shadows[1],
+	};
+	const sxProp: SxProps<Theme> = Array.isArray(sx)
+		? [baseSx, ...sx]
+		: [baseSx, sx];
 	return (
 		<Paper
 			variant="outlined"
-			sx={(t) => ({
-				borderRadius: 3,
-				borderColor: alpha(t.palette.divider, 0.6),
-				bgcolor: alpha(
-					t.palette.background.default,
-					t.palette.mode === "dark" ? 0.4 : 0.8
-				),
-				backdropFilter: "blur(12px)",
-				boxShadow: t.shadows[1],
-				...sx,
-			})}
+			sx={sxProp}
 			{...props}
 		>
 			{children}
@@ -135,7 +141,7 @@ function WithdrawalCard({
 	onUpdateStatus,
 }: {
 	row: WithdrawalRow;
-	onUpdateStatus: (id: string, status: WithdrawalStatus) => void;
+	onUpdateStatus: (id: string, status: Exclude<WithdrawalStatus, "PENDING">) => void;
 }) {
 	const meta = statusMeta(row.status);
 
@@ -317,7 +323,10 @@ export default function PencairanPage() {
 		}
 	};
 
-	const handleUpdateStatus = async (id: string, status: WithdrawalStatus) => {
+	const handleUpdateStatus = async (
+		id: string,
+		status: Exclude<WithdrawalStatus, "PENDING">
+	) => {
 		if (!confirm(`Ubah status menjadi ${status}?`)) return;
 		try {
 			await updateWithdrawalStatus(id, status);
@@ -533,8 +542,14 @@ export default function PencairanPage() {
 							Informasi Rekening Tujuan
 						</Typography>
 
-						<Grid container spacing={2}>
-							<Grid item xs={12} sm={6}>
+						<Box
+							sx={{
+								display: "grid",
+								gap: 2,
+								gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+							}}
+						>
+							<Box>
 								<TextField
 									label="Nama Bank"
 									fullWidth
@@ -543,8 +558,8 @@ export default function PencairanPage() {
 									onChange={(e) => setBankName(e.target.value)}
 									placeholder="Contoh: BCA"
 								/>
-							</Grid>
-							<Grid item xs={12} sm={6}>
+							</Box>
+							<Box>
 								<TextField
 									label="Nomor Rekening"
 									fullWidth
@@ -552,8 +567,8 @@ export default function PencairanPage() {
 									value={bankAccount}
 									onChange={(e) => setBankAccount(e.target.value)}
 								/>
-							</Grid>
-							<Grid item xs={12}>
+							</Box>
+							<Box sx={{ gridColumn: "1 / -1" }}>
 								<TextField
 									label="Nama Pemilik Rekening"
 									fullWidth
@@ -561,8 +576,8 @@ export default function PencairanPage() {
 									value={accountHolder}
 									onChange={(e) => setAccountHolder(e.target.value)}
 								/>
-							</Grid>
-						</Grid>
+							</Box>
+						</Box>
 
 						<TextField
 							label="Catatan / Keterangan"

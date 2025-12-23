@@ -30,6 +30,12 @@ const pop = keyframes`
   100% { transform: scale(1); }
 `;
 
+const heartFloat = keyframes`
+  0%   { transform: translate(0, 0); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translate(var(--dx), -56px); opacity: 0; }
+`;
+
 function AvatarIcon() {
 	return (
 		<Box

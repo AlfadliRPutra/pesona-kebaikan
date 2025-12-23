@@ -279,7 +279,7 @@ export default function AdminCampaignDetailPage() {
 					target: Number(c.target),
 					collected: Number(c.collected),
 					donors: c.donations?.length || 0,
-					createdAt: new Date(c.createdAt).toLocaleDateString("id-ID", {
+					createdAt: new Date(c.updatedAt).toLocaleDateString("id-ID", {
 						day: "numeric",
 						month: "long",
 						year: "numeric",
@@ -418,7 +418,7 @@ export default function AdminCampaignDetailPage() {
 	const [confirmReject, setConfirmReject] = React.useState(false);
 
 	const progress = pct(data?.collected || 0, data?.target || 0);
-	const statusMeta = data ? STATUS_META[data.status] : STATUS_META.review;
+		const statusMeta = data ? STATUS_META[data.status as CampaignStatus] : STATUS_META.review;
 
 	const toneColor = (tone: typeof statusMeta.tone) => {
 		switch (tone) {
@@ -613,7 +613,7 @@ export default function AdminCampaignDetailPage() {
 		setConfirmApprove(false);
 		const res = await updateCampaignStatus(id, "ACTIVE");
 		if (res.success) {
-			setData((d) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
+			setData((d: any) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
 			pushAudit({
 				title: "Campaign disetujui",
 				meta: "Status berubah menjadi Aktif.",
@@ -637,7 +637,7 @@ export default function AdminCampaignDetailPage() {
 		setConfirmReject(false);
 		const res = await updateCampaignStatus(id, "REJECTED");
 		if (res.success) {
-			setData((d) => ({ ...d, status: "rejected", updatedAt: "Hari ini" }));
+			setData((d: any) => ({ ...d, status: "rejected", updatedAt: "Hari ini" }));
 			pushAudit({
 				title: "Campaign ditolak",
 				meta: rejectReason ? `Alasan: ${rejectReason}` : "Tanpa alasan.",
@@ -1029,7 +1029,7 @@ export default function AdminCampaignDetailPage() {
 									size="small"
 									value={data.title}
 									onChange={(e) =>
-										setData((d) => ({ ...d, title: e.target.value }))
+										setData((d: any) => ({ ...d, title: e.target.value }))
 									}
 									fullWidth
 									sx={fieldSx(theme)}
@@ -1041,7 +1041,7 @@ export default function AdminCampaignDetailPage() {
 									size="small"
 									value={data.story}
 									onChange={(e) =>
-										setData((d) => ({ ...d, story: e.target.value }))
+										setData((d: any) => ({ ...d, story: e.target.value }))
 									}
 									fullWidth
 									multiline
@@ -1060,7 +1060,7 @@ export default function AdminCampaignDetailPage() {
 									size="small"
 									value={data.shortInvite}
 									onChange={(e) =>
-										setData((d) => ({ ...d, shortInvite: e.target.value }))
+										setData((d: any) => ({ ...d, shortInvite: e.target.value }))
 									}
 									fullWidth
 									multiline
@@ -1673,53 +1673,55 @@ function SegTab({
 	active: boolean;
 	onClick: () => void;
 }) {
+	const theme = useTheme();
 	return (
 		<Chip
 			label={label}
 			clickable
 			onClick={onClick}
 			variant="outlined"
-			sx={(t) => ({
+			sx={{
 				borderRadius: 999,
 				fontWeight: 1000,
 				px: 0.5,
 				borderColor: active
-					? alpha(t.palette.primary.main, 0.35)
-					: alpha(t.palette.divider, 1),
+					? alpha(theme.palette.primary.main, 0.35)
+					: alpha(theme.palette.divider, 1),
 				bgcolor: active
 					? alpha(
-							t.palette.primary.main,
-							t.palette.mode === "dark" ? 0.18 : 0.08
+							theme.palette.primary.main,
+							theme.palette.mode === "dark" ? 0.18 : 0.08
 					  )
 					: "transparent",
-				color: active ? t.palette.primary.main : t.palette.text.secondary,
+				color: active
+					? theme.palette.primary.main
+					: theme.palette.text.secondary,
 				transition: "all 140ms ease",
 				"&:hover": {
 					bgcolor: alpha(
-						t.palette.primary.main,
-						t.palette.mode === "dark" ? 0.14 : 0.06
+						theme.palette.primary.main,
+						theme.palette.mode === "dark" ? 0.14 : 0.06
 					),
 				},
-			})}
+			}}
 		/>
 	);
 }
 
 function QuickPill({ label, value }: { label: string; value: string }) {
+	const theme = useTheme();
 	return (
 		<Box
-			sx={(t) => ({
+			sx={{
 				px: 1.25,
 				py: 0.75,
 				borderRadius: 2,
-				// border: "1px solid",
-				// borderColor: alpha(t.palette.divider, 1),
 				bgcolor: alpha(
-					t.palette.background.default,
-					t.palette.mode === "dark" ? 0.18 : 1
+					theme.palette.background.default,
+					theme.palette.mode === "dark" ? 0.18 : 1
 				),
 				minWidth: 180,
-			})}
+			}}
 		>
 			<Typography
 				sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 900 }}
@@ -1737,18 +1739,19 @@ function QuickPill({ label, value }: { label: string; value: string }) {
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
+	const theme = useTheme();
 	return (
 		<Paper
 			variant="outlined"
-			sx={(t) => ({
+			sx={{
 				borderRadius: 2.5,
 				p: 1,
-				borderColor: alpha(t.palette.divider, 1),
+				borderColor: alpha(theme.palette.divider, 1),
 				bgcolor: alpha(
-					t.palette.background.default,
-					t.palette.mode === "dark" ? 0.2 : 1
+					theme.palette.background.default,
+					theme.palette.mode === "dark" ? 0.2 : 1
 				),
-			})}
+			}}
 		>
 			<Typography
 				sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 900 }}
@@ -2031,20 +2034,21 @@ function TimelineRow({ event }: { event: AuditEvent }) {
 }
 
 function TxRowCard({ row }: { row: TxRow }) {
+	const theme = useTheme();
 	const meta = statusMeta(row.status);
 
 	return (
 		<Paper
 			variant="outlined"
-			sx={(t) => ({
+			sx={{
 				p: 2,
 				borderRadius: 2.5,
-				borderColor: alpha(t.palette.divider, 1),
+				borderColor: alpha(theme.palette.divider, 1),
 				bgcolor: alpha(
-					t.palette.background.default,
-					t.palette.mode === "dark" ? 0.2 : 1
+					theme.palette.background.default,
+					theme.palette.mode === "dark" ? 0.2 : 1
 				),
-			})}
+			}}
 		>
 			<Stack
 				direction="row"
