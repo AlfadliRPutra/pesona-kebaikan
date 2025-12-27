@@ -175,59 +175,147 @@ async function main() {
 
   /* ===== BLOG ===== */
   const edukasi = await upsertBlogCategory("Edukasi");
+  const berita = await upsertBlogCategory("Berita");
+  const inspirasi = await upsertBlogCategory("Inspirasi");
 
   await ensureBlog({
-    title: "Kenapa Transparansi Penting dalam Donasi",
+    title: "Kenapa Transparansi Penting dalam Donasi: Membangun Kepercayaan di Era Digital",
     createdById: admin.id,
     categoryId: edukasi.id,
-    content: `<p>Transparansi membangun kepercayaan.</p>`,
+    content: `
+      <h2>Pentingnya Transparansi dalam Berdonasi</h2>
+      <p>Di era digital saat ini, transparansi menjadi kunci utama dalam membangun kepercayaan antara donatur dan lembaga pengelola donasi. Masyarakat semakin cerdas dan kritis dalam memilih kemana mereka akan menyalurkan bantuan. Oleh karena itu, platform donasi harus mampu menyajikan data yang terbuka dan dapat dipertanggungjawabkan.</p>
+      
+      <p>Transparansi bukan hanya soal menampilkan angka, tetapi juga menceritakan dampak nyata dari setiap rupiah yang disumbangkan. Ketika donatur bisa melihat update berkala, foto dokumentasi penyaluran, dan laporan keuangan yang jelas, rasa percaya mereka akan tumbuh. Hal ini akan mendorong mereka untuk terus berpartisipasi dalam misi kebaikan.</p>
+
+      <h3>Apa yang Pesona Kebaikan Lakukan?</h3>
+      <p>Pesona Kebaikan berkomitmen untuk menjaga amanah donatur dengan:</p>
+      <ul>
+        <li>Menyediakan laporan penyaluran dana secara berkala pada setiap campaign.</li>
+        <li>Melakukan verifikasi ketat terhadap penggalang dana untuk mencegah penipuan.</li>
+        <li>Menampilkan bukti transfer dan dokumentasi kegiatan secara real-time.</li>
+      </ul>
+
+      <p>Dengan adanya transparansi, kita tidak hanya membantu penerima manfaat, tetapi juga menjaga niat baik para donatur agar tepat sasaran. Mari bersama-sama wujudkan ekosistem donasi yang jujur, aman, dan berdampak luas.</p>
+      
+      <img src="https://picsum.photos/1200/800?1" alt="Ilustrasi Transparansi" />
+    `,
     gallery: [
       { type: BlogMediaType.image, url: "https://picsum.photos/1200/800?1" },
     ],
   });
 
   await ensureBlog({
-    title: "Cara Memilih Campaign yang Terpercaya",
+    title: "Cara Memilih Campaign yang Terpercaya dan Amanah",
     createdById: admin.id,
     categoryId: edukasi.id,
-    content: `<p>Pilih campaign yang diverifikasi.</p>`,
+    content: `
+      <h2>Panduan Memilih Campaign Donasi</h2>
+      <p>Banyaknya platform donasi online memberikan kemudahan bagi kita untuk berbagi. Namun, di sisi lain, risiko penyalahgunaan dana juga semakin besar. Bagaimana cara memastikan donasi kita sampai ke tangan yang berhak? Berikut adalah beberapa tips cerdas dalam memilih campaign donasi.</p>
+
+      <h3>1. Cek Verifikasi Identitas Penggalang Dana</h3>
+      <p>Pastikan penggalang dana telah melalui proses verifikasi identitas (KYC). Platform terpercaya biasanya memberikan tanda khusus seperti centang biru atau label "Verified". Jangan ragu untuk membaca profil penggalang dana dan rekam jejak mereka sebelumnya.</p>
+
+      <h3>2. Perhatikan Detail Cerita dan Rencana Anggaran</h3>
+      <p>Campaign yang baik akan menyertakan cerita yang detail, kronologis, dan masuk akal. Selain itu, perhatikan juga Rencana Anggaran Biaya (RAB). Apakah target donasi relevan dengan kebutuhan? Jika ada rincian biaya pengobatan atau pembangunan, pastikan angkanya logis.</p>
+
+      <h3>3. Lihat Update dan Kabar Terbaru</h3>
+      <p>Penggalang dana yang amanah akan rajin memberikan kabar terbaru (update) mengenai kondisi penerima manfaat atau progres kegiatan. Jika sebuah campaign sudah berjalan lama namun minim update, Anda patut waspada.</p>
+
+      <p>Ingat, kepedulian kita sangat berharga. Jangan sampai niat baik kita dimanfaatkan oleh oknum tidak bertanggung jawab. Selalu teliti sebelum memberi, agar kebaikan kita benar-benar membawa perubahan.</p>
+      
+      <img src="https://picsum.photos/1200/800?2" alt="Memilih Campaign" />
+    `,
     gallery: [
       { type: BlogMediaType.image, url: "https://picsum.photos/1200/800?2" },
     ],
   });
 
   await ensureBlog({
-    title: "Laporan Donasi dan Akuntabilitas",
+    title: "Kisah Inspiratif: Dari Recehan Menjadi Harapan Baru",
     createdById: admin.id,
-    categoryId: edukasi.id,
-    content: `<p>Laporan rutin adalah kunci kepercayaan.</p>`,
+    categoryId: inspirasi.id,
+    content: `
+      <h2>Kekuatan Gotong Royong</h2>
+      <p>Seringkali kita merasa bahwa bantuan kecil tidak berarti apa-apa. "Hanya sepuluh ribu rupiah, bisa buat apa?" pikir kita. Namun, kisah kali ini membuktikan sebaliknya. Berawal dari gerakan recehan yang diinisiasi oleh sekelompok pemuda di desa kecil, sebuah sekolah yang nyaris roboh akhirnya bisa berdiri tegak kembali.</p>
+
+      <p>Pak Budi, seorang guru honorer, tak pernah menyangka bahwa postingan sederhananya di media sosial akan menggerakkan ribuan hati. Ia hanya memotret atap kelas yang bocor saat hujan deras, di mana murid-muridnya terpaksa belajar sambil memegang payung. Foto itu viral, dan bantuan pun mengalir deras.</p>
+
+      <p>Dalam waktu kurang dari satu bulan, dana yang terkumpul mencapai ratusan juta rupiah. Bukan dari satu donatur besar, melainkan dari ribuan orang yang menyisihkan uang jajan mereka. Ada yang menyumbang 5 ribu, 10 ribu, hingga 50 ribu. Semuanya bersatu menjadi kekuatan besar.</p>
+      
+      <p>Kini, sekolah itu telah direnovasi total. Tidak ada lagi atap bocor. Tidak ada lagi lantai tanah yang becek. Anak-anak bisa belajar dengan nyaman dan penuh semangat. Ini adalah bukti nyata bahwa kebaikan, sekecil apapun, jika dilakukan bersama-sama, akan menciptakan dampak yang luar biasa.</p>
+    `,
   });
 
   /* ===== CAMPAIGN ===== */
   const kesehatan = await upsertCampaignCategory("Kesehatan");
   const pendidikan = await upsertCampaignCategory("Pendidikan");
+  const bencana = await upsertCampaignCategory("Bencana Alam");
+  const kemanusiaan = await upsertCampaignCategory("Kemanusiaan");
 
   const campaigns = await Promise.all([
     ensureCampaign({
-      title: "Bantu Adik Rizky Operasi Jantung",
+      title: "Bantu Adik Rizky Berjuang Melawan Kelainan Jantung Bawaan",
       categoryId: kesehatan.id,
       createdById: admin.id,
       target: 100_000_000,
-      story: `<p>Butuh bantuan untuk operasi jantung.</p>`,
+      story: `
+        <p>Hai Orang Baik,</p>
+        <p>Perkenalkan, nama saya Andi, ayah dari <strong>Rizky (5 tahun)</strong>. Saat ini, putra kecil kami sedang berjuang melawan penyakit jantung bawaan yang dideritanya sejak lahir. Rizky adalah anak yang ceria dan aktif, namun belakangan ini kondisinya semakin menurun.</p>
+
+        <p>Awalnya, Rizky sering mengeluh sesak napas dan cepat lelah saat bermain. Kulitnya sering membiru jika ia terlalu banyak beraktivitas. Setelah kami bawa ke rumah sakit rujukan di Jakarta, dokter mendiagnosa Rizky mengalami kebocoran pada katup jantungnya dan harus segera menjalani operasi.</p>
+
+        <h3>Kenapa Kami Menggalang Dana?</h3>
+        <p>Biaya operasi dan perawatan pasca-operasi sangatlah besar. Meskipun kami memiliki BPJS, ada banyak biaya lain yang tidak tercover, seperti obat-obatan khusus, susu penunjang nutrisi, serta biaya akomodasi selama kami harus tinggal di Jakarta menunggu jadwal operasi. Sebagai buruh harian lepas, penghasilan saya tidak menentu dan jauh dari cukup untuk menutupi kebutuhan tersebut.</p>
+
+        <p>Kami sangat berharap bantuan dan doa dari teman-teman semua agar Rizky bisa segera dioperasi dan kembali bermain seperti anak-anak lainnya. Setiap rupiah yang teman-teman donasikan akan sangat berarti bagi kesembuhan Rizky.</p>
+
+        <p>Rencana penggunaan dana:</p>
+        <ul>
+          <li>Biaya obat-obatan dan vitamin penunjang: Rp 20.000.000</li>
+          <li>Biaya operasional & akomodasi di Jakarta: Rp 15.000.000</li>
+          <li>Biaya pendampingan medis & check-up rutin: Rp 15.000.000</li>
+          <li>Dana darurat pasca operasi: Rp 50.000.000</li>
+        </ul>
+
+        <p>Terima kasih atas kebaikan hati teman-teman semua. Semoga Tuhan membalas kebaikan kalian dengan berlipat ganda.</p>
+      `,
       media: [
         {
           type: CampaignMediaType.IMAGE,
           url: "https://picsum.photos/800/600?10",
           isThumbnail: true,
         },
+        {
+          type: CampaignMediaType.IMAGE,
+          url: "https://picsum.photos/800/600?20",
+          isThumbnail: false,
+        },
       ],
     }),
     ensureCampaign({
-      title: "Bangun Sekolah di Desa Terpencil",
+      title: "Bangun Sekolah Impian untuk Anak-Anak Desa Mekar Jaya",
       categoryId: pendidikan.id,
       createdById: admin.id,
       target: 250_000_000,
-      story: `<p>Mari bangun sekolah bersama.</p>`,
+      story: `
+        <p>Assalamu'alaikum Warahmatullahi Wabarakatuh,</p>
+        <p>Di pelosok Desa Mekar Jaya, terdapat sebuah sekolah dasar kayu yang sudah berdiri sejak 30 tahun lalu. Kondisinya kini sangat memprihatinkan. Dinding-dinding kayunya mulai lapuk dimakan rayap, atapnya bocor di banyak titik, dan lantainya masih berupa tanah yang akan menjadi lumpur saat musim hujan tiba.</p>
+
+        <p>Sekolah ini adalah satu-satunya harapan bagi 150 siswa di desa tersebut untuk menuntut ilmu. Jarak ke sekolah lain terdekat mencapai 10 kilometer dengan medan jalan yang sulit dilalui. Meski dengan kondisi fasilitas yang serba terbatas, semangat belajar anak-anak ini tak pernah surut. Mereka tetap datang setiap pagi dengan senyum merekah, membawa mimpi-mimpi besar mereka.</p>
+
+        <h3>Mimpi Kami</h3>
+        <p>Kami, Karang Taruna Desa Mekar Jaya, berinisiatif untuk merenovasi sekolah ini agar layak dan aman digunakan. Kami ingin membangun:</p>
+        <ul>
+          <li>3 Ruang kelas baru yang permanen</li>
+          <li>1 Ruang guru dan perpustakaan</li>
+          <li>Fasilitas MCK yang bersih dan layak</li>
+        </ul>
+
+        <p>Total biaya yang dibutuhkan diperkirakan mencapai Rp 250.000.000. Kami mengajak Sahabat Kebaikan semua untuk ikut ambil bagian dalam mencerdaskan kehidupan bangsa, dimulai dari Desa Mekar Jaya. Satu bata yang Anda sumbangkan adalah pondasi bagi masa depan mereka.</p>
+
+        <p>Mari wujudkan sekolah impian mereka!</p>
+      `,
       media: [
         {
           type: CampaignMediaType.IMAGE,
@@ -237,11 +325,27 @@ async function main() {
       ],
     }),
     ensureCampaign({
-      title: "Bantu Korban Banjir",
-      categoryId: kesehatan.id,
+      title: "Darurat Banjir Bandang: Ribuan Warga Kehilangan Tempat Tinggal",
+      categoryId: bencana.id,
       createdById: admin.id,
       target: 150_000_000,
-      story: `<p>Bantuan darurat untuk korban banjir.</p>`,
+      story: `
+        <p><strong>URGENT: Bantuan Kemanusiaan untuk Korban Banjir Bandang</strong></p>
+        <p>Hujan deras yang mengguyur wilayah Kabupaten X selama tiga hari berturut-turut telah menyebabkan sungai meluap dan memicu banjir bandang yang dahsyat. Ribuan rumah terendam lumpur, akses jalan terputus, dan listrik padam total. Data sementara mencatat 500 KK mengungsi di posko-posko darurat dengan kondisi yang sangat terbatas.</p>
+
+        <p>Para pengungsi saat ini sangat membutuhkan bantuan mendesak berupa:</p>
+        <ul>
+          <li>Makanan siap saji & air bersih</li>
+          <li>Selimut & pakaian layak pakai</li>
+          <li>Obat-obatan & vitamin</li>
+          <li>Perlengkapan bayi (popok, susu, bubur bayi)</li>
+          <li>Alat kebersihan untuk membersihkan lumpur pasca banjir</li>
+        </ul>
+
+        <p>Tim relawan kami sudah berada di lokasi untuk melakukan evakuasi dan mendirikan dapur umum. Namun, persediaan logistik semakin menipis. Kami mengetuk hati Anda untuk berbagi sedikit rezeki demi meringankan beban saudara-saudara kita yang sedang tertimpa musibah.</p>
+
+        <p>Berapapun bantuan Anda, akan sangat berarti untuk menyambung hidup mereka di tengah bencana ini. Mari bersolidaritas, mari bantu sesama!</p>
+      `,
       isEmergency: true,
       media: [
         {

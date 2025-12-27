@@ -134,6 +134,13 @@ model Withdrawal {
   @@index([status])
 }
 
+model NotifyKey {
+  key   String @id // 'whatsapp' or other provider keys
+  value String
+  name  String? // Optional description
+  updatedAt DateTime @updatedAt
+}
+
 model Post {
   id        Int      @id @default(autoincrement())
   title     String
@@ -193,8 +200,8 @@ model Blog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  categoryId String?
-  category   BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId String
+  category   BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   createdById String
   createdBy   User   @relation("UserBlogs", fields: [createdById], references: [id], onDelete: Cascade)
@@ -398,4 +405,17 @@ model Report {
 
   @@index([campaignId])
   @@index([status])
+}
+
+model OtpRequest {
+  id        String    @id @default(cuid())
+  phone     String
+  otp_hash  String
+  expires_at DateTime
+  used_at   DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone, createdAt(sort: Desc)], name: "idx_otp_phone_created")
 }

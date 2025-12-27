@@ -11,8 +11,8 @@ const prismaClientSingleton = () => {
 	return new PrismaClient({ adapter });
 };
 declare const globalThis: {
-	prismaGlobalV6: ReturnType<typeof prismaClientSingleton>;
+	prismaGlobalV7: ReturnType<typeof prismaClientSingleton>;
 } & typeof global;
-export const prisma = globalThis.prismaGlobalV6 ?? prismaClientSingleton();
+export const prisma = globalThis.prismaGlobalV7 ?? prismaClientSingleton();
 
-if (process.env.NODE_ENV !== "production") globalThis.prismaGlobalV6 = prisma;
+if (process.env.NODE_ENV !== "production") globalThis.prismaGlobalV7 = prisma;

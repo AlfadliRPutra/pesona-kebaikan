@@ -8,7 +8,7 @@ CREATE TYPE "WithdrawalStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'COMP
 CREATE TYPE "BlogMediaType" AS ENUM ('image', 'video', 'file');
 
 -- CreateEnum
-CREATE TYPE "CampaignStatus" AS ENUM ('PENDING', 'ACTIVE', 'REJECTED', 'COMPLETED');
+CREATE TYPE "CampaignStatus" AS ENUM ('PENDING', 'ACTIVE', 'REJECTED', 'COMPLETED', 'DRAFT');
 
 -- CreateEnum
 CREATE TYPE "CampaignMediaType" AS ENUM ('IMAGE', 'VIDEO');
@@ -18,6 +18,9 @@ CREATE TYPE "PaymentMethod" AS ENUM ('EWALLET', 'VIRTUAL_ACCOUNT', 'TRANSFER', '
 
 -- CreateEnum
 CREATE TYPE "NotificationType" AS ENUM ('KABAR', 'PESAN');
+
+-- CreateEnum
+CREATE TYPE "ReportReason" AS ENUM ('FRAUD', 'COVERED', 'FAKE_INFO', 'DECEASED', 'NO_PERMISSION', 'IRRELEVANT', 'INAPPROPRIATE', 'SPAM', 'OTHER');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -168,10 +171,10 @@ CREATE TABLE "Blog" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "headerImage" TEXT,
+    "heroImage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "categoryId" TEXT,
+    "categoryId" TEXT NOT NULL,
     "createdById" TEXT NOT NULL,
 
     CONSTRAINT "Blog_pkey" PRIMARY KEY ("id")
@@ -192,6 +195,9 @@ CREATE TABLE "BlogMedia" (
 CREATE TABLE "CampaignCategory" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "slug" TEXT,
+    "icon" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -262,6 +268,46 @@ CREATE TABLE "Notification" (
     CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "CampaignUpdate" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "amount" DECIMAL(19,2),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "campaignId" TEXT NOT NULL,
+
+    CONSTRAINT "CampaignUpdate_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CampaignUpdateMedia" (
+    "id" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'IMAGE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updateId" TEXT NOT NULL,
+
+    CONSTRAINT "CampaignUpdateMedia_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Report" (
+    "id" TEXT NOT NULL,
+    "reason" "ReportReason" NOT NULL,
+    "details" TEXT NOT NULL,
+    "reporterName" TEXT NOT NULL,
+    "reporterPhone" TEXT NOT NULL,
+    "reporterEmail" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "campaignId" TEXT NOT NULL,
+
+    CONSTRAINT "Report_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -320,6 +366,9 @@ CREATE INDEX "BlogMedia_blogId_idx" ON "BlogMedia"("blogId");
 CREATE UNIQUE INDEX "CampaignCategory_name_key" ON "CampaignCategory"("name");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "CampaignCategory_slug_key" ON "CampaignCategory"("slug");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Campaign_slug_key" ON "Campaign"("slug");
 
 -- CreateIndex
@@ -343,6 +392,18 @@ CREATE INDEX "Donation_userId_idx" ON "Donation"("userId");
 -- CreateIndex
 CREATE INDEX "Notification_userId_idx" ON "Notification"("userId");
 
+-- CreateIndex
+CREATE INDEX "CampaignUpdate_campaignId_idx" ON "CampaignUpdate"("campaignId");
+
+-- CreateIndex
+CREATE INDEX "CampaignUpdateMedia_updateId_idx" ON "CampaignUpdateMedia"("updateId");
+
+-- CreateIndex
+CREATE INDEX "Report_campaignId_idx" ON "Report"("campaignId");
+
+-- CreateIndex
+CREATE INDEX "Report_status_idx" ON "Report"("status");
+
 -- AddForeignKey
 ALTER TABLE "LoginActivity" ADD CONSTRAINT "LoginActivity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -362,7 +423,7 @@ ALTER TABLE "Withdrawal" ADD CONSTRAINT "Withdrawal_campaignId_fkey" FOREIGN KEY
 ALTER TABLE "Post" ADD CONSTRAINT "Post_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Blog" ADD CONSTRAINT "Blog_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "BlogCategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Blog" ADD CONSTRAINT "Blog_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "BlogCategory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Blog" ADD CONSTRAINT "Blog_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -387,3 +448,12 @@ ALTER TABLE "Donation" ADD CONSTRAINT "Donation_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CampaignUpdate" ADD CONSTRAINT "CampaignUpdate_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CampaignUpdateMedia" ADD CONSTRAINT "CampaignUpdateMedia_updateId_fkey" FOREIGN KEY ("updateId") REFERENCES "CampaignUpdate"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Report" ADD CONSTRAINT "Report_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

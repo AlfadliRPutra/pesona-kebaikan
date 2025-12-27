@@ -60,6 +60,7 @@ export async function getWithdrawals() {
 			campaign: {
 				select: {
 					title: true,
+					slug: true,
 				},
 			},
 		},
@@ -83,6 +84,7 @@ export async function getWithdrawals() {
 			minute: "2-digit",
 		}),
 		campaignTitle: w.campaign.title,
+		campaignSlug: w.campaign.slug,
 		campaignId: w.campaignId,
 		proofUrl: w.proofUrl,
 	}));

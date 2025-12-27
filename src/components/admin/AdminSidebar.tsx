@@ -155,6 +155,12 @@ const menus: { title: string; items: MenuItem[] }[] = [
 				icon: <SettingsOutlinedIcon fontSize="small" />,
 				desc: "Konfigurasi platform",
 			},
+			{
+				label: "Test WA",
+				href: "/admin/test-wa",
+				icon: <SettingsOutlinedIcon fontSize="small" />, // Using the same icon for now, or could use ChatIcon if available
+				desc: "Test WhatsApp Gateway",
+			},
 		],
 	},
 ];
