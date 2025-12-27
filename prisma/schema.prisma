@@ -267,6 +267,7 @@ model Campaign {
   withdrawals Withdrawal[]
   updates     CampaignUpdate[]
   reports     Report[]
+  carousels   Carousel[]
 
   @@index([categoryId])
   @@index([createdById])
@@ -287,6 +288,23 @@ model CampaignMedia {
 
   campaignId String
   campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
+model Carousel {
+  id          String   @id @default(cuid())
+  image       String?
+  title       String?
+  description String?
+  link        String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
 }
