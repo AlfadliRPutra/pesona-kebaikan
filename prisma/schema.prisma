@@ -189,7 +189,7 @@ model Blog {
   id        String   @id @default(cuid())
   title     String
   content   String   
-  headerImage String? 
+  heroImage String? 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -234,6 +234,7 @@ enum CampaignStatus {
   ACTIVE
   REJECTED
   COMPLETED
+  DRAFT
 }
 
 model Campaign {
@@ -261,6 +262,8 @@ model Campaign {
   media     CampaignMedia[]
   donations Donation[]
   withdrawals Withdrawal[]
+  updates     CampaignUpdate[]
+  reports     Report[]
 
   @@index([categoryId])
   @@index([createdById])
@@ -331,4 +334,65 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model CampaignUpdate {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  amount    Decimal? @db.Decimal(19, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  media     CampaignUpdateMedia[]
+
+  @@index([campaignId])
+}
+
+model CampaignUpdateMedia {
+  id        String   @id @default(cuid())
+  url       String
+  type      String   @default("IMAGE")
+  createdAt DateTime @default(now())
+
+  updateId  String
+  update    CampaignUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@index([updateId])
+}
+
+enum ReportReason {
+  FRAUD // Penipuan/Penyalahgunaan dana
+  COVERED // Sudah dicover pihak lain
+  FAKE_INFO // Informasi palsu
+  DECEASED // Penerima sudah meninggal
+  NO_PERMISSION // Tanpa izin
+  IRRELEVANT // Tidak relevan/jokes
+  INAPPROPRIATE // Konten tidak pantas
+  SPAM // Spamming
+  OTHER // Lainnya
+}
+
+model Report {
+  id        String       @id @default(cuid())
+  reason    ReportReason
+  details   String       @db.Text
+  
+  // Reporter info
+  reporterName  String
+  reporterPhone String
+  reporterEmail String
+
+  status    String   @default("PENDING") // PENDING, REVIEWED, RESOLVED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@index([status])
 }

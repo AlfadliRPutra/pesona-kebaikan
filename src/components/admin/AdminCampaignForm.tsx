@@ -23,6 +23,7 @@ import PhotoCameraRoundedIcon from "@mui/icons-material/PhotoCameraRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 
 import { CATEGORY_TITLE } from "@/lib/constants";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 type AdminCampaignFormProps = {
 	mode: "create" | "edit";
@@ -185,15 +186,17 @@ export default function AdminCampaignForm({
 					</Box>
 
 					{/* Story */}
-					<TextField
-						label="Cerita Lengkap"
-						value={story}
-						onChange={(e) => setStory(e.target.value)}
-						multiline
-						minRows={6}
-						required
-						fullWidth
-					/>
+					<Box>
+						<Typography variant="subtitle2" mb={1}>
+							Cerita Lengkap
+						</Typography>
+						<RichTextEditor
+							value={story}
+							onChange={setStory}
+							placeholder="Tulis latar belakang, kondisi, kebutuhan biaya, rencana penggunaan dana, dan ajakan..."
+							minHeight={260}
+						/>
+					</Box>
 
 					{/* Image Upload */}
 					<Box>

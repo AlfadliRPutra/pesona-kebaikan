@@ -14,7 +14,13 @@ export async function createCampaign(formData: FormData) {
 	}
 
 	try {
-		const title = formData.get("title") as string;
+		const status = (formData.get("status") as CampaignStatus) || "PENDING";
+
+		let title = formData.get("title") as string;
+		if (status === "DRAFT" && !title) {
+			title = "Draft Campaign";
+		}
+
 		let slug = formData.get("slug") as string;
 
 		if (!slug) {
@@ -33,7 +39,12 @@ export async function createCampaign(formData: FormData) {
 		// const type = formData.get("type") as string; // 'sakit' or 'lainnya'
 		const targetStr = formData.get("target") as string;
 		const duration = formData.get("duration") as string;
-		const story = formData.get("story") as string;
+		let story = formData.get("story") as string;
+
+		if (status === "DRAFT" && !story) {
+			story = "";
+		}
+
 		const phone = formData.get("phone") as string;
 
 		// File upload
@@ -78,6 +89,8 @@ export async function createCampaign(formData: FormData) {
 		}
 
 		// Create Campaign
+		// status is already defined above
+
 		const campaign = await prisma.campaign.create({
 			data: {
 				title,
@@ -89,7 +102,7 @@ export async function createCampaign(formData: FormData) {
 				phone,
 				categoryId: category.id,
 				createdById: session.user.id,
-				status: "PENDING", // Default status
+				status,
 				media: coverUrl
 					? {
 							create: {
@@ -106,9 +119,12 @@ export async function createCampaign(formData: FormData) {
 		revalidatePath("/admin/campaign");
 
 		return { success: true, campaignId: campaign.id };
-	} catch (error) {
+	} catch (error: any) {
 		console.error("Create campaign error:", error);
-		return { success: false, error: "Failed to create campaign" };
+		return {
+			success: false,
+			error: error.message || "Failed to create campaign",
+		};
 	}
 }
 
@@ -276,6 +292,14 @@ export async function getCampaignBySlug(slug: string) {
 					orderBy: { createdAt: "desc" },
 				},
 				media: true,
+				updates: {
+					include: { media: true },
+					orderBy: { createdAt: "desc" },
+				},
+				withdrawals: {
+					where: { status: "COMPLETED" },
+					orderBy: { updatedAt: "desc" },
+				},
 			},
 		});
 
@@ -299,6 +323,31 @@ export async function getCampaignBySlug(slug: string) {
 						(1000 * 60 * 60 * 24)
 			  )
 			: 0;
+
+		const timeline = [
+			...campaign.updates.map((u) => ({
+				id: u.id,
+				type: "update",
+				title: u.title,
+				content: u.content,
+				date: u.createdAt,
+				amount: Number(u.amount) || 0,
+				images: u.media.map((m) => m.url),
+			})),
+			...campaign.withdrawals.map((w) => ({
+				id: w.id,
+				type: "withdrawal",
+				title: "Pencairan Dana",
+				content: `Dana sebesar ${new Intl.NumberFormat("id-ID", {
+					style: "currency",
+					currency: "IDR",
+					maximumFractionDigits: 0,
+				}).format(Number(w.amount))} telah dicairkan. ${w.notes || ""}`,
+				date: w.updatedAt,
+				amount: Number(w.amount),
+				images: w.proofUrl ? [w.proofUrl] : [],
+			})),
+		].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 		const data = {
 			id: campaign.id,
@@ -333,6 +382,7 @@ export async function getCampaignBySlug(slug: string) {
 				date: d.createdAt,
 				comment: d.message,
 			})),
+			updates: timeline,
 		};
 
 		return { success: true, data };
@@ -353,6 +403,14 @@ export async function getCampaignById(id: string) {
 					orderBy: { createdAt: "desc" },
 				},
 				media: true,
+				updates: {
+					include: { media: true },
+					orderBy: { createdAt: "desc" },
+				},
+				withdrawals: {
+					where: { status: "COMPLETED" },
+					orderBy: { updatedAt: "desc" },
+				},
 			},
 		});
 
@@ -375,6 +433,31 @@ export async function getCampaignById(id: string) {
 						(1000 * 60 * 60 * 24)
 			  )
 			: 0;
+
+		const timeline = [
+			...campaign.updates.map((u) => ({
+				id: u.id,
+				type: "update",
+				title: u.title,
+				content: u.content,
+				date: u.createdAt,
+				amount: Number(u.amount) || 0,
+				images: u.media.map((m) => m.url),
+			})),
+			...campaign.withdrawals.map((w) => ({
+				id: w.id,
+				type: "withdrawal",
+				title: "Pencairan Dana",
+				content: `Dana sebesar ${new Intl.NumberFormat("id-ID", {
+					style: "currency",
+					currency: "IDR",
+					maximumFractionDigits: 0,
+				}).format(Number(w.amount))} telah dicairkan. ${w.notes || ""}`,
+				date: w.updatedAt,
+				amount: Number(w.amount),
+				images: w.proofUrl ? [w.proofUrl] : [],
+			})),
+		].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 		const data = {
 			id: campaign.id,
@@ -408,6 +491,7 @@ export async function getCampaignById(id: string) {
 				date: d.createdAt,
 				comment: d.message,
 			})),
+			updates: timeline,
 		};
 
 		return { success: true, data };
@@ -499,11 +583,12 @@ export async function updateCampaign(id: string, formData: FormData) {
 		const targetStr = formData.get("target") as string;
 		const story = formData.get("story") as string;
 		const phone = formData.get("phone") as string;
+		const status = formData.get("status") as CampaignStatus | null;
 
-		const target = parseFloat(targetStr);
+		const target = parseFloat(targetStr?.replace(/[^\d]/g, "") || "0") || 0;
 
 		const category = await prisma.campaignCategory.findFirst({
-			where: { name: CATEGORY_TITLE[categoryKey] },
+			where: { name: CATEGORY_TITLE[categoryKey] || "Lainnya" },
 		});
 
 		if (!category) {
@@ -545,6 +630,7 @@ export async function updateCampaign(id: string, formData: FormData) {
 				target,
 				phone,
 				categoryId: category.id,
+				...(status ? { status } : {}),
 			},
 		});
 
@@ -554,9 +640,93 @@ export async function updateCampaign(id: string, formData: FormData) {
 		revalidatePath("/");
 
 		return { success: true };
-	} catch (error) {
+	} catch (error: any) {
 		console.error("Update campaign error:", error);
-		return { success: false, error: "Failed to update campaign" };
+		return {
+			success: false,
+			error: error.message || "Failed to update campaign",
+		};
+	}
+}
+
+export async function updateCampaignStory(
+	id: string,
+	title: string,
+	story: string
+) {
+	try {
+		const session = await auth();
+		if (!session?.user?.id) {
+			return { success: false, error: "Unauthorized" };
+		}
+
+		await prisma.campaign.update({
+			where: { id },
+			data: {
+				title,
+				story,
+			},
+		});
+
+		revalidatePath("/admin/campaign");
+		revalidatePath(`/admin/campaign/${id}`);
+		revalidatePath("/");
+
+		return { success: true };
+	} catch (error) {
+		console.error("Update campaign story error:", error);
+		return { success: false, error: "Failed to update campaign story" };
+	}
+}
+
+export async function requestWithdrawal(data: {
+	campaignId: string;
+	amount: number;
+	bankName: string;
+	bankAccount: string;
+	accountHolder: string;
+	notes?: string;
+}) {
+	const session = await auth();
+	if (!session?.user?.id) {
+		return { success: false, error: "Unauthorized" };
+	}
+
+	try {
+		const campaign = await prisma.campaign.findUnique({
+			where: { id: data.campaignId },
+		});
+
+		if (!campaign) {
+			return { success: false, error: "Campaign not found" };
+		}
+
+		if (
+			campaign.createdById !== session.user.id &&
+			session.user.role !== "ADMIN"
+		) {
+			return { success: false, error: "Forbidden" };
+		}
+
+		await prisma.withdrawal.create({
+			data: {
+				campaignId: data.campaignId,
+				amount: data.amount,
+				bankName: data.bankName,
+				bankAccount: data.bankAccount,
+				accountHolder: data.accountHolder,
+				notes: data.notes,
+				status: "PENDING",
+			},
+		});
+
+		revalidatePath(`/galang-dana/${campaign.slug || campaign.id}`);
+		revalidatePath("/admin/pencairan");
+
+		return { success: true };
+	} catch (error) {
+		console.error("Request withdrawal error:", error);
+		return { success: false, error: "Failed to request withdrawal" };
 	}
 }
 
@@ -579,6 +749,69 @@ export async function deleteCampaign(id: string) {
 	} catch (error) {
 		console.error("Delete campaign error:", error);
 		return { success: false, error: "Failed to delete campaign" };
+	}
+}
+
+export async function createCampaignUpdate(data: {
+	campaignId: string;
+	title: string;
+	content: string;
+	amount?: number;
+	images?: string[];
+}) {
+	const session = await auth();
+	if (!session?.user?.id) {
+		return { success: false, error: "Unauthorized" };
+	}
+
+	try {
+		const campaign = await prisma.campaign.findUnique({
+			where: { id: data.campaignId },
+		});
+
+		if (!campaign) return { success: false, error: "Campaign not found" };
+
+		if (
+			campaign.createdById !== session.user.id &&
+			session.user.role !== "ADMIN"
+		) {
+			return { success: false, error: "Forbidden" };
+		}
+
+		await prisma.campaignUpdate.create({
+			data: {
+				campaignId: data.campaignId,
+				title: data.title,
+				content: data.content,
+				amount: data.amount,
+				media:
+					data.images && data.images.length > 0
+						? {
+								create: data.images.map((url) => ({ url, type: "IMAGE" })),
+						  }
+						: undefined,
+			},
+		});
+
+		revalidatePath(`/galang-dana/${campaign.slug || campaign.id}`);
+		return { success: true };
+	} catch (error) {
+		console.error("Create update error:", error);
+		return { success: false, error: "Failed to create update" };
+	}
+}
+
+export async function getCampaignUpdates(campaignId: string) {
+	try {
+		const updates = await prisma.campaignUpdate.findMany({
+			where: { campaignId },
+			orderBy: { createdAt: "desc" },
+			include: { media: true },
+		});
+		return { success: true, data: updates };
+	} catch (error) {
+		console.error("Get updates error:", error);
+		return { success: false, error: "Failed to fetch updates" };
 	}
 }
 

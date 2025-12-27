@@ -2,31 +2,33 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { LinkButton, LinkIconButton } from "@/components/ui/LinkButton";
+import { CATEGORY_TITLE } from "@/lib/constants";
 import {
 	Box,
 	Container,
 	Typography,
 	Stack,
-	Button,
 	Card,
 	CardContent,
 	Chip,
 	Divider,
 	LinearProgress,
-	IconButton,
 	Avatar,
 	Paper,
-	Grid,
+	IconButton,
+	Button,
 } from "@mui/material";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
-import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
-import ImageNotSupportedRoundedIcon from "@mui/icons-material/ImageNotSupportedRounded";
+import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
+import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import ShareRoundedIcon from "@mui/icons-material/ShareRounded";
+import AddPhotoAlternateRoundedIcon from "@mui/icons-material/AddPhotoAlternateRounded";
 
 export default async function CampaignDetailPage({
 	params,
@@ -40,8 +42,6 @@ export default async function CampaignDetailPage({
 
 	const { slug } = await params;
 
-	// Fetch campaign with donations
-	// We check both slug and id for robustness
 	const campaign = await prisma.campaign.findFirst({
 		where: {
 			OR: [{ slug }, { id: slug }],
@@ -59,13 +59,17 @@ export default async function CampaignDetailPage({
 		notFound();
 	}
 
-	// Verify ownership
+	const categoryKey =
+		Object.keys(CATEGORY_TITLE).find(
+			(key) => CATEGORY_TITLE[key] === campaign.category.name
+		) || "lainnya";
+
+	const type = categoryKey === "medis" ? "sakit" : "lainnya";
+
 	if (
 		campaign.createdById !== session.user.id &&
 		session.user.role !== "ADMIN"
 	) {
-		// Alternatively, could redirect to public page if we had one ready and accessible
-		// redirect(`/donasi/${campaign.slug || campaign.id}`);
 		return (
 			<Container maxWidth="sm" sx={{ py: 10, textAlign: "center" }}>
 				<Typography variant="h5" fontWeight={700} gutterBottom>
@@ -80,25 +84,6 @@ export default async function CampaignDetailPage({
 			</Container>
 		);
 	}
-
-	// Calculate stats
-	const collected = campaign.donations
-		.filter((d) => d.status === "PAID" || d.status === "SETTLED") // Assuming PAID/SETTLED is success. Checking schema would be better.
-		// If status field is string and we rely on payment gateway, usually 'PAID' or 'SETTLED' or 'COMPLETED' or 'Berhasil'
-		// Based on previous file `donasi-saya`, status was 'Berhasil'. Let's check typical values.
-		// If uncertain, I'll list all but highlight success ones.
-		// Actually, let's just sum all for now or check if there is a 'status' field in Prisma type.
-		// I'll assume 'PAID' or 'Berhasil' based on common conventions.
-		// Let's sum everything that is NOT failed/pending for 'Terkumpul'.
-		// Actually, let's look at the donations list to see what statuses exist.
-		.reduce((acc, d) => acc + Number(d.amount), 0);
-
-	// Total collected (including pending? usually only paid)
-	// Let's assume we want to show all transactions in the list, but stats should reflect reality.
-	// For now I'll sum everything that looks successful.
-	// If I can't check status type, I'll assume all for now or check `donasi-saya` code again.
-	// `donasi-saya` used `d.status === "Berhasil"`.
-	// I'll use `status === 'PAID'` or `status === 'Berhasil'` (case insensitive if needed).
 
 	const donations = campaign.donations;
 	const successfulDonations = donations.filter(
@@ -124,449 +109,396 @@ export default async function CampaignDetailPage({
 		  )
 		: 0;
 
-	const thumbnail =
-		campaign.media.find((m) => m.isThumbnail)?.url ||
-		campaign.media[0]?.url ||
-		"";
-
 	return (
-		<Box sx={{ bgcolor: "#f8fafc", minHeight: "100vh", pb: 10 }}>
-			{/* Header */}
+		<Box sx={{ bgcolor: "#f8fafc", minHeight: "100vh", pb: 12 }}>
+			{/* Mobile Header */}
 			<Box
 				sx={{
+					position: "sticky",
+					top: 0,
+					zIndex: 1100,
 					bgcolor: "white",
 					borderBottom: "1px solid",
 					borderColor: "divider",
 				}}
 			>
-				<Container maxWidth="lg">
+				<Container maxWidth="sm" sx={{ px: 2 }}>
 					<Stack
 						direction="row"
 						alignItems="center"
-						spacing={2}
-						sx={{ height: 64 }}
+						justifyContent="space-between"
+						sx={{ height: 60 }}
 					>
-						<LinkIconButton href="/galang-dana" edge="start">
-							<ArrowBackRoundedIcon />
-						</LinkIconButton>
-						<Typography variant="h6" fontWeight={700} sx={{ fontSize: 18 }}>
-							Detail Campaign
-						</Typography>
+						<Stack direction="row" alignItems="center" spacing={1}>
+							<LinkIconButton href="/galang-dana" edge="start" color="inherit">
+								<ArrowBackRoundedIcon />
+							</LinkIconButton>
+							<Typography variant="h6" fontWeight={700} fontSize={18}>
+								Dashboard
+							</Typography>
+						</Stack>
+						<Chip
+							label={campaign.status}
+							color={campaign.status === "ACTIVE" ? "success" : "default"}
+							size="small"
+							sx={{
+								fontWeight: 700,
+								borderRadius: 1.5,
+								height: 24,
+								fontSize: 11,
+							}}
+						/>
 					</Stack>
 				</Container>
 			</Box>
 
-			<Container maxWidth="lg" sx={{ mt: 3 }}>
-				<Box
+			<Container maxWidth="sm" sx={{ px: 2, mt: 2 }}>
+				{/* Main Stats Card */}
+				<Card
+					elevation={0}
 					sx={{
-						display: "grid",
-						gap: 3,
-						gridTemplateColumns: { xs: "1fr", md: "0.9fr 1.1fr" },
-						alignItems: "start",
+						borderRadius: 4,
+						background: "linear-gradient(135deg, #0f172a 0%, #334155 100%)",
+						color: "white",
+						mb: 3,
+						position: "relative",
+						overflow: "hidden",
 					}}
 				>
-					{/* Left Column: Campaign Info */}
-					<Box>
-						<Card
-							elevation={0}
+					{/* Decorative circles */}
+					<Box
+						sx={{
+							position: "absolute",
+							top: -20,
+							right: -20,
+							width: 100,
+							height: 100,
+							borderRadius: "50%",
+							bgcolor: "rgba(255,255,255,0.05)",
+						}}
+					/>
+					<Box
+						sx={{
+							position: "absolute",
+							bottom: -40,
+							left: -20,
+							width: 150,
+							height: 150,
+							borderRadius: "50%",
+							bgcolor: "rgba(255,255,255,0.05)",
+						}}
+					/>
+
+					<CardContent sx={{ p: 3 }}>
+						<Typography variant="body2" sx={{ opacity: 0.8, mb: 0.5 }}>
+							Total Terkumpul
+						</Typography>
+						<Typography variant="h4" fontWeight={700} sx={{ mb: 2 }}>
+							{new Intl.NumberFormat("id-ID", {
+								style: "currency",
+								currency: "IDR",
+								maximumFractionDigits: 0,
+							}).format(totalCollected)}
+						</Typography>
+
+						<Stack
+							direction="row"
+							alignItems="center"
+							spacing={1}
+							sx={{ mb: 1 }}
+						>
+							<Typography
+								variant="caption"
+								fontWeight={600}
+								sx={{ opacity: 0.9 }}
+							>
+								{progress}%
+							</Typography>
+							<LinearProgress
+								variant="determinate"
+								value={progress}
+								sx={{
+									flex: 1,
+									height: 6,
+									borderRadius: 4,
+									bgcolor: "rgba(255,255,255,0.2)",
+									"& .MuiLinearProgress-bar": {
+										bgcolor: "#34d399",
+										borderRadius: 4,
+									},
+								}}
+							/>
+						</Stack>
+						<Typography variant="caption" sx={{ opacity: 0.7 }}>
+							Target:{" "}
+							{new Intl.NumberFormat("id-ID", {
+								style: "currency",
+								currency: "IDR",
+								maximumFractionDigits: 0,
+							}).format(Number(campaign.target))}
+						</Typography>
+					</CardContent>
+				</Card>
+
+				{/* Quick Stats Row */}
+				<Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+					<Paper
+						elevation={0}
+						sx={{
+							flex: 1,
+							p: 2,
+							borderRadius: 3,
+							border: "1px solid",
+							borderColor: "divider",
+							display: "flex",
+							flexDirection: "column",
+							alignItems: "center",
+							textAlign: "center",
+						}}
+					>
+						<PeopleRoundedIcon color="info" sx={{ mb: 1 }} />
+						<Typography variant="h6" fontWeight={700} lineHeight={1}>
+							{donorCount}
+						</Typography>
+						<Typography variant="caption" color="text.secondary">
+							Donatur
+						</Typography>
+					</Paper>
+					<Paper
+						elevation={0}
+						sx={{
+							flex: 1,
+							p: 2,
+							borderRadius: 3,
+							border: "1px solid",
+							borderColor: "divider",
+							display: "flex",
+							flexDirection: "column",
+							alignItems: "center",
+							textAlign: "center",
+						}}
+					>
+						<AccessTimeRoundedIcon color="warning" sx={{ mb: 1 }} />
+						<Typography variant="h6" fontWeight={700} lineHeight={1}>
+							{daysLeft > 0 ? daysLeft : 0}
+						</Typography>
+						<Typography variant="caption" color="text.secondary">
+							Sisa Hari
+						</Typography>
+					</Paper>
+				</Stack>
+
+				{/* Action Menu */}
+				<Typography
+					variant="subtitle2"
+					fontWeight={700}
+					sx={{ mb: 1.5, px: 0.5 }}
+				>
+					Menu Kelola
+				</Typography>
+				<Stack spacing={1.5} sx={{ mb: 4 }}>
+					<LinkButton
+						href={`/galang-dana/${campaign.slug || campaign.id}/pencairan`}
+						variant="contained"
+						fullWidth
+						startIcon={<AccountBalanceWalletRoundedIcon />}
+						endIcon={<ChevronRightRoundedIcon />}
+						sx={{
+							justifyContent: "space-between",
+							borderRadius: 3,
+							py: 1.5,
+							bgcolor: "white",
+							color: "text.primary",
+							border: "1px solid",
+							borderColor: "divider",
+							boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+							"&:hover": {
+								bgcolor: "grey.50",
+								boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+							},
+						}}
+					>
+						<Box sx={{ textAlign: "left" }}>
+							<Typography variant="body2" fontWeight={700}>
+								Update & Pencairan
+							</Typography>
+							<Typography variant="caption" color="text.secondary">
+								Buat kabar terbaru atau tarik dana
+							</Typography>
+						</Box>
+					</LinkButton>
+
+					<Stack direction="row" spacing={1.5}>
+						<LinkButton
+							href={`/galang-dana/buat?draft=${campaign.id}&type=${type}&category=${categoryKey}`}
+							fullWidth
+							variant="outlined"
+							startIcon={<EditRoundedIcon />}
 							sx={{
 								borderRadius: 3,
-								border: "1px solid",
+								py: 1.2,
 								borderColor: "divider",
-								overflow: "hidden",
-								position: "sticky",
-								top: 80,
+								color: "text.primary",
+								textTransform: "none",
+								fontWeight: 600,
+								justifyContent: "flex-start",
 							}}
 						>
-							<Box
-								sx={{
-									position: "relative",
-									aspectRatio: "16/9",
-									bgcolor: "grey.100",
-								}}
-							>
-								{thumbnail ? (
-									<Box
-										component="img"
-										src={thumbnail}
-										alt={campaign.title}
-										sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-									/>
-								) : (
-									<Box
-										sx={{
-											width: "100%",
-											height: "100%",
-											display: "flex",
-											alignItems: "center",
-											justifyContent: "center",
-											color: "text.disabled",
-										}}
-									>
-										<ImageNotSupportedRoundedIcon sx={{ fontSize: 48 }} />
-									</Box>
-								)}
-								<Chip
-									label={campaign.status}
-									color={campaign.status === "ACTIVE" ? "success" : "default"}
-									size="small"
-									sx={{
-										position: "absolute",
-										top: 12,
-										right: 12,
-										fontWeight: 700,
-										borderRadius: 1.5,
-										fontSize: 11,
-										height: 24,
-									}}
-								/>
-							</Box>
-
-							<CardContent sx={{ p: 2 }}>
-								<Typography
-									variant="subtitle2"
-									color="primary"
-									fontWeight={700}
-									gutterBottom
-									sx={{ fontSize: 12 }}
-								>
-									{campaign.category.name}
-								</Typography>
-								<Typography
-									variant="h6"
-									fontWeight={800}
-									sx={{ lineHeight: 1.3, mb: 2, fontSize: 16 }}
-								>
-									{campaign.title}
-								</Typography>
-
-								<Box sx={{ mb: 2 }}>
-									<Stack
-										direction="row"
-										justifyContent="space-between"
-										alignItems="center"
-										sx={{ mb: 1 }}
-									>
-										<Typography
-											variant="caption"
-											color="text.secondary"
-											fontWeight={600}
-										>
-											Terkumpul
-										</Typography>
-										<Typography
-											variant="caption"
-											fontWeight={700}
-											color="primary"
-										>
-											{progress}%
-										</Typography>
-									</Stack>
-									<LinearProgress
-										variant="determinate"
-										value={progress}
-										sx={{
-											height: 6,
-											borderRadius: 4,
-											bgcolor: "action.hover",
-											"& .MuiLinearProgress-bar": {
-												borderRadius: 4,
-											},
-										}}
-									/>
-								</Box>
-
-								<Stack spacing={2}>
-									<Box>
-										<Typography
-											variant="h5"
-											fontWeight={800}
-											sx={{ fontSize: 20 }}
-										>
-											{new Intl.NumberFormat("id-ID", {
-												style: "currency",
-												currency: "IDR",
-												maximumFractionDigits: 0,
-											}).format(totalCollected)}
-										</Typography>
-										<Typography
-											variant="body2"
-											color="text.secondary"
-											sx={{ fontSize: 12 }}
-										>
-											dari target{" "}
-											{new Intl.NumberFormat("id-ID", {
-												style: "currency",
-												currency: "IDR",
-												maximumFractionDigits: 0,
-											}).format(Number(campaign.target))}
-										</Typography>
-									</Box>
-
-									<Divider />
-
-									<Stack direction="row" justifyContent="space-between">
-										<Box>
-											<Typography
-												variant="caption"
-												color="text.secondary"
-												display="block"
-												sx={{ mb: 0.5 }}
-											>
-												Donatur
-											</Typography>
-											<Stack direction="row" alignItems="center" spacing={0.5}>
-												<PeopleRoundedIcon
-													sx={{ fontSize: 16, color: "text.secondary" }}
-												/>
-												<Typography fontWeight={600} fontSize={13}>
-													{donorCount}
-												</Typography>
-											</Stack>
-										</Box>
-										<Box sx={{ textAlign: "right" }}>
-											<Typography
-												variant="caption"
-												color="text.secondary"
-												display="block"
-												sx={{ mb: 0.5 }}
-											>
-												Sisa Hari
-											</Typography>
-											<Stack
-												direction="row"
-												alignItems="center"
-												spacing={0.5}
-												justifyContent="flex-end"
-											>
-												<AccessTimeRoundedIcon
-													sx={{ fontSize: 16, color: "text.secondary" }}
-												/>
-												<Typography fontWeight={600} fontSize={13}>
-													{daysLeft > 0 ? `${daysLeft} hari` : "Selesai"}
-												</Typography>
-											</Stack>
-										</Box>
-									</Stack>
-
-									<LinkButton
-										href={`/galang-dana/buat?draft=${campaign.id}`}
-										variant="outlined"
-										fullWidth
-										startIcon={<EditRoundedIcon sx={{ fontSize: 18 }} />}
-										sx={{
-											borderRadius: 2,
-											textTransform: "none",
-											fontWeight: 700,
-											fontSize: 13,
-											py: 0.8,
-										}}
-									>
-										Edit Campaign
-									</LinkButton>
-								</Stack>
-							</CardContent>
-						</Card>
-					</Box>
-
-					{/* Right Column: Transactions */}
-					<Box>
-						<Typography
-							variant="h6"
-							fontWeight={800}
-							gutterBottom
-							sx={{ fontSize: 16 }}
+							Edit Detail
+						</LinkButton>
+						{/* Note: Share functionality would typically need a client component wrapper or onClick handler */}
+						<Button
+							fullWidth
+							variant="outlined"
+							startIcon={<ShareRoundedIcon />}
+							sx={{
+								borderRadius: 3,
+								py: 1.2,
+								borderColor: "divider",
+								color: "text.primary",
+								textTransform: "none",
+								fontWeight: 600,
+								justifyContent: "flex-start",
+							}}
 						>
-							Detail Transaksi
-						</Typography>
-						<Typography
-							variant="body2"
-							color="text.secondary"
-							sx={{ mb: 2, fontSize: 13 }}
-						>
-							Daftar semua donasi yang masuk ke campaign ini.
-						</Typography>
+							Bagikan
+						</Button>
+					</Stack>
+				</Stack>
 
-						{donations.length === 0 ? (
+				{/* Transactions List */}
+				<Box
+					sx={{
+						mb: 2,
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+					}}
+				>
+					<Typography variant="subtitle2" fontWeight={700} sx={{ px: 0.5 }}>
+						Riwayat Donasi Terbaru
+					</Typography>
+					<Button size="small" sx={{ textTransform: "none", fontSize: 12 }}>
+						Lihat Semua
+					</Button>
+				</Box>
+
+				{donations.length === 0 ? (
+					<Paper
+						elevation={0}
+						sx={{
+							p: 4,
+							textAlign: "center",
+							borderRadius: 3,
+							bgcolor: "white",
+							border: "1px dashed",
+							borderColor: "divider",
+						}}
+					>
+						<PaidRoundedIcon
+							sx={{ fontSize: 40, color: "text.disabled", mb: 1 }}
+						/>
+						<Typography variant="body2" color="text.secondary">
+							Belum ada donasi masuk
+						</Typography>
+					</Paper>
+				) : (
+					<Stack spacing={1.5}>
+						{donations.slice(0, 5).map((donation: any) => (
 							<Paper
+								key={donation.id}
 								elevation={0}
 								sx={{
-									p: 4,
-									textAlign: "center",
+									p: 2,
 									borderRadius: 3,
+									bgcolor: "white",
 									border: "1px solid",
 									borderColor: "divider",
-									bgcolor: "white",
 								}}
 							>
-								<Box
-									sx={{
-										width: 56,
-										height: 56,
-										bgcolor: "action.hover",
-										borderRadius: "50%",
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										mx: "auto",
-										mb: 2,
-									}}
-								>
-									<PaidRoundedIcon
-										sx={{ fontSize: 28, color: "text.secondary" }}
-									/>
-								</Box>
-								<Typography fontWeight={600} gutterBottom fontSize={15}>
-									Belum ada transaksi
-								</Typography>
-								<Typography
-									variant="body2"
-									color="text.secondary"
-									fontSize={13}
-								>
-									Campaign ini belum menerima donasi. Sebarkan campaign Anda
-									untuk mulai mendapatkan dukungan!
-								</Typography>
-							</Paper>
-						) : (
-							<Stack spacing={1.5}>
-								{donations.map((donation: any) => (
-									<Paper
-										key={donation.id}
-										elevation={0}
+								<Stack direction="row" alignItems="center" spacing={2}>
+									<Avatar
 										sx={{
-											p: 1.5,
-											borderRadius: 3,
-											border: "1px solid",
-											borderColor: "divider",
-											transition: "all 0.2s",
-											"&:hover": {
-												borderColor: "primary.main",
-												boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-											},
+											width: 40,
+											height: 40,
+											bgcolor: donation.isAnonymous ? "grey.100" : "primary.50",
+											color: donation.isAnonymous ? "grey.500" : "primary.main",
+											fontWeight: 700,
+											fontSize: 14,
 										}}
 									>
-										<Stack
-											direction={{ xs: "column", sm: "row" }}
-											spacing={2}
-											alignItems={{ xs: "flex-start", sm: "center" }}
+										{donation.isAnonymous
+											? "A"
+											: (donation.donorName || "U").charAt(0).toUpperCase()}
+									</Avatar>
+									<Box sx={{ flex: 1 }}>
+										<Typography variant="body2" fontWeight={700}>
+											{donation.isAnonymous
+												? "Hamba Allah"
+												: donation.donorName}
+										</Typography>
+										<Typography variant="caption" color="text.secondary">
+											{new Date(donation.createdAt).toLocaleDateString(
+												"id-ID",
+												{
+													day: "numeric",
+													month: "short",
+													hour: "2-digit",
+													minute: "2-digit",
+												}
+											)}
+										</Typography>
+									</Box>
+									<Box sx={{ textAlign: "right" }}>
+										<Typography
+											variant="body2"
+											fontWeight={700}
+											color="success.main"
 										>
-											<Avatar
-												sx={{
-													width: 40,
-													height: 40,
-													bgcolor: donation.isAnonymous
-														? "grey.300"
-														: "primary.light",
-													color: donation.isAnonymous
-														? "grey.600"
-														: "primary.main",
-													fontWeight: 700,
-													fontSize: 16,
-												}}
-											>
-												{donation.isAnonymous
-													? "A"
-													: (donation.donorName || "U").charAt(0).toUpperCase()}
-											</Avatar>
-
-											<Box sx={{ flex: 1 }}>
-												<Stack
-													direction="row"
-													alignItems="center"
-													spacing={1}
-													sx={{ mb: 0.5 }}
-												>
-													<Typography fontWeight={700} fontSize={14}>
-														{donation.isAnonymous
-															? "Hamba Allah"
-															: donation.donorName}
-													</Typography>
-													{donation.status === "PAID" ||
-													donation.status === "Berhasil" ? (
-														<VerifiedRoundedIcon
-															sx={{ fontSize: 14, color: "success.main" }}
-														/>
-													) : null}
-												</Stack>
-												<Typography
-													variant="body2"
-													color="text.secondary"
-													fontSize={12}
-												>
-													{new Date(donation.createdAt).toLocaleDateString(
-														"id-ID",
-														{
-															day: "numeric",
-															month: "long",
-															year: "numeric",
-															hour: "2-digit",
-															minute: "2-digit",
-														}
-													)}
-												</Typography>
-												{donation.message && (
-													<Typography
-														variant="body2"
-														sx={{
-															mt: 1,
-															p: 1,
-															bgcolor: "grey.50",
-															borderRadius: 2,
-															fontStyle: "italic",
-															color: "text.secondary",
-															fontSize: 12,
-														}}
-													>
-														"{donation.message}"
-													</Typography>
-												)}
-											</Box>
-
-											<Box
-												sx={{
-													textAlign: { xs: "left", sm: "right" },
-													minWidth: 100,
-												}}
-											>
-												<Typography
-													fontWeight={700}
-													color="primary.main"
-													fontSize={15}
-												>
-													{new Intl.NumberFormat("id-ID", {
-														style: "currency",
-														currency: "IDR",
-														maximumFractionDigits: 0,
-													}).format(Number(donation.amount))}
-												</Typography>
-												<Chip
-													label={donation.status || "Pending"}
-													size="small"
-													color={
-														donation.status === "PAID" ||
-														donation.status === "Berhasil"
-															? "success"
-															: donation.status === "PENDING"
-															? "warning"
-															: "default"
-													}
-													sx={{
-														mt: 0.5,
-														fontWeight: 700,
-														borderRadius: 1.5,
-														height: 20,
-														fontSize: 10,
-													}}
-												/>
-											</Box>
-										</Stack>
-									</Paper>
-								))}
-							</Stack>
-						)}
-					</Box>
-				</Box>
+											+
+											{new Intl.NumberFormat("id-ID", {
+												style: "currency",
+												currency: "IDR",
+												maximumFractionDigits: 0,
+											}).format(Number(donation.amount))}
+										</Typography>
+										<Chip
+											label={donation.status || "Pending"}
+											size="small"
+											color={
+												donation.status === "PAID" ||
+												donation.status === "Berhasil"
+													? "success"
+													: donation.status === "PENDING"
+													? "warning"
+													: "default"
+											}
+											sx={{ height: 18, fontSize: 10, fontWeight: 700 }}
+										/>
+									</Box>
+								</Stack>
+								{donation.message && (
+									<Box
+										sx={{
+											mt: 1.5,
+											p: 1.5,
+											bgcolor: "grey.50",
+											borderRadius: 2,
+										}}
+									>
+										<Typography
+											variant="caption"
+											color="text.secondary"
+											fontStyle="italic"
+										>
+											"{donation.message}"
+										</Typography>
+									</Box>
+								)}
+							</Paper>
+						))}
+					</Stack>
+				)}
 			</Container>
 		</Box>
 	);

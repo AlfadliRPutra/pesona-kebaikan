@@ -280,6 +280,15 @@ export default function CreateBlogFancyPage() {
           {toast.msg}
         </Alert>
       </Snackbar>
+      {/* Tampilkan hasil GET API untuk debug */}
+      {apiTestResult && (
+        <Box mt={4} p={2} bgcolor="#f5f5f5" borderRadius={2}>
+          <Typography variant="subtitle2" color="primary">
+            Hasil GET API:
+          </Typography>
+          <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{JSON.stringify(apiTestResult, null, 2)}</pre>
+        </Box>
+      )}
     </Box>
   );
 }

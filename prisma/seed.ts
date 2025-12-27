@@ -66,6 +66,7 @@ async function ensureBlog(params: {
       content: params.content,
       categoryId: params.categoryId ?? null,
       createdById: params.createdById,
+      heroImage: params.heroImage ?? null,
       gallery: params.gallery?.length
         ? {
             create: params.gallery.map((g) => ({

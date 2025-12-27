@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+// Ganti import prisma agar pasti dari output prisma generate
 import { prisma } from "@/lib/prisma";
 import { JSDOM } from "jsdom";
 
@@ -81,5 +82,27 @@ export async function POST(req: NextRequest) {
       { success: false, error: e.message },
       { status: 500 }
     );
+  }
+}
+
+// Endpoint untuk membuat user dummy (khusus development/testing)
+export async function PUT(req: NextRequest) {
+  try {
+    const id = "ADMIN_ID";
+    const email = "admin_id@dummy.local";
+    // Cek jika sudah ada
+    let user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          id,
+          name: "Admin Dummy",
+          email,
+        },
+      });
+    }
+    return NextResponse.json({ success: true, user });
+  } catch (e: any) {
+    return NextResponse.json({ success: false, error: e.message || "Gagal membuat user dummy" }, { status: 500 });
   }
 }
