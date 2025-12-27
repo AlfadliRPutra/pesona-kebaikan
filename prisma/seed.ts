@@ -36,7 +36,6 @@ async function ensureBlogByTitle(params: {
   gallery?: Array<{
     type: BlogMediaType;
     url: string;
-    isThumbnail?: boolean;
   }>;
 }) {
   const existing = await prisma.blog.findFirst({
@@ -57,7 +56,6 @@ async function ensureBlogByTitle(params: {
             create: params.gallery.map((m) => ({
               type: m.type,
               url: m.url,
-              isThumbnail: m.isThumbnail ?? false,
             })),
           }
         : undefined,
@@ -248,76 +246,92 @@ async function main() {
   // ============
   // BLOG CATEGORY + SAMPLE BLOG
   // ============
-  console.log("Seeding BlogCategory...");
-  const catEdukasi = await upsertBlogCategory("Edukasi");
-  const catUpdate = await upsertBlogCategory("Update");
-  const catKisah = await upsertBlogCategory("Kisah Baik");
+  try {
+    console.log("Seeding BlogCategory...");
+    const catEdukasi = await upsertBlogCategory("Edukasi");
+    const catUpdate = await upsertBlogCategory("Update");
+    const catKisah = await upsertBlogCategory("Kisah Baik");
 
-  console.log("Seeding Blogs...");
-  await ensureBlogByTitle({
-    title: "Kenapa Transparansi Itu Penting Dalam Donasi",
-    content:
-      "Transparansi adalah fondasi kepercayaan.\n\nDi Pesona Kebaikan, kami mendorong pelaporan, dokumentasi penggunaan dana, serta update berkala agar donatur merasa tenang dan yakin.",
-    categoryId: catEdukasi.id,
-    createdById: admin.id,
-    gallery: [
-      {
-        type: BlogMediaType.image,
-        url: "https://picsum.photos/1200/800?random=11",
-        isThumbnail: true,
-      },
-      {
-        type: BlogMediaType.image,
-        url: "https://picsum.photos/1200/800?random=12",
-      },
-    ],
-  });
+    console.log("Seeding Blogs...");
+    await ensureBlogByTitle({
+      title: "Kenapa Transparansi Itu Penting Dalam Donasi",
+      content:
+        "Transparansi adalah fondasi kepercayaan.\n\nDi Pesona Kebaikan, kami mendorong pelaporan, dokumentasi penggunaan dana, serta update berkala agar donatur merasa tenang dan yakin.",
+      categoryId: catEdukasi.id,
+      createdById: admin.id,
+      gallery: [
+        {
+          type: BlogMediaType.image,
+          url: "https://picsum.photos/1200/800?random=11",
+        },
+        {
+          type: BlogMediaType.image,
+          url: "https://picsum.photos/1200/800?random=12",
+        },
+      ],
+    });
 
-  await ensureBlogByTitle({
-    title: "Update Platform: Fitur Riwayat Donasi & Notifikasi",
-    content:
-      "Kami menambahkan riwayat donasi dan notifikasi agar donatur bisa memantau kontribusinya dengan lebih mudah.\n\nSelanjutnya kami akan mengembangkan fitur laporan pencairan dan progress campaign yang lebih detail.",
-    categoryId: catUpdate.id,
-    createdById: admin.id,
-    gallery: [
-      {
-        type: BlogMediaType.image,
-        url: "https://picsum.photos/1200/800?random=21",
-        isThumbnail: true,
-      },
-    ],
-  });
+    await ensureBlogByTitle({
+      title: "Update Platform: Fitur Riwayat Donasi & Notifikasi",
+      content:
+        "Kami menambahkan riwayat donasi dan notifikasi agar donatur bisa memantau kontribusinya dengan lebih mudah.\n\nSelanjutnya kami akan mengembangkan fitur laporan pencairan dan progress campaign yang lebih detail.",
+      categoryId: catUpdate.id,
+      createdById: admin.id,
+      gallery: [
+        {
+          type: BlogMediaType.image,
+          url: "https://picsum.photos/1200/800?random=21",
+        },
+      ],
+    });
 
-  await ensureBlogByTitle({
-    title: "Kisah Baik: Donasi Kecil, Dampak Besar",
-    content:
-      "Terkadang, donasi kecil yang konsisten punya dampak luar biasa.\n\nTerima kasih sudah menjadi bagian dari kebaikan yang terus berjalan.",
-    categoryId: catKisah.id,
-    createdById: admin.id,
-    gallery: [
-      {
-        type: BlogMediaType.image,
-        url: "https://picsum.photos/1200/800?random=31",
-        isThumbnail: true,
-      },
-    ],
-  });
+    await ensureBlogByTitle({
+      title: "Kisah Baik: Donasi Kecil, Dampak Besar",
+      content:
+        "Terkadang, donasi kecil yang konsisten punya dampak luar biasa.\n\nTerima kasih sudah menjadi bagian dari kebaikan yang terus berjalan.",
+      categoryId: catKisah.id,
+      createdById: admin.id,
+      gallery: [
+        {
+          type: BlogMediaType.image,
+          url: "https://picsum.photos/1200/800?random=31",
+        },
+      ],
+    });
+  } catch (err) {
+    console.warn("Skipping blog seed due to error:", (err as any)?.message || err);
+  }
 
   // ============
   // CAMPAIGN CATEGORY
   // ============
   console.log("Seeding CampaignCategory...");
-  const campCatKesehatan = await upsertCampaignCategory("Kesehatan");
-  const campCatPendidikan = await upsertCampaignCategory("Pendidikan");
-  const campCatBencana = await upsertCampaignCategory("Bencana Alam");
-  const campCatZakat = await upsertCampaignCategory("Zakat");
+  const categoryNames = [
+    "Bencana Alam",
+    "Balita & Anak Sakit",
+    "Bantuan Medis",
+    "Zakat",
+    "Wakaf",
+    "Pendidikan",
+    "Lingkungan",
+    "Panti Asuhan",
+    "Difabel",
+    "Infrastruktur",
+    "Kemanusiaan",
+    "Bantuan Pangan",
+  ];
+  const campCategories = [];
+  for (const name of categoryNames) {
+    const cat = await upsertCampaignCategory(name);
+    campCategories.push(cat);
+  }
 
   // ============
   // CAMPAIGNS
   // ============
   console.log("Seeding Campaigns...");
   
-  const campaignCategories = [campCatKesehatan, campCatPendidikan, campCatBencana, campCatZakat];
+  const campaignCategories = campCategories;
   const campaignTitles = [
     "Bantu Adik Rizky Sembuh dari Jantung Bocor",
     "Renovasi Sekolah Dasar di Desa Terpencil",
