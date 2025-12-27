@@ -25,6 +25,7 @@ import StepLabel from "@mui/material/StepLabel";
 import StepContent from "@mui/material/StepContent";
 import Grid from "@mui/material/Grid";
 import Tooltip from "@mui/material/Tooltip";
+import Autocomplete from "@mui/material/Autocomplete";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -105,6 +106,39 @@ function ProfilePageContent() {
 		"individu" | "organisasi" | null
 	>(null);
 	const [activeStep, setActiveStep] = React.useState(0);
+
+	// Address State
+	const [provinces, setProvinces] = React.useState<any[]>([]);
+	const [regencies, setRegencies] = React.useState<any[]>([]);
+	const [selectedProvince, setSelectedProvince] = React.useState<any>(null);
+	const [selectedRegency, setSelectedRegency] = React.useState<any>(null);
+
+	// Fetch Provinces
+	React.useEffect(() => {
+		if (openVerification) {
+			fetch("/api/address?type=province")
+				.then((res) => res.json())
+				.then((data) => {
+					if (Array.isArray(data)) setProvinces(data);
+				})
+				.catch((err) => console.error(err));
+		}
+	}, [openVerification]);
+
+	// Fetch Regencies
+	React.useEffect(() => {
+		if (selectedProvince?.id) {
+			fetch(`/api/address?type=regency&provinceId=${selectedProvince.id}`)
+				.then((res) => res.json())
+				.then((data) => {
+					if (Array.isArray(data)) setRegencies(data);
+				})
+				.catch((err) => console.error(err));
+		} else {
+			setRegencies([]);
+			setSelectedRegency(null);
+		}
+	}, [selectedProvince]);
 
 	const handleOpenVerification = () => {
 		setVerificationType(null);
@@ -674,7 +708,99 @@ function ProfilePageContent() {
 									</StepContent>
 								</Step>
 
-								{/* Step 2: Email */}
+								{/* Step 2: Alamat Domisili */}
+								<Step>
+									<StepLabel>
+										<Typography sx={{ fontWeight: 700 }}>
+											Alamat Domisili
+										</Typography>
+									</StepLabel>
+									<StepContent>
+										<Typography
+											variant="body2"
+											color="text.secondary"
+											sx={{ mb: 2 }}
+										>
+											Pilih provinsi dan kabupaten/kota domisili Anda.
+										</Typography>
+										<Stack spacing={2} sx={{ mb: 2 }}>
+											<Autocomplete
+												options={provinces}
+												getOptionLabel={(option) => option.name}
+												isOptionEqualToValue={(option, value) =>
+													option.id === value.id
+												}
+												value={selectedProvince}
+												onChange={(_, newValue) =>
+													setSelectedProvince(newValue)
+												}
+												renderInput={(params) => (
+													<TextField
+														{...params}
+														label="Provinsi"
+														size="small"
+													/>
+												)}
+												noOptionsText="Tidak ada data"
+											/>
+											<Autocomplete
+												options={regencies}
+												getOptionLabel={(option) => option.name}
+												isOptionEqualToValue={(option, value) =>
+													option.id === value.id
+												}
+												value={selectedRegency}
+												onChange={(_, newValue) => setSelectedRegency(newValue)}
+												disabled={!selectedProvince}
+												renderInput={(params) => (
+													<TextField
+														{...params}
+														label="Kabupaten/Kota"
+														size="small"
+													/>
+												)}
+												noOptionsText={
+													selectedProvince
+														? "Tidak ada data"
+														: "Pilih provinsi terlebih dahulu"
+												}
+											/>
+										</Stack>
+										<Box sx={{ mb: 2 }}>
+											<Button
+												variant="contained"
+												onClick={handleNext}
+												disabled={!selectedProvince || !selectedRegency}
+												sx={{
+													bgcolor: "#61ce70",
+													textTransform: "none",
+													fontWeight: 700,
+													borderRadius: 1,
+													boxShadow: "none",
+													"&.Mui-disabled": {
+														bgcolor: "#e2e8f0",
+														color: "#94a3b8",
+													},
+												}}
+											>
+												Lanjut
+											</Button>
+											<Button
+												onClick={handleBack}
+												sx={{
+													mt: 1,
+													mr: 1,
+													color: "text.secondary",
+													textTransform: "none",
+												}}
+											>
+												Kembali
+											</Button>
+										</Box>
+									</StepContent>
+								</Step>
+
+								{/* Step 3: Email */}
 								<Step>
 									<StepLabel>
 										<Typography sx={{ fontWeight: 700 }}>
@@ -733,7 +859,7 @@ function ProfilePageContent() {
 									</StepContent>
 								</Step>
 
-								{/* Step 3: Phone / WhatsApp (New) */}
+								{/* Step 4: Phone / WhatsApp (New) */}
 								<Step>
 									<StepLabel>
 										<Typography sx={{ fontWeight: 700 }}>
@@ -809,7 +935,7 @@ function ProfilePageContent() {
 									</StepContent>
 								</Step>
 
-								{/* Step 4: Selesai */}
+								{/* Step 5: Selesai */}
 								<Step>
 									<StepLabel>
 										<Typography sx={{ fontWeight: 700 }}>Selesai</Typography>

@@ -1,4 +1,4 @@
-import HeroCarousel from "@/components/home/HeroCarousel";
+import HeroCarousel, { CarouselItem } from "@/components/home/HeroCarousel";
 import Box from "@mui/material/Box";
 import QuickMenu from "@/components/home/QuickMenu";
 import UrgentSection from "@/components/home/UrgentSection";
@@ -17,14 +17,32 @@ import {
 	getAllActiveCampaigns,
 } from "@/actions/campaign";
 import type { Campaign } from "@/types";
+import { prisma } from "@/lib/prisma";
 
 export default async function Home() {
-	const [urgentRes, popularRes, donationRes, allCampaignsRes] =
+	const [urgentRes, popularRes, donationRes, allCampaignsRes, carouselRes] =
 		await Promise.all([
 			getUrgentCampaigns(10),
 			getPopularCampaigns(10),
 			getLatestDonations(10),
 			getAllActiveCampaigns(100),
+			prisma.carousel.findMany({
+				where: { isActive: true },
+				orderBy: { order: "asc" },
+				include: {
+					campaign: {
+						select: {
+							id: true,
+							title: true,
+							slug: true,
+							media: {
+								where: { isThumbnail: true },
+								take: 1,
+							},
+						},
+					},
+				},
+			}),
 		]);
 
 	const urgentCampaigns: Campaign[] = Array.isArray(urgentRes.data)
@@ -38,10 +56,27 @@ export default async function Home() {
 		? allCampaignsRes.data
 		: [];
 
+	const heroItems: CarouselItem[] = carouselRes.map((c) => {
+		let image = c.image;
+		let link = c.link;
+
+		if (c.campaign) {
+			if (!image) image = c.campaign.media[0]?.url;
+			if (!link) link = `/donasi/${c.campaign.slug || c.campaign.id}`;
+		}
+
+		return {
+			id: c.id,
+			image: image || "/defaultimg.webp",
+			link: link || undefined,
+			title: c.title || c.campaign?.title || undefined,
+		};
+	});
+
 	return (
 		<Box>
-			<HeroCarousel campaigns={popularCampaigns} />
-			<QuickDonate campaigns={allCampaigns} />
+			<HeroCarousel items={heroItems} />
+			<QuickDonate campaigns={popularCampaigns.slice(0, 5)} />
 			<QuickMenu />
 			<UrgentSection campaigns={urgentCampaigns} />
 			<CategoryChips campaigns={allCampaigns} />
