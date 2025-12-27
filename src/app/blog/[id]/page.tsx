@@ -42,7 +42,7 @@ export default async function BlogDetailPage({
 
   // Map data
   const cover =
-    blog.headerImage ||
+    blog.heroImage ||
     blog.gallery.find((m) => m.type === "image")?.url ||
     "/defaultimg.webp";
 

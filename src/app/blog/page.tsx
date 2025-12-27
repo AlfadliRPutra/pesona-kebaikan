@@ -35,7 +35,7 @@ export default async function BlogPage({
   const mappedPosts = blogs.map((blog) => {
     // Find thumbnail or first image
     const cover =
-      blog.headerImage ||
+      blog.heroImage ||
       blog.gallery.find((m) => m.type === "image")?.url ||
       "/defaultimg.webp";
 

@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       data: {
         title,
         content,
-        headerImage: headerImage || null,
+        heroImage: headerImage || null,
         category: { connect: { id: categoryId } },
         createdBy: { connect: { id: user.id } }, // ✅ FIX ERROR
         gallery: gallery.length

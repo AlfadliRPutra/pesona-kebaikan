@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       id: b.id,
       title: b.title,
       excerpt: b.content.slice(0, 160), // preview admin
-      headerImage: b.headerImage,
+      heroImage: b.heroImage,
       createdAt: b.createdAt,
       updatedAt: b.updatedAt,
       category: b.category,

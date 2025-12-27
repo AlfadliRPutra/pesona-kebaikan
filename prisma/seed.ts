@@ -49,6 +49,7 @@ async function ensureBlog(params: {
   content: string;
   categoryId?: string | null;
   createdById: string;
+  heroImage?: string | null;
   gallery?: {
     type: BlogMediaType;
     url: string;

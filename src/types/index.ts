@@ -45,4 +45,5 @@ export interface Campaign {
 	donors?: number;
 	latestUpdate?: string;
 	slug?: string;
+	isEmergency?: boolean;
 }

@@ -583,7 +583,7 @@ export default function AdminCampaignKategoriPage() {
                                     }
                                 }}
                             >
-                                {React.cloneElement(icon as React.ReactElement, { sx: { fontSize: 24 } })}
+                                {React.cloneElement(icon as React.ReactElement<any>, { sx: { fontSize: 24 } })}
                             </Box>
                         ))}
                     </Box>
