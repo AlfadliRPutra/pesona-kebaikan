@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-<<<<<<< HEAD
 import fs from "fs";
 import path from "path";
 // Enums defined locally to avoid generator issues
@@ -40,16 +39,6 @@ const NotificationType = {
 	KABAR: "KABAR",
 	PESAN: "PESAN",
 } as const;
-=======
-import {
-  Role,
-  BlogMediaType,
-  CampaignStatus,
-  CampaignMediaType,
-  PaymentMethod,
-  NotificationType,
-} from "@/generated/prisma";
->>>>>>> 44bf05079bca388c6cefe2911ca3017c7743b81c
 
 /* =========================
    HELPERS (IDEMPOTENT)

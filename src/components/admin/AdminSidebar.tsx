@@ -23,6 +23,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DescriptionIcon from "@mui/icons-material/Description";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import VrpanoIcon from "@mui/icons-material/Vrpano";
 
 type MenuItem = {
 	label: string;
@@ -40,6 +41,12 @@ const menus: { title: string; items: MenuItem[] }[] = [
 				href: "/admin",
 				icon: <DashboardIcon fontSize="small" />,
 				desc: "Ringkasan data & status",
+			},
+			{
+				label: "Carousel Setting",
+				href: "/admin/carousel",
+				icon: <VrpanoIcon fontSize="small" />,
+				desc: "Setting carousel",
 			},
 		],
 	},
