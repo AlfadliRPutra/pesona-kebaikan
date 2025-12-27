@@ -8,7 +8,7 @@ import {
   CampaignMediaType,
   PaymentMethod,
   NotificationType,
-} from "@/generated/prisma/enums";
+} from "@/generated/prisma";
 
 /* =========================
    HELPERS (IDEMPOTENT)
