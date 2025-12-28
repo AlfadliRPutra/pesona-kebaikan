@@ -1037,6 +1037,7 @@ function mapCampaignsToTypes(campaigns: CampaignWithRelations[]) {
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
 			tag: c.category.name === "Bantuan Medis & Kesehatan" ? "VERIFIED" : "ORG",
 			slug: c.slug || c.id,
+			isEmergency: c.isEmergency,
 		};
 	});
 }

@@ -365,7 +365,7 @@ export default function ReportList() {
 					const Icon = config.icon;
 
 					return (
-						<Grid item xs={12} sm={6} md={3} key={s}>
+						<Grid size={{ xs: 12, sm: 6, md: 3 }} key={s}>
 							<Card
 								variant="outlined"
 								sx={{

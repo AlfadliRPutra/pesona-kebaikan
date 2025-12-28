@@ -487,7 +487,7 @@ function ProfilePageContent() {
 						</Typography>
 
 						<Grid container spacing={2}>
-							<Grid item xs={12} sm={6}>
+							<Grid size={{ xs: 12, sm: 6 }}>
 								<Box
 									onClick={() => setVerificationType("individu")}
 									sx={{
@@ -532,7 +532,7 @@ function ProfilePageContent() {
 								</Box>
 							</Grid>
 
-							<Grid item xs={12} sm={6}>
+							<Grid size={{ xs: 12, sm: 6 }}>
 								<Box
 									onClick={() => setVerificationType("organisasi")}
 									sx={{

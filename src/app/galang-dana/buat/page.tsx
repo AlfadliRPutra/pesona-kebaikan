@@ -133,7 +133,7 @@ function BuatGalangDanaPageContent() {
 
 				if (c.type === "sakit") {
 					setTitle(c.title);
-					setSlug(c.slug);
+					setSlug(c.slug || "");
 					setTarget(c.target.toString());
 					setStory(c.description);
 					setPhone(c.phone || "");
@@ -159,7 +159,7 @@ function BuatGalangDanaPageContent() {
 					setT4(true);
 				} else {
 					setTitleOther(c.title);
-					setSlugOther(c.slug);
+					setSlugOther(c.slug || "");
 					setTargetOther(c.target.toString());
 					setStoryOther(c.description);
 					setPhoneOther(c.phone || "");
