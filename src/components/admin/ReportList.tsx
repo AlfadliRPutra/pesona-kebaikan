@@ -36,6 +36,14 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import {
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogContentText,
+	DialogActions,
+} from "@mui/material";
+import { updateCampaignStatus } from "@/actions/campaign";
 import { getReports, updateReportStatus } from "@/actions/report";
 import { format, formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
@@ -125,6 +133,19 @@ export default function ReportList() {
 	);
 
 	const [bulkUpdating, setBulkUpdating] = useState(false);
+
+	// Confirmation Dialog State
+	const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+	const [confirmConfig, setConfirmConfig] = useState<{
+		title: string;
+		message: string;
+		action: () => Promise<void>;
+		confirmText: string;
+		confirmColor: "primary" | "error" | "warning" | "info";
+	} | null>(null);
+
+	// Resolve Choice Dialog State (For "Selesai Ditinjau")
+	const [resolveChoiceOpen, setResolveChoiceOpen] = useState(false);
 
 	const fetchReports = async () => {
 		setLoading(true);
@@ -236,20 +257,139 @@ export default function ReportList() {
 		setDrawerOpen(false);
 	};
 
-	const bulkUpdateCampaignStatus = async (newStatus: string) => {
+	const handleConfirmAction = async () => {
+		if (!confirmConfig) return;
+		setConfirmDialogOpen(false);
+		await confirmConfig.action();
+	};
+
+	const executeRejectReport = async () => {
 		if (!selectedCampaign) return;
 		setBulkUpdating(true);
 		try {
-			// update semua report di campaign ini
 			await Promise.all(
 				selectedCampaign.reports.map((r) =>
-					updateReportStatus(r.id, newStatus as any)
+					updateReportStatus(r.id, "REJECTED")
 				)
 			);
 			await fetchReports();
 		} finally {
 			setBulkUpdating(false);
 		}
+	};
+
+	const executeReview = async () => {
+		if (!selectedCampaign) return;
+		setBulkUpdating(true);
+		try {
+			// Update reports to REVIEWED
+			await Promise.all(
+				selectedCampaign.reports.map((r) =>
+					updateReportStatus(r.id, "REVIEWED")
+				)
+			);
+			// Pause Campaign
+			await updateCampaignStatus(selectedCampaign.campaignId, "PAUSED");
+			await fetchReports();
+		} finally {
+			setBulkUpdating(false);
+		}
+	};
+
+	const executeResolveDirectly = async () => {
+		if (!selectedCampaign) return;
+		setBulkUpdating(true);
+		try {
+			await Promise.all(
+				selectedCampaign.reports.map((r) =>
+					updateReportStatus(r.id, "RESOLVED")
+				)
+			);
+			await fetchReports();
+		} finally {
+			setBulkUpdating(false);
+		}
+	};
+
+	const executeResumeCampaign = async () => {
+		if (!selectedCampaign) return;
+		setBulkUpdating(true);
+		setResolveChoiceOpen(false);
+		try {
+			// Reports -> RESOLVED
+			await Promise.all(
+				selectedCampaign.reports.map((r) =>
+					updateReportStatus(r.id, "RESOLVED")
+				)
+			);
+			// Campaign -> ACTIVE
+			await updateCampaignStatus(selectedCampaign.campaignId, "ACTIVE");
+			await fetchReports();
+		} finally {
+			setBulkUpdating(false);
+		}
+	};
+
+	const executeStopCampaign = async () => {
+		if (!selectedCampaign) return;
+		setBulkUpdating(true);
+		setResolveChoiceOpen(false);
+		try {
+			// Reports -> RESOLVED
+			await Promise.all(
+				selectedCampaign.reports.map((r) =>
+					updateReportStatus(r.id, "RESOLVED")
+				)
+			);
+			// Campaign -> COMPLETED (Stops it)
+			await updateCampaignStatus(selectedCampaign.campaignId, "COMPLETED");
+			await fetchReports();
+		} finally {
+			setBulkUpdating(false);
+		}
+	};
+
+	// Button Handlers
+	const handleRejectReportClick = () => {
+		setConfirmConfig({
+			title: "Tolak Laporan?",
+			message:
+				"Anda akan menolak semua laporan ini. Status campaign tidak akan berubah.",
+			action: executeRejectReport,
+			confirmText: "Tolak Laporan",
+			confirmColor: "error",
+		});
+		setConfirmDialogOpen(true);
+	};
+
+	const handleReviewClick = () => {
+		if (selectedCampaign?.aggregateStatus === "REVIEWED") {
+			// Already reviewed, open choice dialog
+			setResolveChoiceOpen(true);
+		} else {
+			// Not reviewed yet
+			setConfirmConfig({
+				title: "Tandai Ditinjau?",
+				message:
+					"Campaign akan otomatis DIJEDA (Paused) dan status laporan menjadi Ditinjau.",
+				action: executeReview,
+				confirmText: "Tandai Ditinjau & Jeda",
+				confirmColor: "info",
+			});
+			setConfirmDialogOpen(true);
+		}
+	};
+
+	const handleResolveClick = () => {
+		setConfirmConfig({
+			title: "Selesaikan Laporan?",
+			message:
+				"Laporan akan ditandai Selesai. Pastikan Anda sudah mengambil tindakan yang diperlukan.",
+			action: executeResolveDirectly,
+			confirmText: "Selesaikan",
+			confirmColor: "success",
+		});
+		setConfirmDialogOpen(true);
 	};
 
 	const renderSkeletonRows = () => {
@@ -369,7 +509,7 @@ export default function ReportList() {
 							<Card
 								variant="outlined"
 								sx={{
-									borderRadius: 4,
+									borderRadius: 1,
 									border: `1px solid ${config.border}`,
 									background: config.bg,
 									height: "100%",
@@ -421,7 +561,7 @@ export default function ReportList() {
 										<Box
 											sx={{
 												p: 1,
-												borderRadius: "12px",
+												borderRadius: 1,
 												bgcolor: "rgba(255,255,255,0.5)",
 												color: config.text,
 												display: "flex",
@@ -443,7 +583,7 @@ export default function ReportList() {
 				elevation={0}
 				sx={{
 					border: "1px solid #e2e8f0",
-					borderRadius: "14px",
+					borderRadius: 1,
 					overflow: "hidden",
 				}}
 			>
@@ -665,7 +805,7 @@ export default function ReportList() {
 							variant="outlined"
 							sx={{
 								p: 1.5,
-								borderRadius: 3,
+								borderRadius: 1,
 								borderColor: "#e2e8f0",
 								bgcolor: "#f8fafc",
 							}}
@@ -690,7 +830,7 @@ export default function ReportList() {
 										variant="outlined"
 										color="error"
 										disabled={bulkUpdating}
-										onClick={() => bulkUpdateCampaignStatus("REJECTED")}
+										onClick={handleRejectReportClick}
 									>
 										{bulkUpdating ? (
 											<CircularProgress size={16} />
@@ -702,10 +842,12 @@ export default function ReportList() {
 										size="small"
 										variant="outlined"
 										disabled={bulkUpdating}
-										onClick={() => bulkUpdateCampaignStatus("REVIEWED")}
+										onClick={handleReviewClick}
 									>
 										{bulkUpdating ? (
 											<CircularProgress size={16} />
+										) : selectedCampaign.aggregateStatus === "REVIEWED" ? (
+											"Selesai Ditinjau"
 										) : (
 											"Tandai Ditinjau"
 										)}
@@ -714,7 +856,7 @@ export default function ReportList() {
 										size="small"
 										variant="contained"
 										disabled={bulkUpdating}
-										onClick={() => bulkUpdateCampaignStatus("RESOLVED")}
+										onClick={handleResolveClick}
 									>
 										{bulkUpdating ? (
 											<CircularProgress size={16} />
@@ -892,10 +1034,8 @@ export default function ReportList() {
 						</Stack>
 					</Stack>
 				) : (
-					<Box sx={{ p: 2 }}>
-						<Typography variant="body2" color="text.secondary">
-							Pilih campaign untuk melihat detail.
-						</Typography>
+					<Box sx={{ p: 4, textAlign: "center" }}>
+						<CircularProgress />
 					</Box>
 				)}
 			</Drawer>
@@ -915,6 +1055,71 @@ export default function ReportList() {
 					Tandai Ditolak
 				</MenuItem>
 			</Menu>
+
+			{/* Confirmation Dialog */}
+			<Dialog
+				open={confirmDialogOpen}
+				onClose={() => setConfirmDialogOpen(false)}
+			>
+				<DialogTitle sx={{ fontWeight: 800 }}>
+					{confirmConfig?.title || "Konfirmasi"}
+				</DialogTitle>
+				<DialogContent>
+					<DialogContentText>{confirmConfig?.message}</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setConfirmDialogOpen(false)}>Batal</Button>
+					<Button
+						onClick={handleConfirmAction}
+						color={confirmConfig?.confirmColor || "primary"}
+						variant="contained"
+						autoFocus
+					>
+						{confirmConfig?.confirmText || "Ya, Lanjutkan"}
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Resolve Choice Dialog */}
+			<Dialog
+				open={resolveChoiceOpen}
+				onClose={() => setResolveChoiceOpen(false)}
+			>
+				<DialogTitle sx={{ fontWeight: 800 }}>
+					Tindakan Lanjutan Campaign
+				</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Campaign ini saat ini sedang dijeda (Paused). Apa tindakan
+						selanjutnya yang ingin Anda ambil?
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ flexDirection: "column", gap: 1, p: 3 }}>
+					<Button
+						onClick={executeResumeCampaign}
+						fullWidth
+						variant="contained"
+						color="success"
+					>
+						Lanjut Campaign (Aktifkan Kembali)
+					</Button>
+					<Button
+						onClick={executeStopCampaign}
+						fullWidth
+						variant="contained"
+						color="error"
+					>
+						Stop Campaign (Tolak/Hentikan)
+					</Button>
+					<Button
+						onClick={() => setResolveChoiceOpen(false)}
+						fullWidth
+						variant="outlined"
+					>
+						Batal
+					</Button>
+				</DialogActions>
+			</Dialog>
 		</Box>
 	);
 }

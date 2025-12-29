@@ -11,7 +11,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { slug } = await params;
 	const res = await getCampaignBySlug(slug);
 
-	if (!res.success || !res.data) {
+	if (
+		!res.success ||
+		!res.data ||
+		res.data.status === "paused" ||
+		res.data.status === "ended" ||
+		res.data.status === "rejected"
+	) {
 		return {
 			title: "Campaign Not Found",
 		};
@@ -27,6 +33,14 @@ export default async function DonationPaymentPage({ params }: Props) {
 	const res = await getCampaignBySlug(slug);
 
 	if (!res.success || !res.data) {
+		notFound();
+	}
+
+	if (
+		res.data.status === "paused" ||
+		res.data.status === "ended" ||
+		res.data.status === "rejected"
+	) {
 		notFound();
 	}
 

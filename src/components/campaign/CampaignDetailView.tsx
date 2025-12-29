@@ -1324,6 +1324,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 					<Button
 						variant="contained"
 						fullWidth
+						disabled={data.status === "ended" || data.status === "rejected"}
 						onClick={() =>
 							router.push(`/donasi/${data.slug || data.id}/payment`)
 						}
@@ -1335,9 +1336,18 @@ export default function CampaignDetailView({ data }: { data: any }) {
 							fontSize: 16,
 							boxShadow: "0 4px 12px rgba(225, 29, 72, 0.3)",
 							"&:hover": { bgcolor: "#be123c" },
+							"&.Mui-disabled": {
+								bgcolor: "#cbd5e1",
+								color: "#94a3b8",
+								boxShadow: "none",
+							},
 						}}
 					>
-						Donasi Sekarang
+						{data.status === "ended"
+							? "Campaign Berakhir"
+							: data.status === "rejected"
+							? "Campaign Ditolak"
+							: "Donasi Sekarang"}
 					</Button>
 				</Container>
 			</Paper>

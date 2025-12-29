@@ -43,6 +43,8 @@ import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import ThumbUpAltRoundedIcon from "@mui/icons-material/ThumbUpAltRounded";
 import ThumbDownAltRoundedIcon from "@mui/icons-material/ThumbDownAltRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
+import PauseCircleIcon from "@mui/icons-material/PauseCircle";
+import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded";
 
 import {
 	getCampaignById,
@@ -64,7 +66,8 @@ type CampaignStatus =
 	| "active"
 	| "ended"
 	| "rejected"
-	| "pending";
+	| "pending"
+	| "paused";
 type CampaignType = "sakit" | "lainnya";
 
 type AuditEvent = {
@@ -98,6 +101,7 @@ const STATUS_META: Record<
 	ended: { label: "Berakhir", tone: "error" },
 	rejected: { label: "Ditolak", tone: "error" },
 	pending: { label: "Menunggu Verifikasi", tone: "warning" },
+	paused: { label: "Jeda", tone: "warning" },
 };
 
 // Transaction Types & Helpers
@@ -208,6 +212,8 @@ export default function AdminCampaignDetailPage() {
 	}>({ open: false, msg: "", type: "info" });
 
 	const [confirmEnd, setConfirmEnd] = React.useState(false);
+	const [confirmPause, setConfirmPause] = React.useState(false);
+	const [confirmResume, setConfirmResume] = React.useState(false);
 
 	// docs state
 	const [docs, setDocs] = React.useState<DocItem[]>([]);
@@ -249,12 +255,14 @@ export default function AdminCampaignDetailPage() {
 					active: "active",
 					rejected: "rejected",
 					ended: "ended",
+					paused: "paused",
 
 					// Fallbacks/Legacy/Direct DB values
 					PENDING: "pending",
 					ACTIVE: "active",
 					REJECTED: "rejected",
 					COMPLETED: "ended",
+					PAUSED: "paused",
 					accepted: "active",
 					finished: "ended",
 					review: "review",
@@ -488,7 +496,9 @@ export default function AdminCampaignDetailPage() {
 	};
 
 	const canVerify = data?.status === "review" || data?.status === "pending";
-	const canEnd = data?.status === "active";
+	const canEnd = data?.status === "active" || data?.status === "paused";
+	const canPause = data?.status === "active";
+	const canResume = data?.status === "paused";
 
 	// derive checklist suggestions from current state (soft suggestion)
 	React.useEffect(() => {
@@ -665,6 +675,54 @@ export default function AdminCampaignDetailPage() {
 		}
 	};
 
+	const onPause = async () => {
+		setConfirmPause(false);
+		const res = await updateCampaignStatus(id, "PAUSED");
+		if (res.success) {
+			setData((d: any) => ({ ...d, status: "paused", updatedAt: "Hari ini" }));
+			pushAudit({
+				title: "Campaign dijeda",
+				meta: "Status berubah menjadi Jeda.",
+				tone: "warning",
+			});
+			setSnack({
+				open: true,
+				msg: "Campaign dijeda.",
+				type: "warning",
+			});
+		} else {
+			setSnack({
+				open: true,
+				msg: res.error || "Gagal menjeda campaign.",
+				type: "error",
+			});
+		}
+	};
+
+	const onResume = async () => {
+		setConfirmResume(false);
+		const res = await updateCampaignStatus(id, "ACTIVE");
+		if (res.success) {
+			setData((d: any) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
+			pushAudit({
+				title: "Campaign dilanjutkan",
+				meta: "Status kembali Aktif.",
+				tone: "success",
+			});
+			setSnack({
+				open: true,
+				msg: "Campaign dilanjutkan.",
+				type: "success",
+			});
+		} else {
+			setSnack({
+				open: true,
+				msg: res.error || "Gagal melanjutkan campaign.",
+				type: "error",
+			});
+		}
+	};
+
 	const onSaveStory = async () => {
 		const res = await updateCampaignStory(id, data.title, data.story);
 		if (res.success) {
@@ -799,6 +857,30 @@ export default function AdminCampaignDetailPage() {
 						>
 							Verifikasi
 						</Button>
+
+						{data.status === "paused" ? (
+							<Button
+								onClick={() => setConfirmResume(true)}
+								variant="outlined"
+								color="success"
+								startIcon={<PlayCircleFilledRoundedIcon />}
+								disabled={!canResume}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Lanjutkan
+							</Button>
+						) : (
+							<Button
+								onClick={() => setConfirmPause(true)}
+								variant="outlined"
+								color="warning"
+								startIcon={<PauseCircleIcon />}
+								disabled={!canPause}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Jeda
+							</Button>
+						)}
 
 						<Button
 							onClick={() => setConfirmEnd(true)}
@@ -1571,6 +1653,70 @@ export default function AdminCampaignDetailPage() {
 						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
 					>
 						Akhiri
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Confirm Pause */}
+			<Dialog
+				open={confirmPause}
+				onClose={() => setConfirmPause(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle sx={{ fontWeight: 1000 }}>Jeda campaign?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Campaign akan dijeda sementara dan tidak dapat menerima donasi.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ p: 2, pt: 0 }}>
+					<Button
+						onClick={() => setConfirmPause(false)}
+						variant="outlined"
+						sx={{ borderRadius: 999, fontWeight: 900 }}
+					>
+						Batal
+					</Button>
+					<Button
+						onClick={onPause}
+						variant="contained"
+						color="warning"
+						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
+					>
+						Jeda
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Confirm Resume */}
+			<Dialog
+				open={confirmResume}
+				onClose={() => setConfirmResume(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle sx={{ fontWeight: 1000 }}>Lanjutkan campaign?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Campaign akan diaktifkan kembali dan dapat menerima donasi.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ p: 2, pt: 0 }}>
+					<Button
+						onClick={() => setConfirmResume(false)}
+						variant="outlined"
+						sx={{ borderRadius: 999, fontWeight: 900 }}
+					>
+						Batal
+					</Button>
+					<Button
+						onClick={onResume}
+						variant="contained"
+						color="success"
+						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
+					>
+						Lanjutkan
 					</Button>
 				</DialogActions>
 			</Dialog>

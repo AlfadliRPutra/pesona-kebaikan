@@ -28,6 +28,27 @@ export async function createDonation(input: CreateDonationInput) {
 	}
 
 	try {
+		const campaign = await prisma.campaign.findUnique({
+			where: { id: input.campaignId },
+			select: { status: true },
+		});
+
+		if (!campaign) {
+			return { success: false, error: "Campaign tidak ditemukan" };
+		}
+
+		if (campaign.status === "PAUSED") {
+			return { success: false, error: "Campaign sedang dijeda" };
+		}
+
+		if (campaign.status === "COMPLETED") {
+			return { success: false, error: "Campaign sudah berakhir" };
+		}
+
+		if (campaign.status === "REJECTED") {
+			return { success: false, error: "Campaign ditolak" };
+		}
+
 		const donation = await prisma.donation.create({
 			data: {
 				campaignId: input.campaignId,

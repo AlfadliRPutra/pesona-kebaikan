@@ -245,6 +245,7 @@ enum CampaignStatus {
   REJECTED
   COMPLETED
   DRAFT
+  PAUSED
 }
 
 model Campaign {
