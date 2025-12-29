@@ -53,7 +53,7 @@ async function upsertPageContent(params: {
 	key: string;
 	title: string;
 	content: string;
-	data?: Record<string, unknown>;
+	data?: any;
 }) {
 	return prisma.pageContent.upsert({
 		where: { key: params.key },
@@ -84,7 +84,7 @@ type BlogMediaType = "image" | "video" | "file";
 async function ensureBlog(params: {
 	title: string;
 	content: string;
-	categoryId?: string | null;
+	categoryId: string;
 	createdById: string;
 	heroImage?: string;
 	gallery?: {
@@ -102,9 +102,9 @@ async function ensureBlog(params: {
 		data: {
 			title: params.title,
 			content: params.content,
-			categoryId: params.categoryId ?? null,
+			categoryId: params.categoryId,
 			createdById: params.createdById,
-			heroImage: params.heroImage ?? null,
+			heroImage: params.heroImage || undefined,
 			gallery: params.gallery?.length
 				? {
 						create: params.gallery.map((g) => ({
