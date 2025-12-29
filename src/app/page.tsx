@@ -76,7 +76,7 @@ export default async function Home() {
 	return (
 		<Box>
 			<HeroCarousel items={heroItems} />
-			<QuickDonate campaigns={popularCampaigns.slice(0, 5)} />
+			<QuickDonate campaigns={allCampaigns} />
 			<QuickMenu />
 			<UrgentSection campaigns={urgentCampaigns} />
 			<CategoryChips campaigns={allCampaigns} />

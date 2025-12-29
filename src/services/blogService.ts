@@ -70,57 +70,28 @@ export interface GetBlogsParams {
   categoryId?: string;
 }
 
-export const blogService = {
-  async getBlogs({ page = 1, limit = 10, search, categoryId }: GetBlogsParams) {
-    const skip = (page - 1) * limit;
-    // Derive type from prisma instance to avoid importing Prisma namespace
-    const where: NonNullable<Parameters<typeof prisma.blog.findMany>[0]>["where"] = {};
+export async function getBlogs({ page = 1, limit = 10, search, categoryId }: GetBlogsParams) {
+  const skip = (page - 1) * limit;
+  // Derive type from prisma instance to avoid importing Prisma namespace
+  const where: NonNullable<Parameters<typeof prisma.blog.findMany>[0]>["where"] = {};
 
-    if (search) {
-      where.title = { contains: search, mode: "insensitive" };
-    }
+  if (search) {
+    where.title = { contains: search, mode: "insensitive" };
+  }
 
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
+  if (categoryId) {
+    where.categoryId = categoryId;
+  }
 
-    const [blogs, total] = await Promise.all([
-      prisma.blog.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-        include: {
-          category: true,
-          gallery: true,
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      }),
-      prisma.blog.count({ where }),
-    ]);
-
-    return {
-      data: blogs,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  },
-
-  async getBlogById(id: string) {
-    return prisma.blog.findUnique({
-      where: { id },
+  const [blogs, total] = await Promise.all([
+    prisma.blog.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
       include: {
         category: true,
+        gallery: true,
         createdBy: {
           select: {
             id: true,
@@ -128,95 +99,131 @@ export const blogService = {
             email: true,
           },
         },
-        gallery: true,
+      },
+    }),
+    prisma.blog.count({ where }),
+  ]);
+
+  return {
+    data: blogs,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+export async function getBlogById(id: string) {
+  return prisma.blog.findUnique({
+    where: { id },
+    include: {
+      category: true,
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      gallery: true,
+    },
+  });
+}
+
+export async function createBlog(data: CreateBlogData) {
+  const { title, content, categoryId, createdById, heroImage } = data;
+
+  // Extract media from content
+  const mediaItems = extractMediaFromContent(content);
+
+  return prisma.$transaction(async (tx) => {
+    const blog = await tx.blog.create({
+      data: {
+        title,
+        content,
+        categoryId,
+        createdById,
+        heroImage,
       },
     });
-  },
 
-  async createBlog(data: CreateBlogData) {
-    const { title, content, categoryId, createdById, heroImage } = data;
+    if (mediaItems.length > 0) {
+      await tx.blogMedia.createMany({
+        data: mediaItems.map((item) => ({
+          blogId: blog.id,
+          type: item.type,
+          url: item.url,
+        })),
+      });
+    }
 
-    // Extract media from content
-    const mediaItems = extractMediaFromContent(content);
+    return blog;
+  });
+}
 
-    return prisma.$transaction(async (tx) => {
-      const blog = await tx.blog.create({
-        data: {
-          title,
-          content,
-          categoryId,
-          createdById,
-          heroImage,
-        },
+export async function updateBlog(id: string, data: UpdateBlogData) {
+  const { title, content, categoryId, heroImage } = data;
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Update basic fields
+    const updatedBlog = await tx.blog.update({
+      where: { id },
+      data: {
+        title,
+        content,
+        categoryId,
+        heroImage,
+      },
+    });
+
+    // 2. Extract media from new content
+    if (content) {
+      const mediaItems = extractMediaFromContent(content);
+      
+      // 3. Delete old media (simple approach: delete all and recreate)
+      // Or smarter: diffing. For now, let's just keep appending or replace?
+      // If we want to keep the gallery consistent with content, we should probably clear and re-add.
+      // BUT, what if there are media items added manually not in content?
+      // The current requirement seems to be auto-extraction.
+      // Let's wipe and re-add for consistency with content.
+      await tx.blogMedia.deleteMany({
+        where: { blogId: id },
       });
 
       if (mediaItems.length > 0) {
         await tx.blogMedia.createMany({
           data: mediaItems.map((item) => ({
-            blogId: blog.id,
+            blogId: id,
             type: item.type,
             url: item.url,
           })),
         });
       }
+    }
 
-      return blog;
-    });
-  },
+    return updatedBlog;
+  });
+}
 
-  async updateBlog(id: string, data: UpdateBlogData) {
-    const { title, content, categoryId, heroImage } = data;
+export async function deleteBlog(id: string) {
+  return prisma.blog.delete({
+    where: { id },
+  });
+}
 
-    return prisma.$transaction(async (tx) => {
-      // 1. Update basic fields
-      const updatedBlog = await tx.blog.update({
-        where: { id },
-        data: {
-          title,
-          content,
-          categoryId,
-          heroImage,
-        },
-      });
+export async function getBlogCategories() {
+  return prisma.blogCategory.findMany({
+    orderBy: { name: "asc" },
+  });
+}
 
-      // 2. Extract media from new content
-      if (content) {
-        const mediaItems = extractMediaFromContent(content);
-        
-        // 3. Delete old media (simple approach: delete all and recreate)
-        // Or smarter: diffing. For now, let's just keep appending or replace?
-        // If we want to keep the gallery consistent with content, we should probably clear and re-add.
-        // BUT, what if there are media items added manually not in content?
-        // The current requirement seems to be auto-extraction.
-        // Let's wipe and re-add for consistency with content.
-        await tx.blogMedia.deleteMany({
-          where: { blogId: id },
-        });
-
-        if (mediaItems.length > 0) {
-          await tx.blogMedia.createMany({
-            data: mediaItems.map((item) => ({
-              blogId: id,
-              type: item.type,
-              url: item.url,
-            })),
-          });
-        }
-      }
-
-      return updatedBlog;
-    });
-  },
-
-  async deleteBlog(id: string) {
-    return prisma.blog.delete({
-      where: { id },
-    });
-  },
-
-  async getBlogCategories() {
-    return prisma.blogCategory.findMany({
-      orderBy: { name: "asc" },
-    });
-  },
+export const blogService = {
+  getBlogs,
+  getBlogById,
+  createBlog,
+  updateBlog,
+  deleteBlog,
+  getBlogCategories,
 };
