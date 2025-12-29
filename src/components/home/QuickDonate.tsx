@@ -139,6 +139,8 @@ export default function QuickDonate({
 }: {
 	campaigns?: Campaign[];
 }) {
+	console.log("QuickDonate campaigns:", campaigns.length, campaigns);
+
 	const [selectedAmount, setSelectedAmount] = React.useState<number>(
 		amountPresets[0]
 	);
@@ -147,9 +149,7 @@ export default function QuickDonate({
 
 	// bottom sheet state
 	const [open, setOpen] = React.useState(false);
-	const [campaignId, setCampaignId] = React.useState<string>(
-		campaigns && campaigns.length > 0 ? campaigns[0].id : ""
-	);
+	const [campaignId, setCampaignId] = React.useState<string>("");
 
 	// donor identity
 	const [isAnonymous, setIsAnonymous] = React.useState<boolean>(true);
@@ -158,15 +158,9 @@ export default function QuickDonate({
 	const [message, setMessage] = React.useState<string>("");
 
 	const selectedCampaign = React.useMemo(
-		() => campaigns.find((c) => c.id === campaignId) ?? campaigns[0],
+		() => campaigns.find((c) => c.id === campaignId) || null,
 		[campaignId, campaigns]
 	);
-
-	React.useEffect(() => {
-		if (!campaignId && campaigns.length > 0) {
-			setCampaignId(campaigns[0].id);
-		}
-	}, [campaigns, campaignId]);
 
 	const finalAmount = React.useMemo(() => {
 		const clean = custom.replace(/[^\d]/g, "");
@@ -496,6 +490,11 @@ export default function QuickDonate({
 						<Box sx={{ px: 2.2, py: 1.4, flex: 1, overflowY: "auto" }}>
 							{/* Campaign Selection */}
 							<Box sx={{ mb: 3 }}>
+								{/* Debug info - remove later */}
+								{/* <Typography variant="caption" color="error" sx={{ display: 'block' }}>
+									DEBUG: Loaded {campaigns.length} campaigns
+								</Typography> */}
+
 								<Typography
 									sx={{
 										fontSize: 12,
@@ -509,9 +508,14 @@ export default function QuickDonate({
 								<Autocomplete
 									options={campaigns}
 									getOptionLabel={(option) => option.title}
+									isOptionEqualToValue={(option, value) => option.id === value.id}
 									value={selectedCampaign}
 									onChange={(_, newValue) => {
-										if (newValue) setCampaignId(newValue.id);
+										setCampaignId(newValue ? newValue.id : "");
+									}}
+									slotProps={{
+										popper: { sx: { zIndex: 2600 } }, // > 2500
+										paper: { sx: { zIndex: 2600 } },
 									}}
 									renderOption={(props, option) => {
                                         const { key, ...otherProps } = props;
