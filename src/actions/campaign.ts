@@ -562,7 +562,7 @@ export async function finishCampaign(campaignId: string) {
 
 export async function updateCampaignStatus(
 	campaignId: string,
-	status: "ACTIVE" | "REJECTED" | "COMPLETED"
+	status: "ACTIVE" | "REJECTED" | "COMPLETED" | "PAUSED"
 ) {
 	try {
 		const session = await auth();
@@ -580,9 +580,12 @@ export async function updateCampaignStatus(
 		revalidatePath("/");
 
 		return { success: true };
-	} catch (error) {
+	} catch (error: any) {
 		console.error("Update campaign status error:", error);
-		return { success: false, error: "Failed to update status" };
+		return {
+			success: false,
+			error: error.message || "Failed to update status",
+		};
 	}
 }
 

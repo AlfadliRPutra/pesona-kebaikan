@@ -145,6 +145,15 @@ function statusChip(status: CampaignStatus) {
 					color: "rgba(153,27,27,.95)",
 				},
 			};
+		default:
+			return {
+				label: status || "Unknown",
+				sx: {
+					bgcolor: "rgba(15,23,42,.06)",
+					borderColor: "rgba(15,23,42,.10)",
+					color: "rgba(15,23,42,.70)",
+				},
+			};
 	}
 }
 
