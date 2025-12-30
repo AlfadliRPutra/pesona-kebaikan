@@ -581,18 +581,22 @@ function MapIndonesia({
 						mapMetric === "users"
 							? `${Number(v).toLocaleString("id-ID")} pengguna`
 							: fmtIDR(Number(v));
-					return `<div style="font-size:13px; font-weight:800; margin-bottom:4px; color:${
-						theme.palette.text.primary
-					}">${
+
+					const textColor =
+						theme.palette.mode === "dark" ? "#ffffff" : "#000000";
+
+					return `<div style="font-size:13px; font-weight:800; margin-bottom:4px; color:${textColor}">${
 						params.name
-					}</div><div style="font-size:12px">${valText} • ${freq.toLocaleString(
+					}</div><div style="font-size:12px; color:${textColor}">${valText} • ${freq.toLocaleString(
 						"id-ID"
 					)} donasi</div>`;
 				},
 				borderRadius: 8,
 				backgroundColor: theme.palette.background.paper,
 				borderColor: alpha(theme.palette.divider, 0.12),
-				textStyle: { color: theme.palette.text.primary },
+				textStyle: {
+					color: theme.palette.mode === "dark" ? "#ffffff" : "#000000",
+				},
 				padding: [10, 14],
 			},
 			visualMap:
