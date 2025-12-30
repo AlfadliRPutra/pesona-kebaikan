@@ -223,6 +223,10 @@ export async function getCampaigns(
 	} else if (sortBy === "most_collected") {
 		// Approximate by number of donations
 		orderBy = { donations: { _count: "desc" } };
+	} else if (sortBy === "oldest") {
+		orderBy = { createdAt: "asc" };
+	} else if (sortBy === "newest") {
+		orderBy = { createdAt: "desc" };
 	}
 
 	try {

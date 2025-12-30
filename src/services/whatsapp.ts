@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 const WA_NOTIFY_API = "https://wanotify.depatidigital.com/public/wa/v1";
 // Note: In a real app, this should be an env var, but using the provided secret for now
-const WA_SECRET = "f26e0cd1dfc11fa22b245461c00cf2f9b4882fdb78eee102d5c5a2fb570557b4";
+const WA_SECRET = "c3b50797c7be76edc016176296c2203cc0a8789ae3448ee96088557899254fb2";
 
 export async function sendWhatsAppMessage(to: string, message: string) {
   try {

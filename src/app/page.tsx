@@ -18,6 +18,7 @@ import {
 } from "@/actions/campaign";
 import type { Campaign } from "@/types";
 import { prisma } from "@/lib/prisma";
+import type { Category } from "@/types";
 
 export default async function Home() {
 	const [urgentRes, popularRes, donationRes, allCampaignsRes, carouselRes] =
@@ -72,6 +73,8 @@ export default async function Home() {
 			title: c.title || c.campaign?.title || undefined,
 		};
 	});
+
+	// Category chips will handle its own category icons and defaults
 
 	return (
 		<Box>

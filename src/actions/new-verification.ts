@@ -8,13 +8,13 @@ export const newVerification = async (token: string) => {
   });
 
   if (!existingToken) {
-    return { error: "Token tidak valid!" };
+    return { error: "Kode OTP tidak valid!" };
   }
 
   const hasExpired = new Date(existingToken.expires) < new Date();
 
   if (hasExpired) {
-    return { error: "Token telah kadaluarsa!" };
+    return { error: "Kode OTP telah kadaluarsa!" };
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -33,12 +33,9 @@ export const newVerification = async (token: string) => {
     },
   });
 
-  await prisma.verificationToken.delete({
+  await prisma.verificationToken.deleteMany({
     where: {
-      identifier_token: {
-        identifier: existingToken.identifier,
-        token: existingToken.token,
-      },
+      identifier: existingToken.identifier,
     },
   });
 

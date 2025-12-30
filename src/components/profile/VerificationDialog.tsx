@@ -26,6 +26,7 @@ import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { requestEmailVerification } from "@/actions/email";
 import { requestVerificationOtp, verifyOtp } from "@/actions/otp";
+import { newVerification } from "@/actions/new-verification";
 
 interface Province {
   id: string;
@@ -58,6 +59,9 @@ export default function VerificationDialog({
   const [phone, setPhone] = React.useState<string>("");
   const [waOtp, setWaOtp] = React.useState<string>("");
   const [waLoading, setWaLoading] = React.useState<boolean>(false);
+
+  const [emailOtp, setEmailOtp] = React.useState<string>("");
+  const [emailLoading, setEmailLoading] = React.useState<boolean>(false);
 
   const [waCooldown, setWaCooldown] = React.useState<number>(0);
   const [showResend, setShowResend] = React.useState<boolean>(false);
@@ -155,6 +159,33 @@ export default function VerificationDialog({
       const targetIndex = Math.min(pastedData.length, 5);
       const targetInput = document.getElementById(`otp-input-${targetIndex === 6 ? 5 : targetIndex}`);
       targetInput?.focus();
+    }
+  };
+
+  const handleEmailOtpChange = (value: string, index: number) => {
+    if (!/^\d*$/.test(value)) return;
+    const newOtp = emailOtp.split("");
+    while (newOtp.length < 6) newOtp.push("");
+    newOtp[index] = value;
+    setEmailOtp(newOtp.join("").substring(0, 6));
+    if (value && index < 5) {
+      document.getElementById(`email-otp-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleEmailKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "Backspace" && !emailOtp[index] && index > 0) {
+      document.getElementById(`email-otp-${index - 1}`)?.focus();
+    }
+  };
+
+  const handleEmailPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").substring(0, 6);
+    if (pasted) {
+      setEmailOtp(pasted);
+      const idx = Math.min(pasted.length, 5);
+      document.getElementById(`email-otp-${idx === 6 ? 5 : idx}`)?.focus();
     }
   };
 
@@ -386,56 +417,77 @@ export default function VerificationDialog({
                 </StepLabel>
                 <StepContent>
                   <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-                    Kode verifikasi akan dikirim ke <b>{userEmail || "email anda"}</b>
+                    Kode verifikasi (OTP) akan dikirim ke <b>{userEmail || "email anda"}</b>
                   </Alert>
-                  <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                    <TextField size="small" placeholder="Masukkan Kode OTP" fullWidth InputProps={{ sx: { borderRadius: 1 } }} />
+
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mb: 1, display: "block" }}>
+                      Kode OTP Email (6 Digit)
+                    </Typography>
+                    <Stack direction="row" spacing={1} justifyContent="space-between" onPaste={handleEmailPaste} sx={{ mb: 2 }}>
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <TextField
+                          key={index}
+                          id={`email-otp-${index}`}
+                          size="small"
+                          value={emailOtp[index] || ""}
+                          onChange={(e) => handleEmailOtpChange(e.target.value, index)}
+                          onKeyDown={(e) => handleEmailKeyDown(e, index)}
+                          inputProps={{ maxLength: 1, style: { textAlign: "center", padding: "8px" } }}
+                          sx={{
+                            width: "48px",
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: 1.5,
+                              "&.Mui-focused fieldset": { borderColor: "#61ce70", borderWidth: 2 },
+                            },
+                          }}
+                        />
+                      ))}
+                    </Stack>
                     <Button
                       variant="outlined"
-                      sx={{ borderRadius: 1, textTransform: "none", whiteSpace: "nowrap" }}
+                      fullWidth
+                      sx={{ borderRadius: 1.5, textTransform: "none" }}
                       onClick={async () => {
-                        const res = await requestEmailVerification();
-                        setEmailDebug(res.debug);
-                        alert(res.success || res.error || "Terjadi kesalahan");
+                        setEmailLoading(true);
+                        try {
+                          const res = await requestEmailVerification();
+                          // setEmailDebug(res.debug);
+                          alert(res.success || res.error || "Terjadi kesalahan");
+                        } finally {
+                          setEmailLoading(false);
+                        }
                       }}
+                      disabled={emailLoading}
                     >
-                      Kirim Kode
+                      {emailLoading ? "Mengirim..." : "Kirim Kode OTP"}
                     </Button>
-                  </Stack>
-                  {emailDebug ? (
-                    <Box sx={{ mb: 2, p: 2, borderRadius: 1, bgcolor: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                      <Typography sx={{ fontWeight: 700, mb: 1 }}>Log Pengiriman Email</Typography>
-                      <Stack spacing={1}>
-                        {(emailDebug as any).attempts && ((emailDebug as any).attempts as any[]).map((a: any, idx: number) => (
-                          <Alert key={idx} severity={a.ok ? "success" : "error"} sx={{ borderRadius: 1 }}>
-                            <Typography variant="caption">
-                              {a.phase}: {a.ok ? "OK" : "Gagal"} — {a.message}
-                            </Typography>
-                            {a.options ? (
-                              <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
-                                host={a.options.host} port={a.options.port} secure={String(a.options.secure)} requireTLS={String(a.options.requireTLS)}
-                              </Typography>
-                            ) : null}
-                          </Alert>
-                        ))}
-                        {(emailDebug as any).send ? (
-                          <Alert severity={(emailDebug as any).send.ok ? "success" : "error"} sx={{ borderRadius: 1 }}>
-                            <Typography variant="caption">
-                              send: {(emailDebug as any).send.ok ? "OK" : "Gagal"} — messageId={(emailDebug as any).send.messageId || "-"}
-                            </Typography>
-                            {(emailDebug as any).send.options ? (
-                              <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
-                                host={(emailDebug as any).send.options.host} port={(emailDebug as any).send.options.port} secure={String((emailDebug as any).send.options.secure)}
-                              </Typography>
-                            ) : null}
-                          </Alert>
-                        ) : null}
-                      </Stack>
-                    </Box>
-                  ) : null}
+                  </Box>
                   <Box sx={{ mb: 2 }}>
-                    <Button variant="contained" onClick={handleNext} sx={{ bgcolor: "#61ce70", textTransform: "none", fontWeight: 700, borderRadius: 1, boxShadow: "none" }}>
-                      Lanjut
+                    <Button 
+                      variant="contained" 
+                      onClick={async () => {
+                         if (emailOtp.length < 6) {
+                            alert("Masukkan 6 digit kode OTP");
+                            return;
+                         }
+                         setEmailLoading(true);
+                         try {
+                           const res = await newVerification(emailOtp);
+                           if (res.success) {
+                             alert(res.success);
+                             handleNext();
+                           } else {
+                             alert(res.error || "Verifikasi gagal");
+                           }
+                         } finally {
+                           setEmailLoading(false);
+                         }
+                      }} 
+                      disabled={emailLoading || emailOtp.length < 6}
+                      sx={{ bgcolor: "#61ce70", textTransform: "none", fontWeight: 700, borderRadius: 1, boxShadow: "none" }}
+                    >
+                      Verifikasi & Lanjut
                     </Button>
                     <Button onClick={handleBack} sx={{ mt: 1, mr: 1, color: "text.secondary", textTransform: "none" }}>
                       Kembali

@@ -11,14 +11,18 @@ import ConstructionIcon from "@mui/icons-material/Construction";
 import SoupKitchenIcon from "@mui/icons-material/SoupKitchen";
 import HandshakeIcon from "@mui/icons-material/Handshake";
 import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 
 export const CATEGORY_ICON_MAP: Record<
   string,
   { icon: React.ReactElement; color: string }
 > = {
   "bencana alam": { icon: <ThunderstormIcon sx={{ fontSize: 28 }} />, color: "#ef4444" },
+  bencana: { icon: <ThunderstormIcon sx={{ fontSize: 28 }} />, color: "#ef4444" },
   "balita & anak sakit": { icon: <ChildCareIcon sx={{ fontSize: 28 }} />, color: "#f59e0b" },
   "bantuan medis": { icon: <MedicalServicesIcon sx={{ fontSize: 28 }} />, color: "#3b82f6" },
+  "bantuan medis & kesehatan": { icon: <MedicalServicesIcon sx={{ fontSize: 28 }} />, color: "#3b82f6" },
+  medis: { icon: <MedicalServicesIcon sx={{ fontSize: 28 }} />, color: "#3b82f6" },
   zakat: { icon: <VolunteerActivismIcon sx={{ fontSize: 28 }} />, color: "#10b981" },
   wakaf: { icon: <MosqueIcon sx={{ fontSize: 28 }} />, color: "#059669" },
   pendidikan: { icon: <SchoolIcon sx={{ fontSize: 28 }} />, color: "#8b5cf6" },
@@ -28,6 +32,9 @@ export const CATEGORY_ICON_MAP: Record<
   infrastruktur: { icon: <ConstructionIcon sx={{ fontSize: 28 }} />, color: "#64748b" },
   kemanusiaan: { icon: <HandshakeIcon sx={{ fontSize: 28 }} />, color: "#f43f5e" },
   "bantuan pangan": { icon: <SoupKitchenIcon sx={{ fontSize: 28 }} />, color: "#ea580c" },
+  "rumah ibadah": { icon: <MosqueIcon sx={{ fontSize: 28 }} />, color: "#059669" },
+  sosial: { icon: <VolunteerActivismIcon sx={{ fontSize: 28 }} />, color: "#10b981" },
+  usaha: { icon: <StorefrontIcon sx={{ fontSize: 28 }} />, color: "#64748b" },
 };
 
 export function getCategoryIcon(name?: string) {

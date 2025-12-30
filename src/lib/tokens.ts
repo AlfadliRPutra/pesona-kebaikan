@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 export const generateVerificationToken = async (email: string) => {
-  const token = crypto.randomUUID();
+  // Generate 6 digit OTP code
+  const token = Math.floor(100000 + Math.random() * 900000).toString();
   // Token expires in 1 hour
   const expires = new Date(new Date().getTime() + 3600 * 1000);
 

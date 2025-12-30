@@ -18,7 +18,7 @@ export async function sendTestWhatsapp(to: string, message: string) {
 
     const clientId = notifyKey.value;
     const url = `https://wanotify.depatidigital.com/public/wa/v1/${clientId}/send`;
-    const secret = "f26e0cd1dfc11fa22b245461c00cf2f9b4882fdb78eee102d5c5a2fb570557b4";
+    const secret = "c3b50797c7be76edc016176296c2203cc0a8789ae3448ee96088557899254fb2";
 
     // 2. Kirim request ke API
     const response = await fetch(url, {

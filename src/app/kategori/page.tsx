@@ -21,7 +21,7 @@ import SoupKitchenIcon from "@mui/icons-material/SoupKitchen";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import HandshakeIcon from "@mui/icons-material/Handshake";
 
-type DbCategory = { id: string; name: string; createdAt: string; updatedAt: string };
+type DbCategory = { id: string; slug?: string; name: string; createdAt: string; updatedAt: string };
 
 export default function KategoriPage() {
 	const router = useRouter();
@@ -128,7 +128,8 @@ export default function KategoriPage() {
 							key={cat.id}
 							component="button"
 							onClick={() => {
-								console.log("Clicked", cat.id);
+								const slug = cat.slug || cat.id;
+								router.push(`/kategori/${encodeURIComponent(slug)}`);
 							}}
 							sx={{
 								display: "flex",

@@ -1,12 +1,26 @@
 import { prisma } from "../../src/lib/prisma";
 import { CampaignStatus, CampaignMediaType, PaymentMethod } from "@/generated/prisma";
 import { faker } from "@faker-js/faker";
+import { CATEGORY_TITLE } from "../../src/lib/constants";
 
-async function upsertCampaignCategory(name: string) {
+const ICON_KEY: Record<string, string> = {
+	bencana: "thunderstorm",
+	medis: "medical_services",
+	pendidikan: "school",
+	kemanusiaan: "volunteer_activism",
+	infrastruktur: "construction",
+	lingkungan: "forest",
+	rumah_ibadah: "temple_buddhist",
+	usaha: "storefront",
+	sosial: "group",
+	difabel: "accessible",
+};
+
+async function upsertCampaignCategory(name: string, slug: string) {
 	return prisma.campaignCategory.upsert({
 		where: { name },
-		update: {},
-		create: { name },
+		update: { slug, icon: ICON_KEY[slug], isActive: true },
+		create: { name, slug, icon: ICON_KEY[slug], isActive: true },
 	});
 }
 
@@ -25,12 +39,11 @@ function makeSlug(title: string) {
 
 export async function seedCampaigns() {
 	// Ensure categories
-	const kesehatan = await upsertCampaignCategory("Kesehatan");
-	const pendidikan = await upsertCampaignCategory("Pendidikan");
-	const bencana = await upsertCampaignCategory("Bencana Alam");
-	const kemanusiaan = await upsertCampaignCategory("Kemanusiaan");
-
-	const categories = [kesehatan, pendidikan, bencana, kemanusiaan];
+	const categories = await Promise.all(
+		Object.entries(CATEGORY_TITLE).map(([slug, name]) =>
+			upsertCampaignCategory(name, slug)
+		)
+	);
 
 	// Load users to assign as campaign creators and donors
 	const users = await prisma.user.findMany({ select: { id: true, name: true } });

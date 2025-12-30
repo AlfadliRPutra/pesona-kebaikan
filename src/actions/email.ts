@@ -5,6 +5,20 @@ import { prisma } from "@/lib/prisma";
 import { generateVerificationToken } from "@/lib/tokens";
 import { sendVerificationEmail, verifyTransport } from "@/lib/mail";
 
+const mapSmtpError = (msg?: string) => {
+  const m = (msg || "").toLowerCase();
+  if (/invalid login|username and password not accepted|535/i.test(m)) {
+    return "Login SMTP gagal. Gunakan App Password Gmail dan pastikan 2FA aktif.";
+  }
+  if (/enotfound|econnrefused|econnreset|ehostunreach|timed out|timeout|greeting never received/i.test(m)) {
+    return "Gagal terhubung ke server email. Coba ganti ke port 465 (secure) atau periksa koneksi jaringan/firewall.";
+  }
+  if (/authentication failed|auth/i.test(m)) {
+    return "Autentikasi SMTP gagal. Periksa EMAIL_SERVER_USER dan EMAIL_SERVER_PASSWORD.";
+  }
+  return msg || "Gagal mengirim email verifikasi";
+};
+
 export async function requestEmailVerification() {
   const session = await auth();
   if (!session?.user?.id || !session.user.email) {
@@ -21,7 +35,7 @@ export async function requestEmailVerification() {
   }
 
   if (user.emailVerified) {
-    return { success: "Email sudah terverifikasi" };
+    // return { success: "Email sudah terverifikasi" };
   }
 
   if (!process.env.EMAIL_SERVER_HOST) {
@@ -31,12 +45,12 @@ export async function requestEmailVerification() {
   try {
     const verify = await verifyTransport();
     if (!verify.ok) {
-      return { error: verify.message || "Transport tidak siap" };
+      return { error: mapSmtpError(verify.message) };
     }
     const tokenRec = await generateVerificationToken(user.email);
     const sent = await sendVerificationEmail(tokenRec.identifier, tokenRec.token);
     if (!sent.ok) {
-      return { error: sent.message || "Gagal mengirim email verifikasi", debug: sent.debug };
+      return { error: mapSmtpError(sent.message), debug: sent.debug };
     }
     return { success: "Kode verifikasi telah dikirim ke email Anda", debug: sent.debug };
   } catch (error) {

@@ -1,7 +1,31 @@
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import { prisma } from "@/lib/prisma";
 
-const baseOptions = (): SMTPTransport.Options => {
+const getMailConfig = async () => {
+  try {
+    const keys = await prisma.notifyKey.findMany({
+      where: { key: { in: ["email_sender", "email_app_password", "email_verification_subject", "email_verification_content"] } }
+    });
+    const getVal = (k: string) => keys.find(x => x.key === k)?.value;
+    return {
+      sender: getVal("email_sender") || process.env.EMAIL_FROM || process.env.EMAIL_SERVER_USER || "no-reply@example.com",
+      password: getVal("email_app_password") || process.env.EMAIL_SERVER_PASSWORD,
+      subject: getVal("email_verification_subject") || "Kode Verifikasi Email - Pesona Kebaikan",
+      content: getVal("email_verification_content"),
+    };
+  } catch (e) {
+    // Fallback if DB fails
+    return {
+      sender: process.env.EMAIL_FROM || process.env.EMAIL_SERVER_USER || "no-reply@example.com",
+      password: process.env.EMAIL_SERVER_PASSWORD,
+      subject: "Kode Verifikasi Email - Pesona Kebaikan",
+      content: undefined,
+    };
+  }
+};
+
+const baseOptions = (config: { sender: string; password?: string }): SMTPTransport.Options => {
   const host = ((process.env.EMAIL_SERVER_HOST as string) || "smtp.gmail.com");
   const port = Number(process.env.EMAIL_SERVER_PORT ?? 587);
   const explicitSecure = process.env.EMAIL_SERVER_SECURE === "true";
@@ -12,14 +36,13 @@ const baseOptions = (): SMTPTransport.Options => {
     port,
     secure,
     auth: {
-      user: process.env.EMAIL_SERVER_USER as string,
-      pass: process.env.EMAIL_SERVER_PASSWORD as string,
+      user: config.sender,
+      pass: config.password || process.env.EMAIL_SERVER_PASSWORD || "",
     },
     requireTLS: !secure,
     pool: process.env.EMAIL_POOL === "true",
     maxConnections: Number(process.env.EMAIL_POOL_MAX_CONNECTIONS ?? 2),
     maxMessages: Number(process.env.EMAIL_POOL_MAX_MESSAGES ?? 100),
-    // Align with Nodemailer recommended defaults for better resilience
     connectionTimeout: 120000,
     greetingTimeout: 30000,
     socketTimeout: 600000,
@@ -34,19 +57,19 @@ const baseOptions = (): SMTPTransport.Options => {
   };
 };
 
-const transporter = nodemailer.createTransport(baseOptions());
-
 export const verifyTransport = async () => {
   try {
-    const t = nodemailer.createTransport(baseOptions());
+    const config = await getMailConfig();
+    const t = nodemailer.createTransport(baseOptions(config));
     await t.verify();
     return { ok: true, message: "ok" };
   } catch (e: any) {
     const msg = e?.message || "Transport verify failed";
     if (/Greeting never received|timeout|ETIMEDOUT|ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH/i.test(msg)) {
       try {
+        const config = await getMailConfig();
         const t2 = nodemailer.createTransport({
-          ...baseOptions(),
+          ...baseOptions(config),
           port: 465,
           secure: true,
         });
@@ -61,13 +84,11 @@ export const verifyTransport = async () => {
 };
 
 export const sendVerificationEmail = async (email: string, token: string) => {
-  const domain = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const confirmLink = `${domain}/auth/new-verification?token=${token}`;
-
   try {
     const debug: any = { attempts: [] as any[], send: null };
+    const config = await getMailConfig();
 
-    let currentOptions = baseOptions();
+    let currentOptions = baseOptions(config);
     let t = nodemailer.createTransport(currentOptions);
     try {
       await t.verify();
@@ -86,7 +107,7 @@ export const sendVerificationEmail = async (email: string, token: string) => {
         options: { host: currentOptions.host, port: currentOptions.port, secure: currentOptions.secure, requireTLS: currentOptions.requireTLS },
       });
       if (/Greeting never received|timeout|ETIMEDOUT|ECONNREFUSED/i.test(msg)) {
-        currentOptions = { ...baseOptions(), port: 465, secure: true };
+        currentOptions = { ...baseOptions(config), port: 465, secure: true };
         t = nodemailer.createTransport(currentOptions);
         await t.verify();
         debug.attempts.push({
@@ -105,25 +126,29 @@ export const sendVerificationEmail = async (email: string, token: string) => {
       }
     }
 
+    const htmlContent = config.content 
+      ? config.content.replace("{{token}}", token)
+      : `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>Kode Verifikasi Email</h2>
+        <p>Terima kasih telah mendaftar di Pesona Kebaikan. Berikut adalah kode OTP verifikasi Anda:</p>
+        <div style="padding: 15px; background-color: #f0fdf4; border: 1px solid #61ce70; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px; color: #166534; margin: 20px 0;">
+          ${token}
+        </div>
+        <p>Kode ini akan kedaluwarsa dalam 1 jam.</p>
+        <p>Jika Anda tidak merasa meminta kode ini, silakan abaikan email ini.</p>
+      </div>
+      `;
+
     const message = {
-      from: process.env.EMAIL_FROM || process.env.EMAIL_SERVER_USER || "no-reply@example.com",
+      from: config.sender,
       to: email,
-      subject: "Konfirmasi Email Anda - Pesona Kebaikan",
+      subject: config.subject,
       envelope: {
-        from: process.env.EMAIL_SERVER_USER || process.env.EMAIL_FROM || undefined,
+        from: config.sender,
         to: [email],
       },
-      html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2>Konfirmasi Email Anda</h2>
-        <p>Terima kasih telah mendaftar di Pesona Kebaikan. Silakan klik tombol di bawah ini untuk memverifikasi alamat email Anda:</p>
-        <a href="${confirmLink}" style="display: inline-block; padding: 10px 20px; margin: 10px 0; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px;">Verifikasi Email</a>
-        <p>Atau salin dan tempel tautan berikut di browser Anda:</p>
-        <p><a href="${confirmLink}">${confirmLink}</a></p>
-        <p>Tautan ini akan kedaluwarsa dalam 1 jam.</p>
-        <p>Jika Anda tidak merasa mendaftar, silakan abaikan email ini.</p>
-      </div>
-      `,
+      html: htmlContent,
     } as const;
 
     try {
@@ -141,8 +166,8 @@ export const sendVerificationEmail = async (email: string, token: string) => {
       if (/ETIMEDOUT|ECONNRESET|EHOSTUNREACH|ENOTFOUND|timeout|Greeting never received/i.test(sendMsg)) {
         const altOptions: SMTPTransport.Options =
           currentOptions.port === 465
-            ? { ...baseOptions(), port: 587, secure: false, requireTLS: true }
-            : { ...baseOptions(), port: 465, secure: true };
+            ? { ...baseOptions(config), port: 587, secure: false, requireTLS: true }
+            : { ...baseOptions(config), port: 465, secure: true };
         const tAlt = nodemailer.createTransport(altOptions);
         try {
           await tAlt.verify();

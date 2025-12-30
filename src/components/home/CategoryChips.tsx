@@ -8,37 +8,28 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Category, Campaign } from "@/types";
 import { alpha, useTheme } from "@mui/material/styles";
+import { CATEGORY_TITLE } from "@/lib/constants";
+import { getCategoryIcon } from "@/lib/categoryIcons";
 
 // Icons
-import ThunderstormIcon from "@mui/icons-material/Thunderstorm";
-import ChildCareIcon from "@mui/icons-material/ChildCare";
-import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 import GridViewIcon from "@mui/icons-material/GridView";
 
 const PRIMARY = "#61ce70";
 
-const categories: Category[] = [
-	{
-		id: "bencana",
-		label: "Bencana Alam",
-		icon: <ThunderstormIcon sx={{ fontSize: 24 }} />,
-	},
-	{
-		id: "anak",
-		label: "Balita & Anak Sakit",
-		icon: <ChildCareIcon sx={{ fontSize: 24 }} />,
-	},
-	{
-		id: "kesehatan",
-		label: "Bantuan Medis",
-		icon: <MedicalServicesIcon sx={{ fontSize: 24 }} />,
-	},
-	{
-		id: "lainnya",
-		label: "Lainnya",
-		icon: <GridViewIcon sx={{ fontSize: 24 }} />,
-	},
-];
+function buildDefaultCategories(): Category[] {
+	const pick = ["medis", "pendidikan", "bencana"];
+	const base = pick
+		.map((id) => ({
+			id,
+			label: CATEGORY_TITLE[id],
+			icon: getCategoryIcon(CATEGORY_TITLE[id]).icon,
+		}))
+		.filter((c) => !!c.label);
+	return [
+		...base,
+		{ id: "lihat_semua", label: "Lihat Semua", icon: <GridViewIcon sx={{ fontSize: 24 }} /> },
+	];
+}
 
 function rupiah(n: number) {
 	return new Intl.NumberFormat("id-ID").format(n);
@@ -301,34 +292,41 @@ function CampaignRowCard({ item }: { item: Campaign }) {
 
 export default function CategoryChips({
 	campaigns = [],
+	categories = [],
 }: {
 	campaigns?: Campaign[];
+	categories?: Category[];
 }) {
 	const router = useRouter();
 	const [activeId, setActiveId] = React.useState<string>("bencana");
 
-	const filtered = React.useMemo(() => {
-		if (activeId === "lainnya") {
-			// Show campaigns that don't fit in main categories
-			return campaigns.filter(
-				(c) =>
-					!["bencana", "anak", "kesehatan"].includes(
-						(c.category || "").toLowerCase()
-					)
-			);
+	const categoriesList = React.useMemo<Category[]>(() => {
+		const base =
+			categories && categories.length > 0 ? categories : buildDefaultCategories();
+		const allowed = new Set(["medis", "pendidikan", "bencana"]);
+		if (categories && categories.length > 0) {
+			const filtered = categories
+				.filter((c) => allowed.has(c.id))
+				.map((c) => ({
+					...c,
+					label: CATEGORY_TITLE[c.id] || c.label,
+					icon: c.icon || getCategoryIcon(CATEGORY_TITLE[c.id] || c.label).icon,
+				}));
+			return [
+				...filtered,
+				{ id: "lihat_semua", label: "Lihat Semua", icon: <GridViewIcon sx={{ fontSize: 24 }} /> },
+			];
 		}
-		// Match category ID (assuming your DB categories map loosely to these IDs)
-		// Or simply filter by checking if category string contains key words
-		return campaigns.filter((c) => {
-			const cat = (c.category || "").toLowerCase();
-			if (activeId === "bencana") return cat.includes("bencana");
-			if (activeId === "anak")
-				return cat.includes("anak") || cat.includes("bayi");
-			if (activeId === "kesehatan")
-				return cat.includes("sehat") || cat.includes("medis");
-			return true;
-		});
-	}, [activeId, campaigns]);
+		return base;
+	}, [categories]);
+
+	const filtered = React.useMemo(() => {
+		if (activeId === "lihat_semua") return campaigns;
+		const selected = categoriesList.find((c) => c.id === activeId);
+		if (!selected) return campaigns;
+		const label = selected.label.toLowerCase();
+		return campaigns.filter((c) => (c.category || "").toLowerCase() === label);
+	}, [activeId, campaigns, categoriesList]);
 
 	return (
 		<Box sx={{ px: 2, mt: 3 }}>
@@ -347,17 +345,17 @@ export default function CategoryChips({
 
 			{/* Chips Grid */}
 			<Box className="grid grid-cols-4 gap-2">
-				{categories.map((cat) => (
+				{categoriesList.map((cat) => (
 					<CategoryButton
 						key={cat.id}
 						c={cat}
 						selected={activeId === cat.id}
 						onClick={() => {
-							if (cat.id === "lainnya") {
+							if (cat.id === "lihat_semua") {
 								router.push("/kategori");
-							} else {
-								setActiveId(cat.id);
+								return;
 							}
+							router.push(`/kategori/${encodeURIComponent(cat.id)}`);
 						}}
 					/>
 				))}
