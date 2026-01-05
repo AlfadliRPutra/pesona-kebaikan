@@ -38,6 +38,7 @@ export interface Campaign {
 	collected: number;
 	daysLeft: number;
 	target?: number;
+	categorySlug?: string;
 	categoryId?: string;
 	category?: string; // Display label for category
 	recommended?: boolean;

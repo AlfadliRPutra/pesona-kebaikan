@@ -150,7 +150,7 @@ export default function AdminCampaignKategoriPage() {
       const mapped: Category[] = data.map((c) => ({
         id: c.id,
         name: c.name,
-        slug: slugify(c.name),
+        slug: c.slug || slugify(c.name),
         desc: "", // Not in DB yet
         active: c.isActive,
         icon: c.icon || c.name, // Fallback to name if icon not set
@@ -250,19 +250,32 @@ export default function AdminCampaignKategoriPage() {
 
   const handleCreate = async (name: string) => {
     try {
+      const slugUnderscore = name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/[\s_-]+/g, "_");
       const res = await fetch("/api/campaigns/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, isActive: true }),
+        body: JSON.stringify({ name, slug: slugUnderscore, isActive: true }),
       });
 
-      if (!res.ok) throw new Error("Failed to create");
+      if (!res.ok) {
+        let errMsg = "Gagal membuat kategori";
+        try {
+          const err = await res.json();
+          if (err?.error) errMsg = err.error;
+        } catch {}
+        alert(errMsg);
+        return;
+      }
 
       const created = await res.json();
       const newCategory: Category = {
         id: created.id,
         name: created.name,
-        slug: slugify(created.name),
+        slug: created.slug || slugify(created.name),
         desc: "",
         active: created.isActive,
         icon: created.icon || created.name,

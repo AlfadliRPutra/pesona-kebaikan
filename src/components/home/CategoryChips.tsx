@@ -27,7 +27,11 @@ function buildDefaultCategories(): Category[] {
 		.filter((c) => !!c.label);
 	return [
 		...base,
-		{ id: "lihat_semua", label: "Lihat Semua", icon: <GridViewIcon sx={{ fontSize: 24 }} /> },
+		{
+			id: "lihat_semua",
+			label: "Lihat Semua",
+			icon: <GridViewIcon sx={{ fontSize: 24 }} />,
+		},
 	];
 }
 
@@ -302,7 +306,9 @@ export default function CategoryChips({
 
 	const categoriesList = React.useMemo<Category[]>(() => {
 		const base =
-			categories && categories.length > 0 ? categories : buildDefaultCategories();
+			categories && categories.length > 0
+				? categories
+				: buildDefaultCategories();
 		const allowed = new Set(["medis", "pendidikan", "bencana"]);
 		if (categories && categories.length > 0) {
 			const filtered = categories
@@ -314,7 +320,11 @@ export default function CategoryChips({
 				}));
 			return [
 				...filtered,
-				{ id: "lihat_semua", label: "Lihat Semua", icon: <GridViewIcon sx={{ fontSize: 24 }} /> },
+				{
+					id: "lihat_semua",
+					label: "Lihat Semua",
+					icon: <GridViewIcon sx={{ fontSize: 24 }} />,
+				},
 			];
 		}
 		return base;
@@ -325,7 +335,22 @@ export default function CategoryChips({
 		const selected = categoriesList.find((c) => c.id === activeId);
 		if (!selected) return campaigns;
 		const label = selected.label.toLowerCase();
-		return campaigns.filter((c) => (c.category || "").toLowerCase() === label);
+		const syn: Record<string, string[]> = {
+			medis: [
+				"medis",
+				"kesehatan",
+				"bantuan medis",
+				"bantuan medis & kesehatan",
+			],
+			pendidikan: ["pendidikan", "bantuan pendidikan"],
+			bencana: ["bencana", "bencana alam"],
+		};
+		const names = syn[activeId] || [label];
+		return campaigns.filter((c) => {
+			const slug = (c.categorySlug || "").toLowerCase();
+			const name = (c.category || "").toLowerCase();
+			return slug === activeId || names.includes(name);
+		});
 	}, [activeId, campaigns, categoriesList]);
 
 	return (
@@ -355,7 +380,7 @@ export default function CategoryChips({
 								router.push("/kategori");
 								return;
 							}
-							router.push(`/kategori/${encodeURIComponent(cat.id)}`);
+							setActiveId(cat.id);
 						}}
 					/>
 				))}

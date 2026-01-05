@@ -907,7 +907,7 @@ export async function getLatestDonations(limit: number = 10) {
 			time: new Date(d.createdAt).toLocaleDateString("id-ID"), // Simplification
 			campaignTitle: d.campaign.title,
 			message: d.message || "Semoga berkah",
-			amiinCount: 0,
+			amiinCount: (d as any).amiinCount ?? 0,
 		}));
 
 		return { success: true, data };
@@ -1031,11 +1031,17 @@ function mapCampaignsToTypes(campaigns: CampaignWithRelations[]) {
 						(1000 * 60 * 60 * 24)
 			  )
 			: 0;
+		const slugKey =
+			c.category.slug ||
+			Object.entries(CATEGORY_TITLE).find(
+				([, name]) => name === c.category.name
+			)?.[0];
 
 		return {
 			id: c.id,
 			title: c.title,
 			organizer: c.createdBy.name || "Unknown",
+			categorySlug: slugKey || undefined,
 			category: c.category.name,
 			cover: c.media.find((m) => m.isThumbnail)?.url || "",
 			target: Number(c.target),

@@ -161,10 +161,20 @@ export default function PrayersSection({
 		});
 	};
 
-	const toggleAmiin = (id: string) => {
+	const toggleAmiin = async (id: string) => {
+		if (liked[id]) return;
 		spawnFX(id);
 		pulseCount(id);
-		setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
+		try {
+			await fetch("/api/prayers/amiin", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ donationId: id }),
+			});
+			setLiked((prev) => ({ ...prev, [id]: true }));
+		} catch {
+			setLiked((prev) => ({ ...prev, [id]: true }));
+		}
 	};
 
 	return (

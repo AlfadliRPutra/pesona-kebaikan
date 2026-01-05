@@ -126,7 +126,7 @@ function PayChip({
 			<Box sx={{ minWidth: 0 }}>
 				<Typography
 					sx={{
-						fontSize: 11.5,
+						fontSize: 12,
 						fontWeight: 1000,
 						color: "rgba(15,23,42,.80)",
 						lineHeight: 1.05,
@@ -137,7 +137,7 @@ function PayChip({
 				<Typography
 					sx={{
 						mt: 0.25,
-						fontSize: 10.5,
+						fontSize: 11,
 						fontWeight: 800,
 						color: "rgba(15,23,42,.48)",
 						whiteSpace: "nowrap",
@@ -175,7 +175,7 @@ export default function DonationBanner() {
 					<Box>
 						<Typography
 							sx={{
-								fontSize: 12.5,
+								fontSize: 13,
 								fontWeight: 900,
 								color: "rgba(15,23,42,.65)",
 							}}
@@ -225,7 +225,7 @@ export default function DonationBanner() {
 				>
 					<Typography
 						sx={{
-							fontSize: 12.5,
+							fontSize: 13,
 							fontWeight: 900,
 							color: "rgba(15,23,42,.75)",
 						}}

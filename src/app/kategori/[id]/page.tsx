@@ -1,5 +1,3 @@
-"use server";
-
 import Link from "next/link";
 import { Box, Typography, Chip } from "@mui/material";
 import Image from "next/image";
@@ -22,25 +20,26 @@ function SortLink({
 	href: string;
 }) {
 	return (
-		<Box
-			component={Link}
-			href={href}
-			sx={{
-				px: 1.5,
-				py: 0.75,
-				borderRadius: 999,
-				border: "1px solid",
-				borderColor: selected ? "text.primary" : "divider",
-				bgcolor: selected ? "text.primary" : "transparent",
-				color: selected ? "background.paper" : "text.secondary",
-				fontSize: 12.5,
-				fontWeight: 800,
-				textDecoration: "none",
-				whiteSpace: "nowrap",
-			}}
-		>
-			{label}
-		</Box>
+		<Link href={href}>
+			<Box
+				component="a"
+				sx={{
+					px: 1.5,
+					py: 0.75,
+					borderRadius: 999,
+					border: "1px solid",
+					borderColor: selected ? "text.primary" : "divider",
+					bgcolor: selected ? "text.primary" : "transparent",
+					color: selected ? "background.paper" : "text.secondary",
+					fontSize: 12.5,
+					fontWeight: 800,
+					textDecoration: "none",
+					whiteSpace: "nowrap",
+				}}
+			>
+				{label}
+			</Box>
+		</Link>
 	);
 }
 
@@ -50,125 +49,134 @@ function CampaignCard({ c }: { c: any }) {
 	const pct = Math.min(100, Math.max(0, rawPct));
 
 	return (
-		<Box
-			component={Link}
-			href={`/donasi/${c.slug || c.id}`}
-			sx={{
-				display: "block",
-				borderRadius: 2,
-				border: "1px solid rgba(15,23,42,0.08)",
-				bgcolor: "#fff",
-				boxShadow: "0 14px 26px rgba(15,23,42,.06)",
-				overflow: "hidden",
-				textDecoration: "none",
-			}}
-		>
-			<Box sx={{ position: "relative", height: 140 }}>
-				<Image
-					src={img}
-					alt={c.title}
-					fill
-					sizes="(max-width: 768px) 100vw, 400px"
-					style={{ objectFit: "cover" }}
-				/>
-				<Box
-					sx={{
-						position: "absolute",
-						inset: 0,
-						background:
-							"linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.0) 70%)",
-						pointerEvents: "none",
-					}}
-				/>
-				<Box sx={{ position: "absolute", top: 10, left: 10 }}>
-					<Chip
-						label={c.category}
-						size="small"
-						sx={{
-							height: 22,
-							bgcolor: "rgba(255,255,255,0.92)",
-							backdropFilter: "blur(10px)",
-							fontWeight: 900,
-							"& .MuiChip-label": { px: 1, fontSize: 11 },
-						}}
+		<Link href={`/donasi/${c.slug || c.id}`}>
+			<Box
+				component="a"
+				sx={{
+					display: "block",
+					borderRadius: 2,
+					border: "1px solid rgba(15,23,42,0.08)",
+					bgcolor: "#fff",
+					boxShadow: "0 14px 26px rgba(15,23,42,.06)",
+					overflow: "hidden",
+					textDecoration: "none",
+				}}
+			>
+				<Box sx={{ position: "relative", height: 140 }}>
+					<Image
+						src={img}
+						alt={c.title}
+						fill
+						sizes="(max-width: 768px) 100vw, 400px"
+						style={{ objectFit: "cover" }}
 					/>
-				</Box>
-				<Box
-					sx={{
-						position: "absolute",
-						bottom: 10,
-						left: 10,
-						px: 1,
-						py: "2px",
-						borderRadius: 999,
-						fontSize: 10,
-						fontWeight: 900,
-						color: "#fff",
-						bgcolor: "rgba(15,23,42,0.72)",
-						backdropFilter: "blur(10px)",
-					}}
-				>
-					{c.daysLeft} hari
-				</Box>
-			</Box>
-			<Box sx={{ p: 1.25 }}>
-				<Typography
-					sx={{
-						fontSize: 13,
-						fontWeight: 900,
-						color: "text.primary",
-						lineHeight: 1.25,
-						display: "-webkit-box",
-						WebkitLineClamp: 2,
-						WebkitBoxOrient: "vertical",
-						overflow: "hidden",
-						minHeight: 34,
-					}}
-				>
-					{c.title}
-				</Typography>
-				<Box
-					sx={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						mt: 1,
-					}}
-				>
-					<Typography
-						sx={{ fontSize: 10, fontWeight: 700, color: "rgba(15,23,42,.50)" }}
-					>
-						Terkumpul
-					</Typography>
-					<Typography sx={{ fontSize: 10, fontWeight: 900, color: PRIMARY }}>
-						{pct}%
-					</Typography>
-				</Box>
-				<Box
-					sx={{
-						height: 6,
-						borderRadius: 999,
-						bgcolor: "#e11d48",
-						overflow: "hidden",
-					}}
-				>
 					<Box
 						sx={{
-							height: "100%",
-							width: `${pct}%`,
-							bgcolor: PRIMARY,
-							borderRadius: 999,
-							transition: "width 250ms ease",
+							position: "absolute",
+							inset: 0,
+							background:
+								"linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.0) 70%)",
+							pointerEvents: "none",
 						}}
 					/>
+					<Box sx={{ position: "absolute", top: 10, left: 10 }}>
+						<Chip
+							label={c.category}
+							size="small"
+							sx={{
+								height: 22,
+								bgcolor: "rgba(255,255,255,0.92)",
+								backdropFilter: "blur(10px)",
+								fontWeight: 900,
+								"& .MuiChip-label": { px: 1, fontSize: 11 },
+							}}
+						/>
+					</Box>
+					<Box
+						sx={{
+							position: "absolute",
+							bottom: 10,
+							left: 10,
+							px: 1,
+							py: "2px",
+							borderRadius: 999,
+							fontSize: 10,
+							fontWeight: 900,
+							color: "#fff",
+							bgcolor: "rgba(15,23,42,0.72)",
+							backdropFilter: "blur(10px)",
+						}}
+					>
+						{c.daysLeft} hari
+					</Box>
 				</Box>
-				<Box sx={{ display: "flex", justifyContent: "space-between", mt: 0.5 }}>
-					<Typography sx={{ fontSize: 11, fontWeight: 900, color: "text.primary" }}>
-						Rp {rupiah(c.collected)}
+				<Box sx={{ p: 1.25 }}>
+					<Typography
+						sx={{
+							fontSize: 13,
+							fontWeight: 900,
+							color: "text.primary",
+							lineHeight: 1.25,
+							display: "-webkit-box",
+							WebkitLineClamp: 2,
+							WebkitBoxOrient: "vertical",
+							overflow: "hidden",
+							minHeight: 34,
+						}}
+					>
+						{c.title}
 					</Typography>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							mt: 1,
+						}}
+					>
+						<Typography
+							sx={{
+								fontSize: 10,
+								fontWeight: 700,
+								color: "rgba(15,23,42,.50)",
+							}}
+						>
+							Terkumpul
+						</Typography>
+						<Typography sx={{ fontSize: 10, fontWeight: 900, color: PRIMARY }}>
+							{pct}%
+						</Typography>
+					</Box>
+					<Box
+						sx={{
+							height: 6,
+							borderRadius: 999,
+							bgcolor: "#e11d48",
+							overflow: "hidden",
+						}}
+					>
+						<Box
+							sx={{
+								height: "100%",
+								width: `${pct}%`,
+								bgcolor: PRIMARY,
+								borderRadius: 999,
+								transition: "width 250ms ease",
+							}}
+						/>
+					</Box>
+					<Box
+						sx={{ display: "flex", justifyContent: "space-between", mt: 0.5 }}
+					>
+						<Typography
+							sx={{ fontSize: 11, fontWeight: 900, color: "text.primary" }}
+						>
+							Rp {rupiah(c.collected)}
+						</Typography>
+					</Box>
 				</Box>
 			</Box>
-		</Box>
+		</Link>
 	);
 }
 
@@ -203,7 +211,8 @@ export default async function KategoriIdPage({
 		sortParam
 	);
 
-	const rows: any[] = res.success && Array.isArray((res as any).data) ? (res as any).data : [];
+	const rows: any[] =
+		res.success && Array.isArray((res as any).data) ? (res as any).data : [];
 
 	const sorts = [
 		{ key: "newest", label: "Terbaru" },
@@ -216,7 +225,7 @@ export default async function KategoriIdPage({
 	const base = `/kategori/${encodeURIComponent(categorySlug)}`;
 
 	return (
-		Box sx={{ px: 2, py: 2 }}>
+		<Box sx={{ px: 2, py: 2 }}>
 			<Box
 				sx={{
 					display: "flex",
@@ -243,7 +252,12 @@ export default async function KategoriIdPage({
 				{sorts.map((s) => {
 					const href = `${base}?sort=${s.key}`;
 					return (
-						SortLink key={s.key} label={s.label} href={href} selected={sortKey === s.key} />
+						<SortLink
+							key={s.key}
+							label={s.label}
+							href={href}
+							selected={sortKey === s.key}
+						/>
 					);
 				})}
 			</Box>
@@ -262,4 +276,3 @@ export default async function KategoriIdPage({
 		</Box>
 	);
 }
-
