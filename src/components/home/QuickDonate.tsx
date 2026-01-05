@@ -24,6 +24,12 @@ function rupiah(n: number) {
 	return new Intl.NumberFormat("id-ID").format(n);
 }
 
+function formatIDR(numStr: string) {
+	const n = numStr.replace(/\D/g, "");
+	if (!n) return "";
+	return n.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 function CloseIcon() {
 	return (
 		<svg
@@ -389,7 +395,7 @@ export default function QuickDonate({
 								inputMode="numeric"
 								placeholder="Custom"
 								value={custom}
-								onChange={(e) => setCustom(e.target.value)}
+								onChange={(e) => setCustom(formatIDR(e.target.value))}
 								style={{
 									width: 86,
 									outline: "none",

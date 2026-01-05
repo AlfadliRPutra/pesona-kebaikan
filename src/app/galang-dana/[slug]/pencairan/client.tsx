@@ -36,6 +36,12 @@ function idr(n: number) {
 	}).format(n);
 }
 
+function formatIDR(numStr: string) {
+	const n = numStr.replace(/\D/g, "");
+	if (!n) return "";
+	return n.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 export default function WithdrawalList({
 	campaign,
 	withdrawals,
@@ -442,10 +448,12 @@ export default function WithdrawalList({
 						<TextField
 							label="Jumlah Penarikan (Rp)"
 							fullWidth
-							type="number"
 							value={withdrawalForm.amount}
 							onChange={(e) =>
-								setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })
+								setWithdrawalForm({
+									...withdrawalForm,
+									amount: formatIDR(e.target.value),
+								})
 							}
 							helperText={`Maksimal: ${idr(available)}`}
 						/>
@@ -542,10 +550,12 @@ export default function WithdrawalList({
 						<TextField
 							label="Jumlah Dana Disalurkan (Opsional)"
 							fullWidth
-							type="number"
 							value={updateForm.amount}
 							onChange={(e) =>
-								setUpdateForm({ ...updateForm, amount: e.target.value })
+								setUpdateForm({
+									...updateForm,
+									amount: formatIDR(e.target.value),
+								})
 							}
 							helperText="Isi jika update ini berkaitan dengan penyaluran dana tertentu."
 						/>
