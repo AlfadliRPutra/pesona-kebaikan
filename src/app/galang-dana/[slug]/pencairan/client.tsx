@@ -27,6 +27,7 @@ import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import { LinkIconButton } from "@/components/ui/LinkButton";
 import { requestWithdrawal, createCampaignUpdate } from "@/actions/campaign";
 import { useRouter } from "next/navigation";
+import { getBankName } from "@/lib/banks";
 
 function idr(n: number) {
 	return new Intl.NumberFormat("id-ID", {
@@ -325,7 +326,8 @@ export default function WithdrawalList({
 														month: "long",
 														year: "numeric",
 													})}{" "}
-													• {w.bankName} - {w.bankAccount} ({w.accountHolder})
+													• {getBankName(w.bankName)} - {w.bankAccount} (
+													{w.accountHolder})
 												</Typography>
 												{w.notes && (
 													<Typography

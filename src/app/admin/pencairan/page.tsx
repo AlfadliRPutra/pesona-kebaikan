@@ -42,6 +42,7 @@ import WithdrawalCard, {
 } from "@/components/admin/pencairan/WithdrawalCard";
 import OtpVerificationDialog from "@/components/admin/pencairan/OtpVerificationDialog";
 import { useSession } from "next-auth/react";
+import { SUPPORTED_BANKS } from "@/lib/banks";
 
 const PAGE_SIZE = 10;
 
@@ -431,14 +432,20 @@ export default function PencairanPage() {
 							}}
 						>
 							<Box>
-								<TextField
-									label="Nama Bank"
-									fullWidth
-									size="small"
-									value={bankName}
-									onChange={(e) => setBankName(e.target.value)}
-									placeholder="Contoh: BCA"
-								/>
+								<FormControl fullWidth size="small">
+									<InputLabel>Nama Bank</InputLabel>
+									<Select
+										value={bankName}
+										label="Nama Bank"
+										onChange={(e) => setBankName(e.target.value)}
+									>
+										{SUPPORTED_BANKS.map((b) => (
+											<MenuItem key={b.code} value={b.code}>
+												{b.name}
+											</MenuItem>
+										))}
+									</Select>
+								</FormControl>
 							</Box>
 							<Box>
 								<TextField
