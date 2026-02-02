@@ -240,7 +240,46 @@ export default function PencairanPage() {
 		}
 	};
 
-	const handleApproveClick = (row: WithdrawalRow) => {
+	const handleApproveClick = async (row: WithdrawalRow) => {
+		// Bypass OTP flow if configured
+		if (process.env.NEXT_PUBLIC_DISBURSEMENT_BYPASS_OTP === "true") {
+			// Optional: confirm dialog or just proceed
+			if (
+				!confirm(
+					"Development Mode: OTP Bypass aktif. Lanjutkan persetujuan tanpa OTP?",
+				)
+			) {
+				return;
+			}
+
+			try {
+				const res = await updateWithdrawalStatus(
+					row.id,
+					"APPROVED",
+					undefined,
+					"BYPASSED", // dummy OTP
+					undefined,
+					adminPhone,
+				);
+
+				if (!res?.success) {
+					showSnack(res?.error || "Gagal menyetujui pencairan", "error");
+					return;
+				}
+				fetchData();
+				showSnack(
+					res.payoutMode === "IRIS"
+						? "Pencairan berhasil disetujui (Midtrans Iris)"
+						: "Pencairan disetujui (mode manual/bypass).",
+					"success",
+				);
+			} catch (e) {
+				console.error(e);
+				showSnack("Gagal menyetujui pencairan", "error");
+			}
+			return;
+		}
+
 		setSelectedWithdrawalForApproval(row);
 		setOtpDialogOpen(true);
 	};

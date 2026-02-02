@@ -12,6 +12,11 @@ const MIDTRANS_PAYOUTS_REVIEW_MESSAGE =
 	process.env.MIDTRANS_PAYOUTS_REVIEW_MESSAGE ||
 	"Integrasi Midtrans Payouts belum aktif atau masih dalam proses review.";
 
+const DISBURSEMENT_BYPASS_OTP =
+	process.env.NEXT_PUBLIC_DISBURSEMENT_BYPASS_OTP === "true";
+const DISBURSEMENT_BYPASS_STATUS_UPDATE =
+	process.env.NEXT_PUBLIC_DISBURSEMENT_BYPASS_STATUS_UPDATE === "true";
+
 export async function getCampaignsWithFunds() {
 	const campaigns = await prisma.campaign.findMany({
 		where: {
@@ -142,29 +147,33 @@ export async function updateWithdrawalStatus(
 	// 0. Verify OTP (Application Level Security)
 	// We require OTP for ALL approvals, regardless of Midtrans/Manual mode
 	if (status === "APPROVED") {
-		if (!otp) {
-			return {
-				success: false,
-				error: "OTP diperlukan untuk menyetujui pencairan",
-			};
-		}
+		// Bypass OTP check if configured
+		if (!DISBURSEMENT_BYPASS_OTP) {
+			if (!otp) {
+				return {
+					success: false,
+					error: "OTP diperlukan untuk menyetujui pencairan",
+				};
+			}
 
-		const session = await auth();
-		// Use provided adminPhone or fallback to session or default
-		const phoneToVerify = adminPhone || session?.user?.phone || "085382055598";
+			const session = await auth();
+			// Use provided adminPhone or fallback to session or default
+			const phoneToVerify =
+				adminPhone || session?.user?.phone || "085382055598";
 
-		const verifyRes = await verifyOtp(phoneToVerify, otp);
-		if (!verifyRes.success) {
-			return {
-				success: false,
-				error: verifyRes.error || "Verifikasi OTP gagal",
-			};
+			const verifyRes = await verifyOtp(phoneToVerify, otp);
+			if (!verifyRes.success) {
+				return {
+					success: false,
+					error: verifyRes.error || "Verifikasi OTP gagal",
+				};
+			}
 		}
 	}
 
 	// If approving, trigger Midtrans Iris Payout
 	if (status === "APPROVED") {
-		if (!MIDTRANS_PAYOUTS_ENABLED) {
+		if (!MIDTRANS_PAYOUTS_ENABLED || DISBURSEMENT_BYPASS_STATUS_UPDATE) {
 			await prisma.withdrawal.update({
 				where: { id },
 				data: {
