@@ -97,7 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 				} else if (token.id) {
 					session.user.id = token.id as string;
 				}
-				session.user.phone = token.phone;
+				session.user.phone = token.phone as string | null | undefined;
 			}
 
 			if (token.role && session.user) {
