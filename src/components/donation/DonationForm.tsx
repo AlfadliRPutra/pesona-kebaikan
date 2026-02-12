@@ -368,14 +368,13 @@ export default function DonationForm({
 				>
 					<Button
 						variant="contained"
+						color="primary"
 						fullWidth
 						size="large"
 						onClick={handleSubmit}
 						disabled={loading}
 						sx={{
-							bgcolor: "#e11d48",
 							fontWeight: 700,
-							"&:hover": { bgcolor: "#be123c" },
 						}}
 					>
 						{loading ? (

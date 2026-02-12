@@ -391,6 +391,8 @@ export async function getCampaignBySlug(slug: string) {
 			ownerEmail: campaign.createdBy.email || "-",
 			ownerPhone: campaign.createdBy.phone || "-",
 			ownerAvatar: campaign.createdBy.image || "",
+			ownerVerifiedAt: campaign.createdBy.verifiedAt || null,
+			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
 			phone: campaign.phone || "-",
 			target: Number(campaign.target),
 			collected,
@@ -507,6 +509,8 @@ export async function getCampaignById(id: string) {
 			ownerEmail: campaign.createdBy.email || "-",
 			ownerPhone: campaign.createdBy.phone || "-",
 			ownerAvatar: campaign.createdBy.image || "",
+			ownerVerifiedAt: campaign.createdBy.verifiedAt || null,
+			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
 			phone: campaign.phone || "-",
 			target: Number(campaign.target),
 			collected,
@@ -1096,6 +1100,8 @@ function mapCampaignsToTypes(campaigns: CampaignWithRelations[]) {
 			id: c.id,
 			title: c.title,
 			organizer: c.createdBy.name || "Unknown",
+			organizerVerifiedAt: c.createdBy.verifiedAt || null,
+			organizerVerifiedAs: (c.createdBy as any).verifiedAs || null,
 			categorySlug: slugKey || undefined,
 			category: c.category.name,
 			cover: c.media.find((m) => m.isThumbnail)?.url || "",
@@ -1103,7 +1109,11 @@ function mapCampaignsToTypes(campaigns: CampaignWithRelations[]) {
 			collected,
 			donors: validDonations.length,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
-			tag: c.category.name === "Bantuan Medis & Kesehatan" ? "VERIFIED" : "ORG",
+			tag: c.createdBy.verifiedAt
+				? (c.createdBy as any).verifiedAs === "organization"
+					? "ORG"
+					: "PER"
+				: undefined,
 			slug: c.slug || c.id,
 			isEmergency: c.isEmergency,
 		};
