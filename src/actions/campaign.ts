@@ -546,6 +546,7 @@ export async function getCampaignById(id: string) {
       slug: campaign.slug,
       title: campaign.title,
       category: campaign.category.name,
+      categorySlug: campaign.category.slug,
       type:
         campaign.category.name === "Bantuan Medis & Kesehatan"
           ? "sakit"
@@ -567,6 +568,7 @@ export async function getCampaignById(id: string) {
           ? "ended"
           : campaign.status.toLowerCase(),
       description: campaign.story,
+      createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
       thumbnail,
       images: campaign.media.map((m) => m.url),
