@@ -1,10 +1,11 @@
 @layer theme, base, mui, components, utilities;
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 :root {
 	--background: #f8fafc; /* Matches MUI Light background.default */
 	--foreground: #0f172a; /* Matches MUI Light text.primary */
-	--brand: #61ce70;
+	--brand: #0ba976;
 	--mui-font-family: var(--font-pjs), "Plus Jakarta Sans", system-ui,
 		-apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
@@ -28,14 +29,10 @@
 	--font-sans: var(--font-pjs);
 }
 
-/* Dark mode disabled as per user request
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #0b1220; 
-		--foreground: #f8fafc; 
-	}
+.dark {
+	--background: #0b1220;
+	--foreground: #f8fafc;
 }
-*/
 
 html,
 body {
@@ -78,6 +75,11 @@ body {
 	color: #0f172a !important; /* Force dark slate color */
 	opacity: 0.6 !important;
 	transition: all 180ms ease !important;
+	border-radius: 999px !important; /* Round shape for ripple/hover */
+}
+
+.bottom-nav .MuiBottomNavigationAction-root:hover {
+	background-color: rgba(0, 0, 0, 0.04) !important;
 }
 
 .bottom-nav .MuiBottomNavigationAction-label {
@@ -97,12 +99,12 @@ body {
 
 /* Active State */
 .bottom-nav .Mui-selected {
-	color: #61ce70 !important; /* Force primary brand color */
+	color: #0ba976 !important; /* Force primary brand color */
 	opacity: 1 !important;
 }
 
 .bottom-nav .MuiBottomNavigationAction-label.Mui-selected {
-	color: #61ce70 !important;
+	color: #0ba976 !important;
 	font-weight: 700 !important;
 }
 
@@ -118,4 +120,17 @@ body {
 	padding-bottom: 6px;
 	border-radius: 12px;
 	background-color: var(--color-primary-soft);
+}
+
+/* Horizontal Scrollbar Customization */
+.scrollbar-x-popular::-webkit-scrollbar {
+	height: 6px;
+}
+.scrollbar-x-popular::-webkit-scrollbar-thumb {
+	background: rgba(15, 23, 42, 0.18);
+	border-radius: 999px;
+}
+.scrollbar-x-popular::-webkit-scrollbar-track {
+	background: rgba(15, 23, 42, 0.06);
+	border-radius: 999px;
 }

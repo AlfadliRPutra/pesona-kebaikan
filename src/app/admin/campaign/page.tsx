@@ -1,128 +1,925 @@
-import React from "react";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
-import Chip from "@mui/material/Chip";
-import Button from "@mui/material/Button";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import IconButton from "@mui/material/IconButton";
+"use client";
 
-const campaigns = [
-  {
-    id: 1,
-    title: "Bantu Pembangunan Masjid Al-Ikhlas",
-    creator: "Ustadz Ahmad",
-    target: "Rp 100.000.000",
-    collected: "Rp 50.000.000",
-    status: "Verified",
-    date: "2024-01-15",
-  },
-  {
-    id: 2,
-    title: "Operasi Jantung Adik Budi",
-    creator: "Ibu Siti",
-    target: "Rp 50.000.000",
-    collected: "Rp 10.000.000",
-    status: "Pending",
-    date: "2024-02-01",
-  },
-  {
-    id: 3,
-    title: "Sedekah Jumat Berkah",
-    creator: "Komunitas Berbagi",
-    target: "Rp 10.000.000",
-    collected: "Rp 12.000.000",
-    status: "Verified",
-    date: "2024-02-10",
-  },
-  {
-    id: 4,
-    title: "Bantuan Banjir Demak",
-    creator: "Relawan Demak",
-    target: "Rp 200.000.000",
-    collected: "Rp 150.000.000",
-    status: "Ended",
-    date: "2024-01-05",
-  },
+import * as React from "react";
+import Link from "next/link";
+import {
+	Box,
+	Paper,
+	Typography,
+	Stack,
+	Chip,
+	TextField,
+	InputAdornment,
+	IconButton,
+	LinearProgress,
+	Menu,
+	MenuItem,
+	Skeleton,
+	Tooltip,
+	Button,
+	Avatar,
+	AvatarGroup,
+	Divider,
+	Pagination,
+} from "@mui/material";
+
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
+import LocalHospitalRoundedIcon from "@mui/icons-material/LocalHospitalRounded";
+import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
+import VerifiedRoundedIcon from "@mui/icons-material/VerifiedRounded";
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
+import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import {
+	getCampaigns,
+	updateCampaignStatus,
+	deleteCampaign,
+} from "@/actions/campaign";
+
+const PAGE_SIZE = 9;
+
+type CampaignStatus =
+	| "draft"
+	| "review"
+	| "active"
+	| "ended"
+	| "rejected"
+	| "pending";
+type CampaignType = "sakit" | "lainnya";
+
+type CampaignRow = {
+	id: string;
+	title: string;
+	category: string;
+	type: CampaignType;
+	ownerName: string;
+	target: number;
+	collected: number;
+	donors: number;
+	status: CampaignStatus;
+	updatedAt: string;
+	thumbnail?: string;
+};
+
+// Removed MOCK
+
+function idr(n: number) {
+	if (!n) return "Rp0";
+	const s = Math.round(n).toString();
+	return "Rp" + s.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function pct(collected: number, target: number) {
+	if (!target || target <= 0) return 0;
+	return Math.max(0, Math.min(100, Math.round((collected / target) * 100)));
+}
+
+function matchQuery(q: string, row: CampaignRow) {
+	if (!q) return true;
+	const s = q.toLowerCase();
+	return (
+		row.title.toLowerCase().includes(s) ||
+		row.category.toLowerCase().includes(s) ||
+		row.ownerName.toLowerCase().includes(s) ||
+		row.id.toLowerCase().includes(s)
+	);
+}
+
+function statusChip(status: CampaignStatus) {
+	switch (status) {
+		case "draft":
+			return {
+				label: "Draft",
+				sx: {
+					bgcolor: "rgba(15,23,42,.06)",
+					borderColor: "rgba(15,23,42,.10)",
+					color: "rgba(15,23,42,.70)",
+				},
+			};
+		case "pending":
+			return {
+				label: "Pending",
+				sx: {
+					bgcolor: "rgba(245,158,11,.12)",
+					borderColor: "rgba(245,158,11,.22)",
+					color: "rgba(180,83,9,.95)",
+				},
+			};
+		case "review":
+			return {
+				label: "Review",
+				sx: {
+					bgcolor: "rgba(245,158,11,.12)",
+					borderColor: "rgba(245,158,11,.22)",
+					color: "rgba(180,83,9,.95)",
+				},
+			};
+		case "active":
+			return {
+				label: "Aktif",
+				sx: {
+					bgcolor: "rgba(34,197,94,.12)",
+					borderColor: "rgba(34,197,94,.22)",
+					color: "rgba(22,101,52,.95)",
+				},
+			};
+		case "ended":
+			return {
+				label: "Berakhir",
+				sx: {
+					bgcolor: "rgba(239,68,68,.12)",
+					borderColor: "rgba(239,68,68,.22)",
+					color: "rgba(153,27,27,.95)",
+				},
+			};
+		case "rejected":
+			return {
+				label: "Ditolak",
+				sx: {
+					bgcolor: "rgba(239,68,68,.12)",
+					borderColor: "rgba(239,68,68,.22)",
+					color: "rgba(153,27,27,.95)",
+				},
+			};
+		default:
+			return {
+				label: status || "Unknown",
+				sx: {
+					bgcolor: "rgba(15,23,42,.06)",
+					borderColor: "rgba(15,23,42,.10)",
+					color: "rgba(15,23,42,.70)",
+				},
+			};
+	}
+}
+
+const FILTERS: { key: "all" | CampaignStatus; label: string }[] = [
+	{ key: "all", label: "Semua" },
+	{ key: "pending", label: "Pending" },
+	{ key: "active", label: "Aktif" },
+	{ key: "draft", label: "Draft" },
+	{ key: "ended", label: "Berakhir" },
+	{ key: "rejected", label: "Ditolak" },
 ];
 
-export default function CampaignPage() {
-  return (
-    <Box>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <Typography variant="h5" component="h1" className="font-bold text-gray-900 dark:text-white">
-          Daftar Campaign
-        </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          className="bg-blue-600 hover:bg-blue-700 text-white normal-case font-semibold rounded-lg shadow-none"
-        >
-          Buat Campaign Baru
-        </Button>
-      </div>
+export default function AdminCampaignPage() {
+	const [rows, setRows] = React.useState<CampaignRow[]>([]);
+	const [loading, setLoading] = React.useState(true);
+	const [page, setPage] = React.useState(1);
+	const [totalPages, setTotalPages] = React.useState(1);
+	const [totalRows, setTotalRows] = React.useState(0);
 
-      <TableContainer component={Paper} className="shadow-sm border border-gray-200 dark:border-gray-800 dark:bg-[#1e293b] rounded-xl overflow-hidden">
-        <Table sx={{ minWidth: 650 }} aria-label="simple table">
-          <TableHead className="bg-gray-50 dark:bg-[#0f172a]">
-            <TableRow>
-              <TableCell className="font-bold text-gray-700 dark:text-gray-300">Judul Campaign</TableCell>
-              <TableCell className="font-bold text-gray-700 dark:text-gray-300">Penggalang</TableCell>
-              <TableCell className="font-bold text-gray-700 dark:text-gray-300">Target</TableCell>
-              <TableCell className="font-bold text-gray-700 dark:text-gray-300">Terkumpul</TableCell>
-              <TableCell className="font-bold text-gray-700 dark:text-gray-300">Status</TableCell>
-              <TableCell className="font-bold text-gray-700 dark:text-gray-300" align="right">Aksi</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {campaigns.map((row) => (
-              <TableRow
-                key={row.id}
-                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                className="hover:bg-gray-50 dark:hover:bg-[#1e293b]/50 transition-colors"
-              >
-                <TableCell component="th" scope="row" className="font-medium text-gray-900 dark:text-gray-100">
-                  {row.title}
-                  <div className="text-xs text-gray-500 font-normal mt-1">{row.date}</div>
-                </TableCell>
-                <TableCell className="text-gray-600 dark:text-gray-300">{row.creator}</TableCell>
-                <TableCell className="text-gray-600 dark:text-gray-300">{row.target}</TableCell>
-                <TableCell className="text-gray-600 dark:text-gray-300">{row.collected}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={row.status} 
-                    size="small"
-                    className={`
-                      ${row.status === 'Verified' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
-                      ${row.status === 'Pending' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : ''}
-                      ${row.status === 'Ended' ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' : ''}
-                      font-semibold border-none
-                    `}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <div className="flex gap-2 justify-end">
-                    <IconButton size="small" className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
-  );
+	const [q, setQ] = React.useState("");
+	const [filter, setFilter] = React.useState<"all" | CampaignStatus>("all");
+
+	const [menu, setMenu] = React.useState<{
+		anchor: HTMLElement | null;
+		row?: CampaignRow;
+	}>({ anchor: null });
+
+	const fetchCampaigns = React.useCallback(async () => {
+		setLoading(true);
+		try {
+			const res = await getCampaigns(page, PAGE_SIZE, filter, q, undefined, undefined, undefined, undefined, "newest", true);
+			if (res.success && res.data) {
+				setRows(res.data as any);
+				setTotalPages(res.totalPages || 1);
+				setTotalRows(res.total || 0);
+			}
+		} catch (e) {
+			console.error(e);
+		}
+		setLoading(false);
+	}, [page, filter, q]);
+
+	React.useEffect(() => {
+		const t = setTimeout(() => {
+			fetchCampaigns();
+		}, 450);
+		return () => clearTimeout(t);
+	}, [fetchCampaigns]);
+
+	const openMenu = (e: React.MouseEvent<HTMLElement>, row: CampaignRow) =>
+		setMenu({ anchor: e.currentTarget, row });
+	const closeMenu = () => setMenu({ anchor: null, row: undefined });
+
+	const onEnd = async (id: string) => {
+		if (confirm("Apakah anda yakin ingin mengakhiri campaign ini?")) {
+			await updateCampaignStatus(id, "COMPLETED");
+			fetchCampaigns();
+		}
+	};
+
+	const onDelete = async (id: string) => {
+		if (confirm("Apakah anda yakin ingin menghapus campaign ini?")) {
+			const res = await deleteCampaign(id);
+			if (res.success) {
+				fetchCampaigns();
+			} else {
+				alert(
+					"Gagal menghapus campaign: " + (res.error || "Terjadi kesalahan")
+				);
+			}
+		}
+	};
+
+	const onVerify = async (id: string) => {
+		if (confirm("Verifikasi campaign ini agar aktif?")) {
+			await updateCampaignStatus(id, "ACTIVE");
+			fetchCampaigns();
+		}
+	};
+
+	const onRefresh = () => {
+		fetchCampaigns();
+	};
+
+	return (
+		<Box>
+			{/* Top area (premium panel) */}
+			<Paper
+				elevation={0}
+				sx={{
+					borderRadius: 3,
+					border: "1px solid rgba(15,23,42,.10)",
+					bgcolor: "#fff",
+					overflow: "hidden",
+				}}
+			>
+				<Box
+					sx={{
+						p: 2,
+						background:
+							"radial-gradient(900px 380px at 0% 0%, rgba(11,169,118,.18), transparent 55%), radial-gradient(900px 380px at 100% 0%, rgba(59,130,246,.12), transparent 55%)",
+					}}
+				>
+					<Stack
+						direction={{ xs: "column", md: "row" }}
+						spacing={1.5}
+						alignItems={{ xs: "stretch", md: "center" }}
+						justifyContent="space-between"
+					>
+						<Box>
+							<Typography
+								sx={{ fontWeight: 1000, fontSize: 20, color: "#0f172a" }}
+							>
+								Campaign
+							</Typography>
+							<Typography
+								sx={{ mt: 0.25, fontSize: 12.5, color: "rgba(15,23,42,.62)" }}
+							>
+								Monitor & kelola campaign yang terdaftar.
+							</Typography>
+
+							<Stack
+								direction="row"
+								spacing={1}
+								sx={{ mt: 1.25 }}
+								alignItems="center"
+							>
+								<Chip
+									label={`${rows.length} hasil`}
+									variant="outlined"
+									sx={{
+										borderRadius: 999,
+										fontWeight: 900,
+										bgcolor: "rgba(255,255,255,.55)",
+										borderColor: "rgba(15,23,42,.12)",
+										color: "rgba(15,23,42,.75)",
+									}}
+								/>
+								<Chip
+									label={`Total: ${totalRows}`}
+									variant="outlined"
+									sx={{
+										borderRadius: 999,
+										fontWeight: 900,
+										bgcolor: "rgba(255,255,255,.55)",
+										borderColor: "rgba(15,23,42,.12)",
+										color: "rgba(15,23,42,.75)",
+									}}
+								/>
+							</Stack>
+						</Box>
+
+						<Stack direction="row" spacing={1} alignItems="center">
+							<TextField
+								size="small"
+								value={q}
+								onChange={(e) => setQ(e.target.value)}
+								placeholder="Cari campaign, user, kategori, ID…"
+								InputProps={{
+									startAdornment: (
+										<InputAdornment position="start">
+											<SearchRoundedIcon
+												fontSize="small"
+												style={{ color: "rgba(15,23,42,.45)" }}
+											/>
+										</InputAdornment>
+									),
+								}}
+								sx={{
+									width: { xs: "100%", md: 360 },
+									"& .MuiOutlinedInput-root": {
+										borderRadius: 999,
+										bgcolor: "rgba(255,255,255,.70)",
+										border: "1px solid rgba(15,23,42,.10)",
+										boxShadow: "0 12px 30px rgba(15,23,42,.06)",
+										"& fieldset": { border: "none" },
+									},
+									"& .MuiOutlinedInput-input": { fontSize: 13.5 },
+								}}
+							/>
+
+							<Tooltip title="Refresh">
+								<IconButton
+									onClick={onRefresh}
+									sx={{
+										width: 40,
+										height: 40,
+										borderRadius: 999,
+										bgcolor: "rgba(255,255,255,.70)",
+										border: "1px solid rgba(15,23,42,.10)",
+										boxShadow: "0 12px 30px rgba(15,23,42,.06)",
+									}}
+								>
+									<RefreshRoundedIcon fontSize="small" />
+								</IconButton>
+							</Tooltip>
+
+							<Button
+								component={Link}
+								href="/admin/campaign/create"
+								variant="contained"
+								startIcon={<AddRoundedIcon />}
+								sx={{
+									borderRadius: 999,
+									fontWeight: 1000,
+									textTransform: "none",
+									px: 2,
+									boxShadow: "0 14px 34px rgba(11,169,118,.22)",
+									bgcolor: "#0ba976",
+									"&:hover": { bgcolor: "#55bf64" },
+								}}
+							>
+								Buat
+							</Button>
+						</Stack>
+					</Stack>
+
+					<Divider sx={{ mt: 2, borderColor: "rgba(15,23,42,.08)" }} />
+
+					{/* Filter chips */}
+					<Box
+						sx={{
+							mt: 1.5,
+							display: "flex",
+							gap: 1,
+							overflowX: "auto",
+							pb: 0.5,
+							"&::-webkit-scrollbar": { display: "none" },
+						}}
+					>
+						<Chip
+							icon={<CategoryRoundedIcon />}
+							label="Filter"
+							variant="outlined"
+							sx={{
+								borderRadius: 999,
+								bgcolor: "rgba(255,255,255,.55)",
+								borderColor: "rgba(15,23,42,.12)",
+								color: "rgba(15,23,42,.70)",
+								fontWeight: 900,
+							}}
+						/>
+						{FILTERS.map((f) => {
+							const selected = filter === f.key;
+							// const n = counts[f.key] ?? 0;
+
+							return (
+								<Chip
+									key={f.key}
+									clickable
+									onClick={() => setFilter(f.key)}
+									label={
+										<Stack direction="row" spacing={1} alignItems="center">
+											<Typography sx={{ fontSize: 12.5, fontWeight: 900 }}>
+												{f.label}
+											</Typography>
+											{/* <Box
+												sx={{
+													minWidth: 26,
+													height: 20,
+													px: 0.9,
+													borderRadius: 999,
+													display: "grid",
+													placeItems: "center",
+													fontSize: 11,
+													fontWeight: 1000,
+													bgcolor: selected
+														? "rgba(255,255,255,.22)"
+														: "rgba(15,23,42,.08)",
+													color: selected ? "#fff" : "rgba(15,23,42,.65)",
+												}}
+											>
+												{n}
+											</Box> */}
+										</Stack>
+									}
+									variant={selected ? "filled" : "outlined"}
+									sx={{
+										borderRadius: 999,
+										fontWeight: 900,
+										borderColor: selected
+											? "rgba(11,169,118,.60)"
+											: "rgba(15,23,42,.12)",
+										bgcolor: selected ? "#0ba976" : "rgba(255,255,255,.55)",
+										color: selected ? "#fff" : "rgba(15,23,42,.70)",
+										boxShadow: selected
+											? "0 14px 28px rgba(11,169,118,.20)"
+											: "none",
+										"&:hover": {
+											bgcolor: selected ? "#55bf64" : "rgba(255,255,255,.72)",
+										},
+									}}
+								/>
+							);
+						})}
+					</Box>
+				</Box>
+			</Paper>
+
+			{/* Grid cards */}
+			<Box
+				sx={{
+					mt: 2,
+					display: "grid",
+					gap: 2,
+					gridTemplateColumns: {
+						xs: "1fr",
+						sm: "repeat(2, minmax(0, 1fr))",
+						lg: "repeat(3, minmax(0, 1fr))",
+					},
+				}}
+			>
+				{loading
+					? Array.from({ length: 6 }).map((_, i) => (
+							<Paper
+								key={i}
+								elevation={0}
+								sx={{
+									borderRadius: 3,
+									border: "1px solid rgba(15,23,42,.10)",
+									bgcolor: "#fff",
+									p: 2,
+								}}
+							>
+								<Stack direction="row" spacing={1.25} alignItems="center">
+									<Skeleton variant="rounded" width={42} height={42} />
+									<Box sx={{ flex: 1 }}>
+										<Skeleton width="85%" />
+										<Skeleton width="60%" />
+									</Box>
+									<Skeleton variant="rounded" width={36} height={36} />
+								</Stack>
+								<Box sx={{ mt: 1.5 }}>
+									<Skeleton width="45%" />
+									<Skeleton width="90%" />
+									<Skeleton width="70%" />
+								</Box>
+							</Paper>
+					  ))
+					: rows.map((row) => (
+							<CampaignCard key={row.id} row={row} onMenu={openMenu} />
+					  ))}
+			</Box>
+
+			{/* Pagination */}
+			<Box sx={{ mt: 3.5, display: "flex", justifyContent: "center" }}>
+				<Pagination
+					count={totalPages}
+					page={page}
+					onChange={(_, p) => setPage(p)}
+					shape="rounded"
+					sx={{
+						"& .MuiPaginationItem-root": {
+							borderRadius: 2,
+							fontWeight: 900,
+							color: "rgba(15,23,42,.70)",
+						},
+						"& .Mui-selected": {
+							bgcolor: "rgba(11,169,118,.20) !important",
+							color: "rgba(15,23,42,.90) !important",
+							border: "1px solid rgba(11,169,118,.45)",
+						},
+					}}
+				/>
+			</Box>
+
+			{/* Row menu */}
+			<Menu
+				anchorEl={menu.anchor}
+				open={!!menu.anchor}
+				onClose={closeMenu}
+				PaperProps={{
+					elevation: 0,
+					sx: {
+						borderRadius: 3,
+						border: "1px solid rgba(15,23,42,.10)",
+						bgcolor: "#fff",
+						boxShadow: "0 18px 60px rgba(15,23,42,.18)",
+						minWidth: 200,
+						overflow: "hidden",
+					},
+				}}
+			>
+				<MenuItem
+					component={Link}
+					href={`/admin/campaign/${menu.row?.id ?? ""}`}
+					onClick={closeMenu}
+					sx={{ py: 1.2 }}
+				>
+					<VisibilityRoundedIcon
+						fontSize="small"
+						style={{ marginRight: 10, opacity: 0.65 }}
+					/>
+					<Typography sx={{ fontWeight: 800, fontSize: 13.5 }}>
+						Detail
+					</Typography>
+				</MenuItem>
+
+				<MenuItem
+					component={Link}
+					href={`/admin/campaign/${menu.row?.id ?? ""}/edit`}
+					onClick={closeMenu}
+					sx={{ py: 1.2 }}
+				>
+					<EditRoundedIcon
+						fontSize="small"
+						style={{ marginRight: 10, opacity: 0.65 }}
+					/>
+					<Typography sx={{ fontWeight: 800, fontSize: 13.5 }}>Edit</Typography>
+				</MenuItem>
+
+				{menu.row?.status === "pending" || menu.row?.status === "review" ? (
+					<MenuItem
+						onClick={() => {
+							const id = menu.row!.id;
+							closeMenu();
+							onVerify(id);
+						}}
+						sx={{ py: 1.2 }}
+					>
+						<VerifiedRoundedIcon
+							fontSize="small"
+							style={{ marginRight: 10, opacity: 0.65 }}
+						/>
+						<Typography sx={{ fontWeight: 800, fontSize: 13.5 }}>
+							Verifikasi
+						</Typography>
+					</MenuItem>
+				) : null}
+
+				{menu.row?.status === "active" ? (
+					<MenuItem
+						onClick={() => {
+							const id = menu.row!.id;
+							closeMenu();
+							onEnd(id);
+						}}
+						sx={{ py: 1.2, color: "#b91c1c" }}
+					>
+						<StopCircleRoundedIcon
+							fontSize="small"
+							style={{ marginRight: 10, opacity: 0.85 }}
+						/>
+						<Typography sx={{ fontWeight: 900, fontSize: 13.5 }}>
+							Akhiri
+						</Typography>
+					</MenuItem>
+				) : null}
+
+				<MenuItem
+					onClick={() => {
+						const id = menu.row!.id;
+						closeMenu();
+						onDelete(id);
+					}}
+					sx={{ py: 1.2, color: "#ef4444" }}
+				>
+					<DeleteRoundedIcon
+						fontSize="small"
+						style={{ marginRight: 10, opacity: 0.85 }}
+					/>
+					<Typography sx={{ fontWeight: 900, fontSize: 13.5 }}>
+						Hapus
+					</Typography>
+				</MenuItem>
+			</Menu>
+		</Box>
+	);
+}
+
+function CampaignCard({
+	row,
+	onMenu,
+}: {
+	row: CampaignRow;
+	onMenu: (e: React.MouseEvent<HTMLElement>, r: CampaignRow) => void;
+}) {
+	const [imgError, setImgError] = React.useState(false);
+	const progress = pct(row.collected, row.target);
+	const status = statusChip(row.status);
+
+	const typeMeta =
+		row.type === "sakit"
+			? {
+					icon: <LocalHospitalRoundedIcon fontSize="small" />,
+					label: "Medis",
+					pillBg: "rgba(56,189,248,.12)",
+					pillBorder: "rgba(56,189,248,.22)",
+					pillText: "rgba(2,132,199,.95)",
+					glow: "rgba(56,189,248,.18)",
+			  }
+			: {
+					icon: <CategoryRoundedIcon fontSize="small" />,
+					label: "Lainnya",
+					pillBg: "rgba(11,169,118,.14)",
+					pillBorder: "rgba(11,169,118,.26)",
+					pillText: "rgba(22,101,52,.95)",
+					glow: "rgba(11,169,118,.18)",
+			  };
+
+	const initials = (name: string) => {
+		const s = (name || "").trim();
+		if (!s || s === "—") return "—";
+		const parts = s.split(/\s+/).slice(0, 2);
+		return parts.map((p) => p[0]?.toUpperCase()).join("");
+	};
+
+	return (
+		<Paper
+			elevation={0}
+			sx={{
+				position: "relative",
+				borderRadius: 3,
+				overflow: "hidden",
+				bgcolor: "#fff",
+				border: "1px solid rgba(15,23,42,.10)",
+				boxShadow: "0 14px 34px rgba(15,23,42,.08)",
+				transition:
+					"transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+				"&:hover": {
+					transform: "translateY(-2px)",
+					boxShadow: "0 24px 70px rgba(15,23,42,.12)",
+					borderColor: "rgba(11,169,118,.45)",
+				},
+				"&::before": {
+					content: '""',
+					position: "absolute",
+					inset: 0,
+					pointerEvents: "none",
+					boxShadow: "inset 0 1px 0 rgba(255,255,255,.9)",
+				},
+			}}
+		>
+			<Box
+				sx={{
+					position: "absolute",
+					inset: 0,
+					pointerEvents: "none",
+					background: `radial-gradient(520px 260px at 80% 0%, ${typeMeta.glow}, transparent 58%)`,
+				}}
+			/>
+
+			<Box sx={{ position: "relative", p: 2 }}>
+				<Stack direction="row" spacing={1.25} alignItems="flex-start">
+					{row.thumbnail && !imgError ? (
+						<Box
+							component="img"
+							src={row.thumbnail}
+							alt={row.title}
+							onError={() => setImgError(true)}
+							sx={{
+								width: 50,
+								height: 50,
+								borderRadius: 2.2,
+								objectFit: "cover",
+								flexShrink: 0,
+								bgcolor: "rgba(15,23,42,.04)",
+								border: "1px solid rgba(15,23,42,.08)",
+							}}
+						/>
+					) : (
+						<Box
+							sx={{
+								width: 42,
+								height: 42,
+								borderRadius: 2.2,
+								display: "grid",
+								placeItems: "center",
+								flexShrink: 0,
+								bgcolor: "rgba(15,23,42,.04)",
+								border: "1px solid rgba(15,23,42,.08)",
+								color: "rgba(15,23,42,.72)",
+							}}
+						>
+							{typeMeta.icon}
+						</Box>
+					)}
+
+					<Box sx={{ flex: 1, minWidth: 0 }}>
+						<Typography
+							sx={{
+								fontWeight: 1000,
+								fontSize: 14,
+								lineHeight: 1.25,
+								color: "#0f172a",
+								display: "-webkit-box",
+								WebkitLineClamp: 2,
+								WebkitBoxOrient: "vertical",
+								overflow: "hidden",
+							}}
+						>
+							{row.title}
+						</Typography>
+
+						<Typography
+							sx={{
+								mt: 0.5,
+								fontSize: 12.5,
+								color: "rgba(15,23,42,.60)",
+								whiteSpace: "nowrap",
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+							}}
+						>
+							{row.category}
+						</Typography>
+
+						<Stack
+							direction="row"
+							spacing={0.8}
+							alignItems="center"
+							sx={{ mt: 1, flexWrap: "wrap" }}
+						>
+							<Chip
+								label={typeMeta.label}
+								size="small"
+								variant="outlined"
+								sx={{
+									height: 26,
+									borderRadius: 999,
+									fontWeight: 1000,
+									bgcolor: typeMeta.pillBg,
+									borderColor: typeMeta.pillBorder,
+									color: typeMeta.pillText,
+									"& .MuiChip-label": { px: 1.1, fontSize: 12 },
+								}}
+							/>
+							<Chip
+								label={status.label}
+								size="small"
+								variant="outlined"
+								sx={{
+									height: 26,
+									borderRadius: 999,
+									fontWeight: 1000,
+									...status.sx,
+									"& .MuiChip-label": { px: 1.1, fontSize: 12 },
+								}}
+							/>
+							<Typography sx={{ fontSize: 11.5, color: "rgba(15,23,42,.52)" }}>
+								Update{" "}
+								<b style={{ color: "rgba(15,23,42,.78)" }}>{row.updatedAt}</b>
+							</Typography>
+						</Stack>
+					</Box>
+
+					<IconButton
+						onClick={(e) => onMenu(e, row)}
+						sx={{
+							width: 36,
+							height: 36,
+							borderRadius: 2,
+							bgcolor: "rgba(255,255,255,.55)",
+							border: "1px solid rgba(15,23,42,.10)",
+							color: "rgba(15,23,42,.70)",
+							"&:hover": { bgcolor: "rgba(255,255,255,.78)" },
+						}}
+					>
+						<MoreHorizRoundedIcon fontSize="small" />
+					</IconButton>
+				</Stack>
+
+				<Box sx={{ mt: 1.25 }}>
+					<Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,.62)" }}>
+						Oleh <b style={{ color: "rgba(15,23,42,.86)" }}>{row.ownerName}</b> •
+						ID:{" "}
+						<span style={{ fontWeight: 1000, color: "rgba(15,23,42,.78)" }}>
+							{row.id}
+						</span>
+					</Typography>
+				</Box>
+
+				<Box sx={{ mt: 1.25 }}>
+					<Stack direction="row" alignItems="baseline" spacing={0.8}>
+						<Typography
+							sx={{ fontWeight: 1000, fontSize: 13.5, color: "#0f172a" }}
+						>
+							{idr(row.collected)}
+						</Typography>
+						<Typography
+							sx={{
+								fontWeight: 900,
+								fontSize: 12,
+								color: "rgba(15,23,42,.52)",
+							}}
+						>
+							/ {idr(row.target || 0)}
+						</Typography>
+						<Box sx={{ flex: 1 }} />
+						<Typography
+							sx={{
+								fontWeight: 1000,
+								fontSize: 12.5,
+								color: "rgba(15,23,42,.82)",
+							}}
+						>
+							{progress}%
+						</Typography>
+					</Stack>
+
+					<LinearProgress
+						variant="determinate"
+						value={progress}
+						sx={{
+							mt: 0.8,
+							height: 8,
+							borderRadius: 999,
+							bgcolor: "rgba(15,23,42,.08)",
+							"& .MuiLinearProgress-bar": {
+								borderRadius: 999,
+								background:
+									"linear-gradient(90deg, #0ba976, rgba(11,169,118,.55))",
+								boxShadow: "0 14px 30px rgba(11,169,118,.18)",
+							},
+						}}
+					/>
+				</Box>
+
+				<Divider sx={{ my: 1.5, borderColor: "rgba(15,23,42,.08)" }} />
+
+				<Stack direction="row" alignItems="center" spacing={1.25}>
+					<AvatarGroup
+						max={4}
+						sx={{
+							"& .MuiAvatar-root": {
+								width: 28,
+								height: 28,
+								fontSize: 11,
+								fontWeight: 1000,
+								bgcolor: "rgba(15,23,42,.06)",
+								color: "rgba(15,23,42,.72)",
+								border: "1px solid rgba(15,23,42,.10)",
+							},
+						}}
+					>
+						<Avatar>{initials(row.ownerName) || "U"}</Avatar>
+						<Avatar>R</Avatar>
+						<Avatar>B</Avatar>
+						<Avatar>N</Avatar>
+					</AvatarGroup>
+
+					<Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,.60)" }}>
+						<b style={{ color: "rgba(15,23,42,.82)" }}>{row.donors}</b> donatur
+					</Typography>
+
+					<Box sx={{ flex: 1 }} />
+
+					<Button
+						component={Link}
+						href={`/admin/campaign/${row.id}`}
+						variant="contained"
+						sx={{
+							borderRadius: 999,
+							fontWeight: 1000,
+							textTransform: "none",
+							px: 2,
+							py: 0.8,
+							bgcolor: "#0ba976",
+							boxShadow: "0 16px 34px rgba(11,169,118,.22)",
+							"&:hover": { bgcolor: "#55bf64" },
+						}}
+					>
+						Detail
+					</Button>
+				</Stack>
+			</Box>
+		</Paper>
+	);
 }

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import {
 	Box,
@@ -29,6 +30,14 @@ import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import PhotoCameraRoundedIcon from "@mui/icons-material/PhotoCameraRounded";
+
+import {
+	createCampaign,
+	getCampaignById,
+	updateCampaign,
+} from "@/actions/campaign";
+import { CATEGORY_TITLE } from "@/lib/constants";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 type StepKeySakit =
 	| "tujuan"
@@ -76,38 +85,129 @@ function formatIDR(numStr: string) {
 	if (!n) return "";
 	return n.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
+function textLen(html: string) {
+	return html
+		.replace(/<[^>]+>/g, "")
+		.replace(/&nbsp;/g, " ")
+		.trim().length;
+}
 
-const CATEGORY_TITLE: Record<string, string> = {
-	pendidikan: "Bantuan Pendidikan",
-	bencana: "Bencana Alam",
-	difabel: "Difabel",
-	infrastruktur: "Infrastruktur Umum",
-	usaha: "Karya Kreatif & Modal Usaha",
-	sosial: "Kegiatan Sosial",
-	kemanusiaan: "Kemanusiaan",
-	lingkungan: "Lingkungan",
-	rumah_ibadah: "Rumah Ibadah",
-};
-
-export default function BuatGalangDanaPage() {
+function BuatGalangDanaPageContent() {
 	const router = useRouter();
 	const sp = useSearchParams();
+	const { data: session, status } = useSession();
+
+	React.useEffect(() => {
+		if (status === "unauthenticated") {
+			const returnUrl = `/galang-dana/buat?${sp.toString()}`;
+			router.replace(
+				`/auth/login?callbackUrl=${encodeURIComponent(returnUrl)}`
+			);
+		}
+	}, [status, router, sp]);
 
 	const type = sp.get("type") ?? "lainnya";
 	const category = sp.get("category") ?? "";
+	const draftId = sp.get("draft");
+	const isEdit = !!draftId;
 
 	const isSakit = type === "sakit";
 	const isLainnya = type === "lainnya";
 
 	React.useEffect(() => {
 		// kalau lainnya wajib ada category
-		if (isLainnya && !category) router.replace("/galang-dana/kategori");
+		if (isLainnya && !category && !draftId)
+			router.replace("/galang-dana/kategori");
 		// kalau type aneh, balikin ke kategori
-		if (!isSakit && !isLainnya) router.replace("/galang-dana/kategori");
-	}, [isLainnya, isSakit, category, router]);
+		if (!isSakit && !isLainnya && !draftId)
+			router.replace("/galang-dana/kategori");
+	}, [isLainnya, isSakit, category, router, draftId]);
+
+	React.useEffect(() => {
+		if (!draftId) return;
+
+		async function load() {
+			const res = await getCampaignById(draftId!);
+			if (res.success && res.data) {
+				const c = res.data;
+
+				if (c.type === "sakit") {
+					setTitle(c.title);
+					setSlug(c.slug || "");
+					setTarget(c.target.toString());
+					setStory(c.description);
+					setPhone(c.phone || "");
+
+					// Dummy data for validation
+					setWho("other");
+					setBank("pasien");
+					setPatientName("Data Tersimpan");
+					setPatientAge("0");
+					setPatientGender("L");
+					setPatientCity("-");
+					setInpatient("tidak");
+					setTreatment("Data Tersimpan............."); // Needs length >= 10
+					setPrevCost("mandiri");
+					setUsage("Data Tersimpan............."); // Needs length >= 10
+					setDuration("30");
+					setCta("Bantu kami................"); // Needs length >= 10
+
+					// Terms
+					setT1(true);
+					setT2(true);
+					setT3(true);
+					setT4(true);
+				} else {
+					setTitleOther(c.title);
+					setSlugOther(c.slug || "");
+					setTargetOther(c.target.toString());
+					setStoryOther(c.description);
+					setPhoneOther(c.phone || "");
+
+					// Dummy data
+					setPurposeKey("program");
+					setAgreeA(true);
+					setAgreeB(true);
+					setKtpName("Data Tersimpan");
+					setReceiverName("Data Tersimpan");
+					setGoal("Data Tersimpan............."); // >= 10
+					setLocation("Data Tersimpan");
+					setUsageOther("Data Tersimpan............."); // >= 10
+					setDurationOther("30");
+					setCtaOther("Bantu kami................"); // >= 10
+				}
+
+				if (c.thumbnail) {
+					if (c.type === "sakit") setCoverPreview(c.thumbnail);
+					else setCoverPreviewOther(c.thumbnail);
+				}
+			}
+		}
+		load();
+	}, [draftId]);
+
+	if (status === "loading") {
+		return <Box sx={{ p: 4, textAlign: "center" }}>Loading session...</Box>;
+	}
+
+	const stepsContainerRef = React.useRef<HTMLDivElement>(null);
 
 	// step state (1 aja, sesuai type)
 	const [step, setStep] = React.useState(0);
+
+	React.useEffect(() => {
+		const container = stepsContainerRef.current;
+		if (container) {
+			const activeElement = container.children[step] as HTMLElement;
+			if (activeElement) {
+				activeElement.scrollIntoView({
+					behavior: "smooth",
+					block: "nearest",
+					inline: "center",
+				});
+			}
+		}
+	}, [step]);
 
 	const steps = isSakit ? STEPS_SAKIT : STEPS_LAINNYA;
 	const stepKey = steps[step]?.key as StepKeySakit | StepKeyLainnya;
@@ -145,6 +245,8 @@ export default function BuatGalangDanaPage() {
 	const [title, setTitle] = React.useState("");
 	const [slug, setSlug] = React.useState("");
 	const [coverName, setCoverName] = React.useState<string>("");
+	const [coverFile, setCoverFile] = React.useState<File | null>(null);
+	const [coverPreview, setCoverPreview] = React.useState<string>("");
 
 	const [story, setStory] = React.useState("");
 	const [showStoryEditor, setShowStoryEditor] = React.useState(false);
@@ -237,6 +339,8 @@ export default function BuatGalangDanaPage() {
 	const [titleOther, setTitleOther] = React.useState("");
 	const [slugOther, setSlugOther] = React.useState("");
 	const [coverNameOther, setCoverNameOther] = React.useState("");
+	const [coverFileOther, setCoverFileOther] = React.useState<File | null>(null);
+	const [coverPreviewOther, setCoverPreviewOther] = React.useState<string>("");
 
 	const [storyOther, setStoryOther] = React.useState("");
 	const [showStoryEditorOther, setShowStoryEditorOther] = React.useState(false);
@@ -247,10 +351,11 @@ export default function BuatGalangDanaPage() {
 	// =========
 	// SHARED
 	// =========
+	const [submitting, setSubmitting] = React.useState(false);
 	const [snack, setSnack] = React.useState<{
 		open: boolean;
 		msg: string;
-		type: "success" | "info";
+		type: "success" | "info" | "error";
 	}>({ open: false, msg: "", type: "info" });
 
 	const canNext = React.useMemo(() => {
@@ -264,7 +369,7 @@ export default function BuatGalangDanaPage() {
 			if (stepKey === "target")
 				return !!onlyDigits(target) && !!duration && usage.trim().length >= 10;
 			if (stepKey === "judul") return !!title && !!slug;
-			if (stepKey === "cerita") return story.trim().length >= 30;
+			if (stepKey === "cerita") return textLen(story) >= 30;
 			if (stepKey === "ajakan") return cta.trim().length >= 10;
 			return false;
 		}
@@ -286,7 +391,7 @@ export default function BuatGalangDanaPage() {
 				usageOther.trim().length >= 10
 			);
 		if (stepKey === "judul") return !!titleOther && !!slugOther;
-		if (stepKey === "cerita") return storyOther.trim().length >= 30;
+		if (stepKey === "cerita") return textLen(storyOther) >= 30;
 		if (stepKey === "ajakan") return ctaOther.trim().length >= 10;
 		return false;
 	}, [
@@ -328,27 +433,137 @@ export default function BuatGalangDanaPage() {
 	const goPrev = () => setStep((s) => Math.max(0, s - 1));
 	const goNext = () => setStep((s) => Math.min(steps.length - 1, s + 1));
 
-	const onClickNext = () => {
+	const onClickNext = async () => {
 		if (isSakit && stepKey === "tujuan") {
 			setOpenTerms(true);
 			return;
 		}
 
 		if (stepKey === "ajakan") {
-			setSnack({
-				open: true,
-				msg: isSakit
-					? "Draft galang dana medis tersimpan (dummy)."
-					: "Draft galang dana tersimpan (dummy).",
-				type: "success",
-			});
+			setSubmitting(true);
+			const formData = new FormData();
+
+			if (isSakit) {
+				formData.append("title", title);
+				formData.append("slug", slug);
+				formData.append("category", "medis");
+				formData.append("type", "sakit");
+				formData.append("target", target);
+				formData.append("duration", duration);
+				formData.append("phone", phone);
+
+				if (coverFile) formData.append("cover", coverFile);
+
+				formData.append("story", story);
+			} else {
+				formData.append("title", titleOther);
+				formData.append("slug", slugOther);
+				formData.append("category", category); // "pendidikan", "bencana", etc.
+				formData.append("type", "lainnya");
+				formData.append("target", targetOther);
+				formData.append("duration", durationOther);
+				formData.append("phone", phoneOther);
+
+				if (coverFileOther) formData.append("cover", coverFileOther);
+
+				formData.append("story", storyOther);
+			}
+
+			let res;
+			if (isEdit) {
+				res = await updateCampaign(draftId!, formData);
+			} else {
+				res = await createCampaign(formData);
+			}
+
+			setSubmitting(false);
+
+			if (res.success) {
+				setSnack({
+					open: true,
+					msg: isEdit
+						? "Campaign berhasil diperbarui!"
+						: "Campaign berhasil dibuat!",
+					type: "success",
+				});
+				// Redirect
+				setTimeout(() => {
+					router.push("/galang-dana");
+				}, 1500);
+			} else {
+				setSnack({
+					open: true,
+					msg: res.error || "Gagal membuat campaign",
+					type: "error",
+				});
+			}
 			return;
 		}
 
 		goNext();
 	};
 
-	const headerTitle = isSakit
+	const handleSaveDraft = async () => {
+		setSubmitting(true);
+		const formData = new FormData();
+		formData.append("status", "DRAFT");
+
+		if (isSakit) {
+			formData.append("title", title);
+			formData.append("slug", slug);
+			formData.append("category", "medis");
+			formData.append("type", "sakit");
+			formData.append("target", target);
+			formData.append("duration", duration);
+			formData.append("phone", phone);
+
+			if (coverFile) formData.append("cover", coverFile);
+
+			formData.append("story", story);
+		} else {
+			formData.append("title", titleOther);
+			formData.append("slug", slugOther);
+			formData.append("category", category);
+			formData.append("type", "lainnya");
+			formData.append("target", targetOther);
+			formData.append("duration", durationOther);
+			formData.append("phone", phoneOther);
+
+			if (coverFileOther) formData.append("cover", coverFileOther);
+
+			formData.append("story", storyOther);
+		}
+
+		let res;
+		if (isEdit) {
+			res = await updateCampaign(draftId!, formData);
+		} else {
+			res = await createCampaign(formData);
+		}
+
+		setSubmitting(false);
+
+		if (res.success) {
+			setSnack({
+				open: true,
+				msg: "Draft berhasil disimpan!",
+				type: "success",
+			});
+			setTimeout(() => {
+				router.push("/galang-dana");
+			}, 1500);
+		} else {
+			setSnack({
+				open: true,
+				msg: res.error || "Gagal menyimpan draft",
+				type: "error",
+			});
+		}
+	};
+
+	const headerTitle = isEdit
+		? "Edit Campaign"
+		: isSakit
 		? "Bantuan Medis & Kesehatan"
 		: CATEGORY_TITLE[category] ?? "Galang Dana";
 
@@ -386,6 +601,7 @@ export default function BuatGalangDanaPage() {
 			{/* Step bar (scrollable) */}
 			<Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
 				<Box
+					ref={stepsContainerRef}
 					sx={{
 						display: "flex",
 						gap: 1,
@@ -397,11 +613,14 @@ export default function BuatGalangDanaPage() {
 					{steps.map((s, i) => {
 						const active = i === step;
 						const done = i < step;
+						const isFuture = !isEdit && i > step;
 						return (
 							<Chip
 								key={s.key}
-								onClick={() => setStep(i)}
-								clickable
+								onClick={() => {
+									if (!isFuture) setStep(i);
+								}}
+								clickable={!isFuture}
 								label={
 									<Box
 										sx={{
@@ -436,7 +655,10 @@ export default function BuatGalangDanaPage() {
 								}
 								variant={active ? "filled" : "outlined"}
 								color={active ? "primary" : "default"}
-								sx={{ borderRadius: 999 }}
+								sx={{
+									borderRadius: 999,
+									opacity: isFuture ? 0.5 : 1,
+								}}
 							/>
 						);
 					})}
@@ -818,7 +1040,7 @@ export default function BuatGalangDanaPage() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Isi rincian penggunaan dana
+										Isi rincian Useran dana
 									</Typography>
 									<TextField
 										size="small"
@@ -895,9 +1117,18 @@ export default function BuatGalangDanaPage() {
 												type="file"
 												accept="image/*"
 												hidden
-												onChange={(e) =>
-													setCoverName(e.target.files?.[0]?.name ?? "")
-												}
+												onChange={(e) => {
+													const f = e.target.files?.[0];
+													if (f) {
+														setCoverName(f.name);
+														setCoverFile(f);
+														setCoverPreview(URL.createObjectURL(f));
+													} else {
+														setCoverName("");
+														setCoverFile(null);
+														setCoverPreview("");
+													}
+												}}
 											/>
 											<Button
 												component="label"
@@ -909,7 +1140,22 @@ export default function BuatGalangDanaPage() {
 												Upload Foto
 											</Button>
 
-											{coverName ? (
+											{coverPreview ? (
+												<Box
+													component="img"
+													src={coverPreview}
+													alt="Preview"
+													sx={{
+														width: "100%",
+														height: 200,
+														objectFit: "cover",
+														borderRadius: 2,
+														mt: 1,
+													}}
+												/>
+											) : null}
+
+											{coverName && !coverPreview ? (
 												<Typography
 													sx={{
 														mt: 0.75,
@@ -989,18 +1235,11 @@ export default function BuatGalangDanaPage() {
 
 								{showStoryEditor && (
 									<Box sx={{ mt: 1.5 }}>
-										<TextField
-											size="small"
-											sx={{
-												"& .MuiInputBase-input": { fontSize: 13.5 },
-												"& .MuiInputLabel-root": { fontSize: 13.5 },
-											}}
+										<RichTextEditor
 											value={story}
-											onChange={(e) => setStory(e.target.value)}
-											fullWidth
-											multiline
-											minRows={8}
-											placeholder="Tulis kronologi, kondisi pasien, kebutuhan biaya, rencana penggunaan dana, dan ajakan..."
+											onChange={setStory}
+											placeholder="Tulis kronologi, kondisi pasien, kebutuhan biaya, rencana Useran dana, dan ajakan..."
+											minHeight={240}
 										/>
 									</Box>
 								)}
@@ -1159,7 +1398,7 @@ export default function BuatGalangDanaPage() {
 															onChange={(e) => setAgreeA(e.target.checked)}
 														/>
 													}
-													label="Pemilik rekening bertanggung jawab atas penggunaan dana yang diterima dari galang dana ini."
+													label="Pemilik rekening bertanggung jawab atas Useran dana yang diterima dari galang dana ini."
 												/>
 												<Divider sx={{ my: 1 }} />
 												<FormControlLabel
@@ -1169,7 +1408,7 @@ export default function BuatGalangDanaPage() {
 															onChange={(e) => setAgreeB(e.target.checked)}
 														/>
 													}
-													label="Kamu sebagai penggalang dana bertanggung jawab atas permintaan pencairan dan pelaporan penggunaan dana."
+													label="Kamu sebagai penggalang dana bertanggung jawab atas permintaan pencairan dan pelaporan Useran dana."
 												/>
 											</Paper>
 										</Box>
@@ -1445,7 +1684,7 @@ export default function BuatGalangDanaPage() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Isi rincian penggunaan dana
+										Isi rincian Useran dana
 									</Typography>
 									<TextField
 										size="small"
@@ -1523,9 +1762,18 @@ export default function BuatGalangDanaPage() {
 												type="file"
 												accept="image/*"
 												hidden
-												onChange={(e) =>
-													setCoverNameOther(e.target.files?.[0]?.name ?? "")
-												}
+												onChange={(e) => {
+													const f = e.target.files?.[0];
+													if (f) {
+														setCoverNameOther(f.name);
+														setCoverFileOther(f);
+														setCoverPreviewOther(URL.createObjectURL(f));
+													} else {
+														setCoverNameOther("");
+														setCoverFileOther(null);
+														setCoverPreviewOther("");
+													}
+												}}
 											/>
 											<Button
 												component="label"
@@ -1537,7 +1785,22 @@ export default function BuatGalangDanaPage() {
 												Upload Foto
 											</Button>
 
-											{coverNameOther ? (
+											{coverPreviewOther ? (
+												<Box
+													component="img"
+													src={coverPreviewOther}
+													alt="Preview"
+													sx={{
+														width: "100%",
+														height: 200,
+														objectFit: "cover",
+														borderRadius: 2,
+														mt: 1,
+													}}
+												/>
+											) : null}
+
+											{coverNameOther && !coverPreviewOther ? (
 												<Typography
 													sx={{
 														mt: 0.75,
@@ -1618,18 +1881,11 @@ export default function BuatGalangDanaPage() {
 
 								{showStoryEditorOther && (
 									<Box sx={{ mt: 1.5 }}>
-										<TextField
-											size="small"
-											sx={{
-												"& .MuiInputBase-input": { fontSize: 13.5 },
-												"& .MuiInputLabel-root": { fontSize: 13.5 },
-											}}
+										<RichTextEditor
 											value={storyOther}
-											onChange={(e) => setStoryOther(e.target.value)}
-											fullWidth
-											multiline
-											minRows={8}
-											placeholder="Tulis latar belakang, kondisi, kebutuhan biaya, rencana penggunaan dana, dan ajakan..."
+											onChange={setStoryOther}
+											placeholder="Tulis latar belakang, kondisi, kebutuhan biaya, rencana Useran dana, dan ajakan..."
+											minHeight={240}
 										/>
 									</Box>
 								)}
@@ -1705,18 +1961,23 @@ export default function BuatGalangDanaPage() {
 						<Button
 							onClick={onClickNext}
 							variant="contained"
-							endIcon={<ChevronRightRoundedIcon />}
+							endIcon={!submitting && <ChevronRightRoundedIcon />}
 							sx={{ borderRadius: 2, fontWeight: 700, px: 2.25 }}
-							disabled={!canNext}
+							disabled={!canNext || submitting}
 						>
-							{stepKey === "ajakan" ? "Selesai" : "Selanjutnya"}
+							{submitting
+								? "Menyimpan..."
+								: stepKey === "ajakan"
+								? isEdit
+									? "Simpan Perubahan"
+									: "Selesai"
+								: "Selanjutnya"}
 						</Button>
 					</Stack>
 
 					<Button
-						onClick={() =>
-							setSnack({ open: true, msg: "Disimpan (dummy).", type: "info" })
-						}
+						onClick={handleSaveDraft}
+						disabled={submitting}
 						variant="text"
 						fullWidth
 						sx={{ mt: 0.5, fontWeight: 600, color: "text.secondary" }}
@@ -1761,7 +2022,7 @@ export default function BuatGalangDanaPage() {
 									onChange={(e) => setT1(e.target.checked)}
 								/>
 							}
-							label="Pemilik rekening bertanggung jawab atas penggunaan dana yang diterima dari galang dana ini."
+							label="Pemilik rekening bertanggung jawab atas Useran dana yang diterima dari galang dana ini."
 						/>
 						<FormControlLabel
 							control={
@@ -1770,7 +2031,7 @@ export default function BuatGalangDanaPage() {
 									onChange={(e) => setT2(e.target.checked)}
 								/>
 							}
-							label="Kamu sebagai penggalang dana bertanggung jawab atas permintaan pencairan dan pelaporan penggunaan dana."
+							label="Kamu sebagai penggalang dana bertanggung jawab atas permintaan pencairan dan pelaporan Useran dana."
 						/>
 						<FormControlLabel
 							control={
@@ -1836,5 +2097,15 @@ export default function BuatGalangDanaPage() {
 				</Alert>
 			</Snackbar>
 		</Box>
+	);
+}
+
+export default function BuatGalangDanaPage() {
+	return (
+		<React.Suspense
+			fallback={<Box sx={{ p: 4, textAlign: "center" }}>Loading...</Box>}
+		>
+			<BuatGalangDanaPageContent />
+		</React.Suspense>
 	);
 }

@@ -1,54 +1,42 @@
-import prisma from "@/lib/db";
+import "dotenv/config";
+import { prisma } from "../src/lib/prisma";
+import { seedUsers } from "./seeds/user.seed";
+import { seedPageContent } from "./seeds/page-content.seed";
+import { seedBlogs } from "./seeds/blog.seed";
+import { seedCampaigns } from "./seeds/campaign.seed";
+import { seedAddress } from "./seeds/address.seed";
 
 async function main() {
-  const alice = await prisma.user.upsert({
-    where: { email: "alice@example.com" },
-    update: {},
-    create: {
-      email: "alice@example.com",
-      name: "Alice",
-      posts: {
-        create: {
-          title: "Check out Prisma with Next.js",
-          content: "https://www.prisma.io/nextjs",
-          published: true,
-        },
-      },
-    },
-  });
+	try {
+		console.log("Starting seed...");
 
-  const bob = await prisma.user.upsert({
-    where: { email: "bob@example.com" },
-    update: {},
-    create: {
-      email: "bob@example.com",
-      name: "Bob",
-      posts: {
-        create: [
-          {
-            title: "Follow Prisma on Twitter",
-            content: "https://twitter.com/prisma",
-            published: true,
-          },
-          {
-            title: "Follow Nexus on Twitter",
-            content: "https://twitter.com/nexusgql",
-            published: true,
-          },
-        ],
-      },
-    },
-  });
+		// 1. Address (Must be first for User address relations)
+		await seedAddress();
+		console.log("Address seeded.");
 
-  console.log({ alice, bob });
+		// 2. Users
+		const admin = await seedUsers();
+		console.log("Users seeded.");
+
+		// 3. Page Content
+		await seedPageContent();
+		console.log("Page Content seeded.");
+
+		// 4. Blogs
+		await seedBlogs(admin.id);
+		console.log("Blogs seeded.");
+
+		// 5. Campaigns
+		await seedCampaigns();
+		console.log("Campaigns seeded.");
+
+		console.log("Seeding completed.");
+	} catch (e) {
+		console.error(e);
+		process.exit(1);
+	} finally {
+		await prisma.$disconnect();
+	}
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error(e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+main();

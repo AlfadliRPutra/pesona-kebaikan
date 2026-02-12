@@ -3,19 +3,13 @@
 import * as React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
 
-function LinkBtn({
-	label,
-	onClick,
-}: {
-	label: string;
-	onClick: () => void;
-}) {
+function LinkBtn({ label, href }: { label: string; href: string }) {
 	return (
 		<Box
-			component="button"
-			type="button"
-			onClick={onClick}
+			component={Link}
+			href={href}
 			sx={{
 				border: "none",
 				background: "transparent",
@@ -37,9 +31,9 @@ export default function MiniFooter() {
 	return (
 		<Box
 			sx={{
-				px: 2.5,
-				py: 1.1,
-				borderTop: "1px solid rgba(15,23,42,0.06)",
+				px: 2,
+				py: 2,
+				borderTop: "none",
 				bgcolor: "#fff",
 			}}
 		>
@@ -48,13 +42,10 @@ export default function MiniFooter() {
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "center",
-					gap: 1.25,
+					gap: 1.5,
 				}}
 			>
-				<LinkBtn
-					label="Tentang"
-					onClick={() => alert("Route Tentang menyusul")}
-				/>
+				<LinkBtn label="Tentang" href="/profil/tentang" />
 				<Box
 					sx={{
 						width: 4,
@@ -63,10 +54,7 @@ export default function MiniFooter() {
 						bgcolor: "rgba(15,23,42,.22)",
 					}}
 				/>
-				<LinkBtn
-					label="Bantuan"
-					onClick={() => alert("Route Bantuan menyusul")}
-				/>
+				<LinkBtn label="Bantuan" href="/profil/bantuan" />
 				<Box
 					sx={{
 						width: 4,
@@ -75,7 +63,7 @@ export default function MiniFooter() {
 						bgcolor: "rgba(15,23,42,.22)",
 					}}
 				/>
-				<LinkBtn label="S&K" onClick={() => alert("Route S&K menyusul")} />
+				<LinkBtn label="S&K" href="/profil/syarat-ketentuan" />
 			</Box>
 
 			<Typography
