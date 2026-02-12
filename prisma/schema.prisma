@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-ts"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -12,27 +12,58 @@ enum Role {
   ADMIN
 }
 
+enum VerifiedAs {
+  personal
+  organization
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String      @unique
   emailVerified DateTime?
   image         String?
-  role          Role      @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          Role        @default(USER)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   password      String?
-  phone         String?   @unique
+  phone         String?     @unique
+  phoneVerified DateTime?
+  verifiedAs    VerifiedAs?
+  verifiedAt    DateTime?
 
-  accounts        Account[]
-  sessions        Session[]
-  posts           Post[]
-  Authenticator   Authenticator[]
-  loginActivities LoginActivity[]
+  accounts              Account[]
+  sessions              Session[]
+  posts                 Post[]
+  Authenticator         Authenticator[]
+  loginActivities       LoginActivity[]
+  verificationRequests  VerificationRequest[] @relation("VerificationUser")
+  reviewedVerifications VerificationRequest[] @relation("VerificationReviewedBy")
 
   // untuk Blog.createdById relation("UserBlogs")
-  blogs     Blog[]     @relation("UserBlogs")
-  campaigns Campaign[] @relation("UserCampaigns")
+  blogs         Blog[]         @relation("UserBlogs")
+  campaigns     Campaign[]     @relation("UserCampaigns")
+  donations     Donation[]     @relation("UserDonations")
+  notifications Notification[]
+
+  // Address
+  provinceId String?
+  province   Province? @relation(fields: [provinceId], references: [id])
+  regencyId  String?
+  regency    Regency?  @relation(fields: [regencyId], references: [id])
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+  villageId  String?
+  village    Village?  @relation(fields: [villageId], references: [id])
+  address    String?   @db.Text
+
+  amiins Amiin[] @relation("UserAmiins")
 }
 
 model LoginActivity {
@@ -106,6 +137,40 @@ model Authenticator {
   @@index([userId])
 }
 
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model Withdrawal {
+  id            String           @id @default(cuid())
+  amount        Decimal          @db.Decimal(19, 2)
+  status        WithdrawalStatus @default(PENDING)
+  bankName      String
+  bankAccount   String
+  accountHolder String
+  proofUrl      String?
+  referenceNo   String?          @unique
+  notes         String?          @db.Text
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@index([status])
+}
+
+model NotifyKey {
+  key       String   @id // 'whatsapp' or other provider keys
+  value     String
+  name      String? // Optional description
+  updatedAt DateTime @updatedAt
+}
+
 model Post {
   id        Int      @id @default(autoincrement())
   title     String
@@ -161,30 +226,33 @@ model Blog {
   id        String   @id @default(cuid())
   title     String
   content   String
+  heroImage String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  categoryId String?
-  category   BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId String
+  category   BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   createdById String
   createdBy   User   @relation("UserBlogs", fields: [createdById], references: [id], onDelete: Cascade)
 
+  // Gallery otomatis: diisi dari parsing konten editor (img src/file video)
   gallery BlogMedia[]
 
   @@index([categoryId])
   @@index([createdById])
 }
 
+// Gallery hanya berisi media yang diupload/insert lewat editor.
+// url: path file di uploads/blog atau link video (YouTube, Vimeo, dll)
 model BlogMedia {
   id     String @id @default(cuid())
   blogId String
   blog   Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
 
-  type        BlogMediaType
-  url         String
-  isThumbnail Boolean       @default(false)
-  createdAt   DateTime      @default(now())
+  type      BlogMediaType
+  url       String // path ke file di uploads/blog atau link video
+  createdAt DateTime      @default(now())
 
   @@index([blogId])
 }
@@ -192,6 +260,9 @@ model BlogMedia {
 model CampaignCategory {
   id        String   @id @default(cuid())
   name      String   @unique
+  slug      String?  @unique
+  icon      String?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -203,11 +274,14 @@ enum CampaignStatus {
   ACTIVE
   REJECTED
   COMPLETED
+  DRAFT
+  PAUSED
 }
 
 model Campaign {
   id          String         @id @default(cuid())
   title       String
+  slug        String?        @unique
   story       String         @db.Text
   target      Decimal        @db.Decimal(19, 2)
   isEmergency Boolean        @default(false)
@@ -215,6 +289,7 @@ model Campaign {
   status      CampaignStatus @default(PENDING)
   start       DateTime
   end         DateTime?
+  phone       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -225,8 +300,12 @@ model Campaign {
   createdById String
   createdBy   User   @relation("UserCampaigns", fields: [createdById], references: [id])
 
-  media     CampaignMedia[]
-  donations Donation[]
+  media       CampaignMedia[]
+  donations   Donation[]
+  withdrawals Withdrawal[]
+  updates     CampaignUpdate[]
+  reports     Report[]
+  carousels   Carousel[]
 
   @@index([categoryId])
   @@index([createdById])
@@ -251,6 +330,23 @@ model CampaignMedia {
   @@index([campaignId])
 }
 
+model Carousel {
+  id          String   @id @default(cuid())
+  image       String?
+  title       String?
+  description String?
+  link        String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
 enum PaymentMethod {
   EWALLET
   VIRTUAL_ACCOUNT
@@ -269,9 +365,192 @@ model Donation {
   status        String        @default("PENDING")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  amiinCount    Int           @default(0)
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  userId String?
+  user   User?   @relation("UserDonations", fields: [userId], references: [id])
+
+  @@index([campaignId])
+  @@index([userId])
+
+  amiins Amiin[] @relation("DonationAmiins")
+}
+
+model Amiin {
+  id         String    @id @default(cuid())
+  donationId String
+  donation   Donation  @relation("DonationAmiins", fields: [donationId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?     @relation("UserAmiins", fields: [userId], references: [id], onDelete: SetNull)
+  sessionId  String?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([donationId])
+  @@unique([userId, donationId])
+  @@unique([sessionId, donationId])
+}
+enum NotificationType {
+  KABAR
+  PESAN
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CampaignUpdate {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  amount    Decimal? @db.Decimal(19, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  media CampaignUpdateMedia[]
+
+  @@index([campaignId])
+}
+
+model CampaignUpdateMedia {
+  id        String   @id @default(cuid())
+  url       String
+  type      String   @default("IMAGE")
+  createdAt DateTime @default(now())
+
+  updateId String
+  update   CampaignUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@index([updateId])
+}
+
+enum ReportReason {
+  FRAUD // Penipuan/Penyalahgunaan dana
+  COVERED // Sudah dicover pihak lain
+  FAKE_INFO // Informasi palsu
+  DECEASED // Penerima sudah meninggal
+  NO_PERMISSION // Tanpa izin
+  IRRELEVANT // Tidak relevan/jokes
+  INAPPROPRIATE // Konten tidak pantas
+  SPAM // Spamming
+  OTHER // Lainnya
+}
+
+model Report {
+  id      String       @id @default(cuid())
+  reason  ReportReason
+  details String       @db.Text
+
+  // Reporter info
+  reporterName  String
+  reporterPhone String
+  reporterEmail String
+
+  status    String   @default("PENDING") // PENDING, REVIEWED, RESOLVED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   campaignId String
   campaign   Campaign @relation(fields: [campaignId], references: [id])
 
   @@index([campaignId])
+  @@index([status])
+}
+
+// Address Models
+
+model Province {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  regencies Regency[]
+  users     User[]
+}
+
+model Regency {
+  id         String     @id @default(cuid())
+  code       String     @unique
+  name       String
+  provinceId String
+  province   Province   @relation(fields: [provinceId], references: [id])
+  districts  District[]
+  users      User[]
+
+  @@index([provinceId])
+}
+
+model District {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  regencyId String
+  regency   Regency   @relation(fields: [regencyId], references: [id])
+  villages  Village[]
+  users     User[]
+
+  @@index([regencyId])
+}
+
+model Village {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  districtId String
+  district   District @relation(fields: [districtId], references: [id])
+  users      User[]
+
+  @@index([districtId])
+}
+
+model OtpRequest {
+  id         String    @id @default(cuid())
+  phone      String
+  otp_hash   String
+  expires_at DateTime
+  used_at    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone, createdAt(sort: Desc)], name: "idx_otp_phone_created")
+}
+
+model VerificationRequest {
+  id                 String             @id @default(cuid())
+  userId             String
+  type               VerifiedAs
+  status             VerificationStatus @default(PENDING)
+  ktpNumber          String?
+  ktpName            String?
+  ktpPhotoUrl        String?
+  selfieUrl          String?
+  organizationName   String?
+  organizationDocUrl String?
+  notes              String?            @db.Text
+  reviewedById       String?
+  reviewedBy         User?              @relation("VerificationReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user User @relation("VerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }

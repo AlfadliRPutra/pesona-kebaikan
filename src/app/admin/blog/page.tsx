@@ -1,104 +1,330 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Grid from '@mui/material/Grid';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import AddIcon from '@mui/icons-material/Add';
-import BlogCard, { BlogItem } from '@/components/admin/BlogCard';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
-import dynamic from 'next/dynamic';
+import * as React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false });
+import {
+  Box,
+  Paper,
+  Typography,
+  Stack,
+  Chip,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Divider,
+  Button,
+  CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+} from "@mui/material";
 
-const categories = ['Umum', 'Tips', 'Kisah', 'Berita'];
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
+
+import BlogCard, { BlogItem } from "@/components/admin/BlogCard";
+import { stripHtml } from "@/utils/striphtml";
+
+/* ================= TYPES ================= */
+
+type ApiBlog = {
+  id: string;
+  title: string;
+  content: string;
+  heroImage?: string | null;
+  createdAt: string;
+  category?: {
+    id: string;
+    name: string;
+  } | null;
+  createdBy: {
+    id: string;
+    name: string | null;
+  };
+};
+
+type Category = {
+  id: string;
+  name: string;
+};
 
 export default function AdminBlogPage() {
-  const [items, setItems] = React.useState<BlogItem[]>(
-    Array.from({ length: 8 }, (_, i) => ({
-      id: i + 1,
-      title: `Judul Blog ${i + 1}`,
-      excerpt: 'Ini adalah ringkasan singkat konten blog untuk contoh tampilan kartu.',
-      image: '/defaultimg.webp',
-      category: categories[i % categories.length],
-      date: `2024-0${(i % 9) + 1}-1${i % 9}`,
-      author: `Author ${i + 1}`,
-    }))
-  );
+  const router = useRouter();
+  const [items, setItems] = React.useState<BlogItem[]>([]);
+  const [q, setQ] = React.useState("");
+  const [categoryId, setCategoryId] = React.useState("all");
+  const [categories, setCategories] = React.useState<Category[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
-  const [open, setOpen] = React.useState(false);
-  const [form, setForm] = React.useState({
-    title: '',
-    category: categories[0],
-    image: '/defaultimg.webp',
-    content: '',
-  });
-  const [toast, setToast] = React.useState<{open: boolean; msg: string}>({ open: false, msg: '' });
+  /* ================= FETCH ================= */
 
-  const createBlog = () => {
-    const id = items.length ? Math.max(...items.map(i => i.id)) + 1 : 1;
-    setItems(prev => [{
-      id,
-      title: form.title || 'Tanpa Judul',
-      excerpt: 'Konten baru telah dibuat (dummy).',
-      image: form.image,
-      category: form.category,
-      date: new Date().toISOString().slice(0,10),
-      author: 'Admin',
-    }, ...prev]);
-    setOpen(false);
-    setToast({ open: true, msg: 'Blog berhasil dibuat (dummy)' });
+  const fetchCategories = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/blog-categories");
+      const json = await res.json();
+      if (Array.isArray(json)) {
+        setCategories(json);
+      }
+    } catch (err) {
+      console.error("Failed to fetch categories", err);
+    }
+  }, []);
+
+  const fetchBlogs = React.useCallback(async (keyword = "", catId = "all") => {
+    try {
+      setLoading(true);
+      let url = `/api/admin/blogs?search=${encodeURIComponent(keyword)}`;
+      if (catId !== "all") {
+        url += `&categoryId=${catId}`;
+      }
+      
+      const res = await fetch(url);
+      const json = await res.json();
+
+      const mapped: BlogItem[] = json.data.map((b: ApiBlog) => ({
+        id: b.id,
+        title: b.title,
+        excerpt: stripHtml(b.content, 150),
+        image: b.heroImage || null,
+        category: b.category?.name || "Uncategorized",
+        date: new Date(b.createdAt).toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        author: b.createdBy?.name || "Admin",
+      }));
+
+      setItems(mapped);
+    } catch (err) {
+      console.error("Failed to fetch blogs", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /* ================= HANDLERS ================= */
+
+  const handleView = (id: string) => {
+    window.open(`/blog/${id}`, "_blank");
   };
 
+  const handleEdit = (id: string) => {
+    router.push(`/admin/blog/edit/${id}`);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus artikel ini?")) return;
+
+    try {
+      const res = await fetch(`/api/admin/blogs/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchBlogs(q);
+      } else {
+        const json = await res.json();
+        alert(json.error || "Gagal menghapus artikel");
+      }
+    } catch (err) {
+      console.error("Failed to delete blog", err);
+      alert("Terjadi kesalahan saat menghapus artikel");
+    }
+  };
+
+  /* ================= INIT ================= */
+  React.useEffect(() => {
+    fetchCategories();
+    fetchBlogs();
+  }, [fetchCategories, fetchBlogs]);
+
+  /* ================= SEARCH (DEBOUNCE) ================= */
+  React.useEffect(() => {
+    const t = setTimeout(() => fetchBlogs(q, categoryId), 350);
+    return () => clearTimeout(t);
+  }, [q, categoryId, fetchBlogs]);
+
+  /* ================= UI ================= */
   return (
     <Box>
-      <div className="flex items-center justify-between mb-6">
-        <Typography variant="h5" className="font-bold">Daftar Blog</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setOpen(true)}>
-          Tulis Blog
-        </Button>
-      </div>
+      {/* ===== TOP PANEL ===== */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 3,
+          border: "1px solid rgba(15,23,42,.10)",
+          bgcolor: "#fff",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          sx={{
+            p: 2,
+            background:
+              "radial-gradient(900px 380px at 0% 0%, rgba(11,169,118,.18), transparent 55%), radial-gradient(900px 380px at 100% 0%, rgba(59,130,246,.12), transparent 55%)",
+          }}
+        >
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1.5}
+            alignItems={{ xs: "stretch", md: "center" }}
+            justifyContent="space-between"
+          >
+            {/* LEFT */}
+            <Box>
+              <Typography sx={{ fontWeight: 1000, fontSize: 20 }}>
+                Blog
+              </Typography>
+              <Typography sx={{ mt: 0.25, fontSize: 12.5, color: "rgba(15,23,42,.62)" }}>
+                Kelola artikel & konten edukasi.
+              </Typography>
 
-      <Grid container spacing={3}>
-        {items.map((b) => (
-          <Grid key={b.id} size={{ xs: 12, md: 3 }}>
-            <BlogCard data={b} />
-          </Grid>
-        ))}
-      </Grid>
+              <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+                <Chip
+                  label={`${items.length} artikel`}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 999,
+                    fontWeight: 900,
+                    bgcolor: "rgba(255,255,255,.55)",
+                  }}
+                />
+              </Stack>
+            </Box>
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle className="font-bold">Tulis Blog</DialogTitle>
-        <DialogContent className="space-y-3 pt-2">
-          <TextField label="Judul" fullWidth value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <TextField select label="Kategori" fullWidth value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {categories.map((c) => (
-              <MenuItem key={c} value={c}>{c}</MenuItem>
-            ))}
-          </TextField>
-          <TextField label="URL Gambar" fullWidth value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} />
-          <div>
-            <div className="text-sm font-semibold mb-2">Konten</div>
-            <RichTextEditor value={form.content} onChange={(v) => setForm({ ...form, content: v })} />
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Batal</Button>
-          <Button variant="contained" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={createBlog}>Simpan</Button>
-        </DialogActions>
-      </Dialog>
+            {/* RIGHT */}
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <Select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  displayEmpty
+                  sx={{
+                    borderRadius: 999,
+                    bgcolor: "rgba(255,255,255,.70)",
+                    "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                    boxShadow: "0 0 0 1px rgba(15,23,42,.10)",
+                  }}
+                  startAdornment={
+                    <InputAdornment position="start" sx={{ ml: 1 }}>
+                      <FilterListRoundedIcon fontSize="small" />
+                    </InputAdornment>
+                  }
+                >
+                  <MenuItem value="all">Semua Kategori</MenuItem>
+                  {categories.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-      <Snackbar open={toast.open} autoHideDuration={2500} onClose={() => setToast({ open: false, msg: '' })}>
-        <Alert severity="success" variant="filled">{toast.msg}</Alert>
-      </Snackbar>
+              <TextField
+                size="small"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Cari judul…"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchRoundedIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  width: { xs: "100%", md: 240 },
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 999,
+                    bgcolor: "rgba(255,255,255,.70)",
+                    border: "1px solid rgba(15,23,42,.10)",
+                    "& fieldset": { border: "none" },
+                  },
+                }}
+              />
+
+              <IconButton
+                onClick={() => fetchBlogs(q, categoryId)}
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                  bgcolor: "rgba(255,255,255,.70)",
+                  border: "1px solid rgba(15,23,42,.10)",
+                }}
+              >
+                <RefreshRoundedIcon fontSize="small" />
+              </IconButton>
+
+              <Button
+                component={Link}
+                href="/admin/blog/create"
+                variant="contained"
+                startIcon={<AddRoundedIcon />}
+                sx={{
+                  borderRadius: 999,
+                  fontWeight: 1000,
+                  textTransform: "none",
+                  px: 2,
+                  bgcolor: "#0ba976",
+                  "&:hover": { bgcolor: "#55bf64" },
+                }}
+              >
+                Tulis
+              </Button>
+            </Stack>
+          </Stack>
+
+          <Divider sx={{ mt: 2 }} />
+        </Box>
+      </Paper>
+
+      {/* ===== CONTENT ===== */}
+      {loading ? (
+        <Stack alignItems="center" mt={6}>
+          <CircularProgress />
+        </Stack>
+      ) : items.length === 0 ? (
+        <Stack alignItems="center" mt={6}>
+          <Typography color="text.secondary">
+            Belum ada blog 😴
+          </Typography>
+        </Stack>
+      ) : (
+        <Box
+          sx={{
+            mt: 2,
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, 1fr)",
+              lg: "repeat(3, 1fr)",
+            },
+          }}
+        >
+          {items.map((b) => (
+            <Box
+              key={b.id}
+              sx={{
+                transition: "transform 160ms ease",
+                "&:hover": { transform: "translateY(-3px)" },
+              }}
+            >
+              <BlogCard
+                data={b}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

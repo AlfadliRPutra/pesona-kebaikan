@@ -56,7 +56,7 @@ const DEFAULT_FAQS = [
   },
   {
     question: "Bagaimana prosedur pencairan dana oleh penggalang dana?",
-    answer: "Pencairan dana dilakukan secara transparan dan akuntabel. Penggalang dana harus mengajukan permohonan pencairan dengan melampirkan rencana penggunaan dana dan bukti pendukung. Tim verifikasi kami akan mereview dalam 1-3 hari kerja sebelum dana disalurkan.",
+    answer: "Pencairan dana dilakukan secara transparan dan akuntabel. Penggalang dana harus mengajukan permohonan pencairan dengan melampirkan rencana Useran dana dan bukti pendukung. Tim verifikasi kami akan mereview dalam 1-3 hari kerja sebelum dana disalurkan.",
     category: "Pencairan"
   }
 ];
@@ -191,7 +191,7 @@ export default function AdminBantuanPage() {
             startIcon={<AddIcon />}
             onClick={handleOpenCreate}
             sx={{
-              bgcolor: "#61ce70",
+              bgcolor: "#0ba976",
               fontWeight: 700,
               textTransform: "none",
               borderRadius: 2,
@@ -204,7 +204,7 @@ export default function AdminBantuanPage() {
         </Box>
       </Box>
 
-      <TableContainer component={Paper} elevation={0} sx={{ border: "1px solid #e2e8f0", borderRadius: 3 }}>
+      <TableContainer component={Paper} elevation={0} sx={{ border: "1px solid #e2e8f0", borderRadius: 3, overflowX: "auto" }}>
         <Table>
           <TableHead sx={{ bgcolor: "#f8fafc" }}>
             <TableRow>
@@ -275,7 +275,7 @@ export default function AdminBantuanPage() {
             onClick={handleSubmit}
             disabled={isSubmitting}
             sx={{
-              bgcolor: "#61ce70",
+              bgcolor: "#0ba976",
               fontWeight: 700,
               boxShadow: "none",
               "&:hover": { bgcolor: "#16a34a", boxShadow: "none" },

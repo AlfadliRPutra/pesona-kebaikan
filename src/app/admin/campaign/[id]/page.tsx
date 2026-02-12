@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
 import {
@@ -13,6 +12,7 @@ import {
 	Button,
 	Divider,
 	LinearProgress,
+	CircularProgress,
 	IconButton,
 	TextField,
 	Snackbar,
@@ -43,8 +43,31 @@ import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import ThumbUpAltRoundedIcon from "@mui/icons-material/ThumbUpAltRounded";
 import ThumbDownAltRoundedIcon from "@mui/icons-material/ThumbDownAltRounded";
 import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
+import PauseCircleIcon from "@mui/icons-material/PauseCircle";
+import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRounded";
 
-type CampaignStatus = "draft" | "review" | "active" | "ended" | "rejected";
+import {
+	getCampaignById,
+	updateCampaignStatus,
+	deleteCampaign,
+	addCampaignMedia,
+	finishCampaign,
+	updateCampaignStory,
+} from "@/actions/campaign";
+import { getCampaignTransactions } from "@/actions/admin";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import HourglassBottomRoundedIcon from "@mui/icons-material/HourglassBottomRounded";
+import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
+import RichTextEditor from "@/components/admin/RichTextEditor";
+
+type CampaignStatus =
+	| "draft"
+	| "review"
+	| "active"
+	| "ended"
+	| "rejected"
+	| "pending"
+	| "paused";
 type CampaignType = "sakit" | "lainnya";
 
 type AuditEvent = {
@@ -75,9 +98,80 @@ const STATUS_META: Record<
 	draft: { label: "Draft", tone: "neutral" },
 	review: { label: "Review", tone: "warning" },
 	active: { label: "Aktif", tone: "success" },
-	ended: { label: "Berakhir", tone: "info" },
+	ended: { label: "Berakhir", tone: "error" },
 	rejected: { label: "Ditolak", tone: "error" },
+	pending: { label: "Menunggu Verifikasi", tone: "warning" },
+	paused: { label: "Jeda", tone: "warning" },
 };
+
+// Transaction Types & Helpers
+type TxStatus = "paid" | "pending" | "failed" | "refunded";
+type PayMethod = "qris" | "va_bca" | "va_bri" | "gopay" | "manual";
+
+type TxRow = {
+	id: string;
+	createdAt: string;
+	campaignId: string;
+	campaignTitle: string;
+	donorName: string;
+	donorPhone: string;
+	donorEmail: string;
+	message: string;
+	isAnonymous: boolean;
+	amount: number;
+	method: PayMethod;
+	status: TxStatus;
+	refCode: string;
+	account: {
+		name: string;
+		email: string;
+		phone: string;
+	} | null;
+};
+
+function statusMeta(status: TxStatus) {
+	switch (status) {
+		case "paid":
+			return {
+				label: "Berhasil",
+				icon: <CheckCircleRoundedIcon fontSize="small" />,
+				tone: "success" as const,
+			};
+		case "pending":
+			return {
+				label: "Pending",
+				icon: <HourglassBottomRoundedIcon fontSize="small" />,
+				tone: "warning" as const,
+			};
+		case "failed":
+			return {
+				label: "Gagal",
+				icon: <ErrorRoundedIcon fontSize="small" />,
+				tone: "error" as const,
+			};
+		case "refunded":
+			return {
+				label: "Refund",
+				icon: <ErrorRoundedIcon fontSize="small" />,
+				tone: "info" as const,
+			};
+	}
+}
+
+function methodLabel(m: PayMethod) {
+	switch (m) {
+		case "qris":
+			return "QRIS";
+		case "va_bca":
+			return "VA BCA";
+		case "va_bri":
+			return "VA BRI";
+		case "gopay":
+			return "GoPay";
+		case "manual":
+			return "Manual";
+	}
+}
 
 function idr(n: number) {
 	if (!n) return "Rp0";
@@ -104,28 +198,11 @@ export default function AdminCampaignDetailPage() {
 	const params = useParams<{ id: string }>();
 	const id = params?.id ?? "";
 
-	// dummy data (nanti fetch by id)
-	const [data, setData] = React.useState({
-		id,
-		title: "Bantu Abi Melawan Kanker Hati",
-		type: "sakit" as CampaignType,
-		category: "Bantuan Medis & Kesehatan",
-		status: "review" as CampaignStatus,
-		ownerName: "Rifki Dermawan",
-		ownerPhone: "08xxxxxxxxxx",
-		target: 20000000,
-		collected: 4820000,
-		donors: 119,
-		createdAt: "18 Desember 2025",
-		updatedAt: "19 Desember 2025",
-		publicUrl: `/campaign/${id || "cmp-001"}`,
-		shortInvite: "Bantu Abi melawan kanker hati. Setiap donasi sangat berarti.",
-		story:
-			"Abi didiagnosa kanker hati dan membutuhkan biaya pengobatan yang besar. Saat ini keluarga sudah berusaha semampunya, namun biaya terus bertambah. Kami membuka penggalangan dana ini untuk membantu biaya rawat jalan, kontrol rutin, obat, dan tindakan medis sesuai rekomendasi dokter.\n\nMohon doa dan dukungan #OrangBaik. Setiap bantuan akan sangat berarti.",
-	});
+	const [loading, setLoading] = React.useState(true);
+	const [data, setData] = React.useState<any>(null);
 
 	const [tab, setTab] = React.useState<
-		"overview" | "story" | "docs" | "verify" | "timeline"
+		"overview" | "story" | "docs" | "verify" | "timeline" | "transactions"
 	>("overview");
 
 	const [snack, setSnack] = React.useState<{
@@ -135,53 +212,162 @@ export default function AdminCampaignDetailPage() {
 	}>({ open: false, msg: "", type: "info" });
 
 	const [confirmEnd, setConfirmEnd] = React.useState(false);
+	const [confirmPause, setConfirmPause] = React.useState(false);
+	const [confirmResume, setConfirmResume] = React.useState(false);
 
 	// docs state
-	const [docs, setDocs] = React.useState<DocItem[]>(() => {
-		const base: DocItem[] = [
-			{
-				key: "cover",
-				title: "Foto Sampul",
-				required: true,
-				help: "Foto utama yang tampil di campaign.",
-				uploaded: false,
-			},
-			{
-				key: "ktp",
-				title: "Identitas / KTP Penggalang",
-				required: true,
-				help: "KTP pemilik akun/penggalang.",
-				uploaded: false,
-			},
-		];
-		if (data.type === "sakit") {
-			base.push(
-				{
-					key: "resume_medis",
-					title: "Surat / Resume Medis",
-					required: true,
-					help: "Dokumen diagnosis/riwayat medis.",
-					uploaded: false,
-				},
-				{
-					key: "surat_rs",
-					title: "Dokumen Rumah Sakit",
-					required: false,
-					help: "Surat rujukan, rincian biaya, dll (opsional).",
-					uploaded: false,
-				}
-			);
-		} else {
-			base.push({
-				key: "pendukung",
-				title: "Dokumen Pendukung",
-				required: false,
-				help: "Surat izin, proposal, foto kondisi, dll.",
-				uploaded: false,
-			});
+	const [docs, setDocs] = React.useState<DocItem[]>([]);
+
+	// transactions state
+	const [txRows, setTxRows] = React.useState<TxRow[]>([]);
+	const [txLoading, setTxLoading] = React.useState(false);
+
+	const fetchTransactions = React.useCallback(async () => {
+		setTxLoading(true);
+		try {
+			const res = await getCampaignTransactions(id);
+			if (res.success && res.data) {
+				// @ts-ignore
+				setTxRows(res.data);
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
+			setTxLoading(false);
 		}
-		return base;
-	});
+	}, [id]);
+
+	React.useEffect(() => {
+		if (tab === "transactions") {
+			fetchTransactions();
+		}
+	}, [tab, fetchTransactions]);
+
+	const fetchData = React.useCallback(async () => {
+		setLoading(true);
+		try {
+			const res = await getCampaignById(id);
+			if (res.success && res.data) {
+				const c = res.data;
+				const statusMap: Record<string, CampaignStatus> = {
+					// values from getCampaignById
+					pending: "pending",
+					active: "active",
+					rejected: "rejected",
+					ended: "ended",
+					paused: "paused",
+
+					// Fallbacks/Legacy/Direct DB values
+					PENDING: "pending",
+					ACTIVE: "active",
+					REJECTED: "rejected",
+					COMPLETED: "ended",
+					PAUSED: "paused",
+					accepted: "active",
+					finished: "ended",
+					review: "review",
+				};
+
+				const cleanStory = c.description
+					.replace(/\s*Detail Pasien:[\s\S]*/i, "")
+					.replace(/\s*Tujuan:[\s\S]*/i, "")
+					.trim();
+
+				const mappedData = {
+					id: c.id,
+					title: c.title,
+					type:
+						c.type === "sakit" || c.category === "Bantuan Medis & Kesehatan"
+							? "sakit"
+							: "lainnya",
+					category: c.category || "-",
+					status: statusMap[c.status] || "review",
+					ownerName: c.ownerName || "-",
+					ownerEmail: c.ownerEmail || "-",
+					ownerPhone: c.ownerPhone || "-",
+					phone: c.phone || "-",
+					target: Number(c.target),
+					collected: Number(c.collected),
+					donors: c.donations?.length || 0,
+					createdAt: new Date(c.updatedAt).toLocaleDateString("id-ID", {
+						day: "numeric",
+						month: "long",
+						year: "numeric",
+					}),
+					updatedAt: new Date(c.updatedAt).toLocaleDateString("id-ID", {
+						day: "numeric",
+						month: "long",
+						year: "numeric",
+					}),
+					publicUrl: `/donasi/${c.slug || c.id}`,
+					shortInvite: cleanStory.substring(0, 100) + "...",
+					story: c.description, // Use full description (HTML or text)
+				};
+				setData(mappedData);
+
+				// Setup docs
+				const base: DocItem[] = [
+					{
+						key: "cover",
+						title: "Foto Sampul",
+						required: false,
+						help: "Foto utama yang tampil di campaign.",
+						uploaded: !!c.thumbnail,
+						previewUrl: c.thumbnail,
+					},
+					{
+						key: "ktp",
+						title: "Identitas / KTP Penggalang",
+						required: false,
+						help: "KTP pemilik akun/penggalang.",
+						uploaded: false, // Need to check if KTP is in media
+					},
+				];
+
+				if (mappedData.type === "sakit") {
+					base.push(
+						{
+							key: "resume_medis",
+							title: "Surat / Resume Medis",
+							required: false,
+							help: "Dokumen diagnosis/riwayat medis.",
+							uploaded: false,
+						},
+						{
+							key: "surat_rs",
+							title: "Dokumen Rumah Sakit",
+							required: false,
+							help: "Surat rujukan, rincian biaya, dll (opsional).",
+							uploaded: false,
+						}
+					);
+				} else {
+					base.push({
+						key: "pendukung",
+						title: "Dokumen Pendukung",
+						required: false,
+						help: "Surat izin, proposal, foto kondisi, dll.",
+						uploaded: false,
+					});
+				}
+				setDocs(base);
+			} else {
+				setSnack({
+					open: true,
+					msg: "Gagal memuat data campaign",
+					type: "error",
+				});
+			}
+		} catch (e) {
+			console.error(e);
+			setSnack({ open: true, msg: "Terjadi kesalahan", type: "error" });
+		}
+		setLoading(false);
+	}, [id]);
+
+	React.useEffect(() => {
+		if (id) fetchData();
+	}, [id, fetchData]);
 
 	// preview dialog
 	const [preview, setPreview] = React.useState<{
@@ -191,22 +377,31 @@ export default function AdminCampaignDetailPage() {
 	}>({ open: false });
 
 	// audit timeline
-	const [audit, setAudit] = React.useState<AuditEvent[]>(() => [
-		{
-			id: "a1",
-			at: "18/12 09:12",
-			title: "Campaign dibuat",
-			meta: "Draft awal tersimpan.",
-			tone: "info",
-		},
-		{
-			id: "a2",
-			at: "19/12 15:01",
-			title: "Masuk antrian review",
-			meta: "Menunggu verifikasi admin.",
-			tone: "warning",
-		},
-	]);
+	const [audit, setAudit] = React.useState<AuditEvent[]>([]);
+
+	React.useEffect(() => {
+		if (data) {
+			const initialAudit: AuditEvent[] = [
+				{
+					id: "created",
+					at: data.createdAt,
+					title: "Campaign dibuat",
+					meta: "Campaign berhasil dibuat.",
+					tone: "info",
+				},
+			];
+			if (data.status !== "review" && data.status !== "draft") {
+				initialAudit.unshift({
+					id: "updated",
+					at: data.updatedAt,
+					title: "Status diperbarui",
+					meta: `Status saat ini: ${data.status}`,
+					tone: "warning",
+				});
+			}
+			setAudit(initialAudit);
+		}
+	}, [data]);
 
 	const pushAudit = React.useCallback((e: Omit<AuditEvent, "id" | "at">) => {
 		setAudit((prev) => [
@@ -232,8 +427,10 @@ export default function AdminCampaignDetailPage() {
 	const [confirmApprove, setConfirmApprove] = React.useState(false);
 	const [confirmReject, setConfirmReject] = React.useState(false);
 
-	const progress = pct(data.collected, data.target);
-	const statusMeta = STATUS_META[data.status];
+	const progress = pct(data?.collected || 0, data?.target || 0);
+	const statusMeta = data
+		? STATUS_META[data.status as CampaignStatus]
+		: STATUS_META.review;
 
 	const toneColor = (tone: typeof statusMeta.tone) => {
 		switch (tone) {
@@ -260,10 +457,10 @@ export default function AdminCampaignDetailPage() {
 			color: theme.palette.mode === "dark" ? alpha(c, 0.95) : c,
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [data.status, theme.palette.mode]);
+	}, [data?.status, theme.palette.mode]);
 
 	const typeMeta =
-		data.type === "sakit"
+		data?.type === "sakit"
 			? {
 					label: "Medis",
 					icon: <LocalHospitalRoundedIcon fontSize="small" />,
@@ -298,11 +495,14 @@ export default function AdminCampaignDetailPage() {
 		}
 	};
 
-	const canVerify = data.status === "review";
-	const canEnd = data.status === "active";
+	const canVerify = data?.status === "review" || data?.status === "pending";
+	const canEnd = data?.status === "active" || data?.status === "paused";
+	const canPause = data?.status === "active";
+	const canResume = data?.status === "paused";
 
 	// derive checklist suggestions from current state (soft suggestion)
 	React.useEffect(() => {
+		if (!data) return;
 		const hasCover = docs.find((d) => d.key === "cover")?.uploaded ?? false;
 		const hasKtp = docs.find((d) => d.key === "ktp")?.uploaded ?? false;
 
@@ -314,7 +514,23 @@ export default function AdminCampaignDetailPage() {
 			targetOk: c.targetOk || (data.target ?? 0) > 0,
 		}));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [docs, data.story, data.target]);
+	}, [docs, data?.story, data?.target]);
+
+	if (loading) {
+		return (
+			<Box sx={{ p: 4, display: "flex", justifyContent: "center" }}>
+				<CircularProgress />
+			</Box>
+		);
+	}
+
+	if (!data) {
+		return (
+			<Box sx={{ p: 4, display: "flex", justifyContent: "center" }}>
+				<Typography>Data tidak ditemukan</Typography>
+			</Box>
+		);
+	}
 
 	const verifyReady =
 		check.identityOk &&
@@ -324,10 +540,11 @@ export default function AdminCampaignDetailPage() {
 		check.categoryOk &&
 		check.phoneOk;
 
-	const handleUpload = (key: DocKey, file?: File | null) => {
+	const handleUpload = async (key: DocKey, file?: File | null) => {
 		if (!file) return;
-		const url = URL.createObjectURL(file);
 
+		// Optimistic update
+		const url = URL.createObjectURL(file);
 		setDocs((prev) =>
 			prev.map((d) =>
 				d.key === key
@@ -342,13 +559,47 @@ export default function AdminCampaignDetailPage() {
 			)
 		);
 
-		pushAudit({
-			title: "Dokumen diupload",
-			meta: `${file.name} (${key})`,
-			tone: "info",
-		});
+		const formData = new FormData();
+		formData.append("file", file);
+		if (key === "cover") {
+			formData.append("isThumbnail", "true");
+		}
 
-		setSnack({ open: true, msg: "Dokumen diupload (dummy).", type: "success" });
+		try {
+			const res = await addCampaignMedia(id, formData);
+
+			if (res.success) {
+				pushAudit({
+					title: "Dokumen diupload",
+					meta: `${file.name} (${key})`,
+					tone: "info",
+				});
+				setSnack({
+					open: true,
+					msg: "Dokumen berhasil diupload.",
+					type: "success",
+				});
+			} else {
+				throw new Error(res.error);
+			}
+		} catch (e) {
+			console.error(e);
+			// Revert
+			setDocs((prev) =>
+				prev.map((d) =>
+					d.key === key
+						? {
+								...d,
+								uploaded: false,
+								filename: undefined,
+								previewUrl: undefined,
+								updatedAt: undefined,
+						  }
+						: d
+				)
+			);
+			setSnack({ open: true, msg: "Gagal upload dokumen.", type: "error" });
+		}
 	};
 
 	const handleRemoveDoc = (key: DocKey) => {
@@ -372,43 +623,118 @@ export default function AdminCampaignDetailPage() {
 		});
 	};
 
-	const onApprove = () => {
+	const onApprove = async () => {
 		setConfirmApprove(false);
-		setData((d) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
-		pushAudit({
-			title: "Campaign disetujui",
-			meta: "Status berubah menjadi Aktif.",
-			tone: "success",
-		});
-		setSnack({
-			open: true,
-			msg: "Campaign approved (dummy).",
-			type: "success",
-		});
+		const res = await updateCampaignStatus(id, "ACTIVE");
+		if (res.success) {
+			setData((d: any) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
+			pushAudit({
+				title: "Campaign disetujui",
+				meta: "Status berubah menjadi Aktif.",
+				tone: "success",
+			});
+			setSnack({
+				open: true,
+				msg: "Campaign approved.",
+				type: "success",
+			});
+		} else {
+			setSnack({
+				open: true,
+				msg: "Gagal approve campaign.",
+				type: "error",
+			});
+		}
 	};
 
-	const onReject = () => {
+	const onReject = async () => {
 		setConfirmReject(false);
-		setData((d) => ({ ...d, status: "rejected", updatedAt: "Hari ini" }));
-		pushAudit({
-			title: "Campaign ditolak",
-			meta: rejectReason ? `Alasan: ${rejectReason}` : "Tanpa alasan.",
-			tone: "error",
-		});
-		setSnack({
-			open: true,
-			msg: "Campaign rejected (dummy).",
-			type: "warning",
-		});
+		const res = await updateCampaignStatus(id, "REJECTED");
+		if (res.success) {
+			setData((d: any) => ({
+				...d,
+				status: "rejected",
+				updatedAt: "Hari ini",
+			}));
+			pushAudit({
+				title: "Campaign ditolak",
+				meta: rejectReason ? `Alasan: ${rejectReason}` : "Tanpa alasan.",
+				tone: "error",
+			});
+			setSnack({
+				open: true,
+				msg: "Campaign rejected.",
+				type: "warning",
+			});
+		} else {
+			setSnack({
+				open: true,
+				msg: "Gagal reject campaign.",
+				type: "error",
+			});
+		}
 	};
 
-	const onSaveStory = () => {
-		pushAudit({
-			title: "Konten campaign disimpan",
-			meta: "Judul/Cerita/Ajakan diperbarui.",
-			tone: "info",
-		});
-		setSnack({ open: true, msg: "Disimpan (dummy).", type: "success" });
+	const onPause = async () => {
+		setConfirmPause(false);
+		const res = await updateCampaignStatus(id, "PAUSED");
+		if (res.success) {
+			setData((d: any) => ({ ...d, status: "paused", updatedAt: "Hari ini" }));
+			pushAudit({
+				title: "Campaign dijeda",
+				meta: "Status berubah menjadi Jeda.",
+				tone: "warning",
+			});
+			setSnack({
+				open: true,
+				msg: "Campaign dijeda.",
+				type: "warning",
+			});
+		} else {
+			setSnack({
+				open: true,
+				msg: res.error || "Gagal menjeda campaign.",
+				type: "error",
+			});
+		}
+	};
+
+	const onResume = async () => {
+		setConfirmResume(false);
+		const res = await updateCampaignStatus(id, "ACTIVE");
+		if (res.success) {
+			setData((d: any) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
+			pushAudit({
+				title: "Campaign dilanjutkan",
+				meta: "Status kembali Aktif.",
+				tone: "success",
+			});
+			setSnack({
+				open: true,
+				msg: "Campaign dilanjutkan.",
+				type: "success",
+			});
+		} else {
+			setSnack({
+				open: true,
+				msg: res.error || "Gagal melanjutkan campaign.",
+				type: "error",
+			});
+		}
+	};
+
+	const onSaveStory = async () => {
+		const res = await updateCampaignStory(id, data.title, data.story);
+		if (res.success) {
+			pushAudit({
+				title: "Konten campaign disimpan",
+				meta: "Judul/Cerita diperbarui.",
+				tone: "info",
+			});
+			setSnack({ open: true, msg: "Disimpan.", type: "success" });
+		} else {
+			setSnack({ open: true, msg: "Gagal menyimpan.", type: "error" });
+		}
 	};
 
 	const requiredMissing = docs.filter((d) => d.required && !d.uploaded).length;
@@ -514,8 +840,7 @@ export default function AdminCampaignDetailPage() {
 				>
 					<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 						<Button
-							component={Link}
-							href={`/admin/campaign/${data.id}/edit`}
+							onClick={() => router.push(`/admin/campaign/${data.id}/edit`)}
 							variant="outlined"
 							startIcon={<EditRoundedIcon />}
 							sx={{ borderRadius: 999, fontWeight: 900 }}
@@ -533,6 +858,30 @@ export default function AdminCampaignDetailPage() {
 							Verifikasi
 						</Button>
 
+						{data.status === "paused" ? (
+							<Button
+								onClick={() => setConfirmResume(true)}
+								variant="outlined"
+								color="success"
+								startIcon={<PlayCircleFilledRoundedIcon />}
+								disabled={!canResume}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Lanjutkan
+							</Button>
+						) : (
+							<Button
+								onClick={() => setConfirmPause(true)}
+								variant="outlined"
+								color="warning"
+								startIcon={<PauseCircleIcon />}
+								disabled={!canPause}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Jeda
+							</Button>
+						)}
+
 						<Button
 							onClick={() => setConfirmEnd(true)}
 							variant="outlined"
@@ -547,7 +896,6 @@ export default function AdminCampaignDetailPage() {
 
 					<Stack direction="row" spacing={1} alignItems="center">
 						<Button
-							component={Link}
 							href={data.publicUrl}
 							target="_blank"
 							variant="contained"
@@ -647,6 +995,8 @@ export default function AdminCampaignDetailPage() {
 								sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}
 							>
 								<QuickPill label="Owner" value={data.ownerName} />
+								<QuickPill label="Email" value={data.ownerEmail} />
+								<QuickPill label="HP" value={data.phone} />
 								<QuickPill label="Kategori" value={data.category} />
 							</Stack>
 						</Stack>
@@ -688,6 +1038,11 @@ export default function AdminCampaignDetailPage() {
 								active={tab === "timeline"}
 								onClick={() => setTab("timeline")}
 							/>
+							<SegTab
+								label="Transaksi"
+								active={tab === "transactions"}
+								onClick={() => setTab("transactions")}
+							/>
 						</Stack>
 					</Paper>
 
@@ -713,6 +1068,19 @@ export default function AdminCampaignDetailPage() {
 								<InfoRow k="Target" v={idr(data.target)} />
 								<InfoRow k="Terkumpul" v={idr(data.collected)} />
 								<InfoRow k="Donatur" v={`${data.donors}`} />
+							</Stack>
+
+							<Divider sx={{ my: 1.25 }} />
+
+							<Typography
+								sx={{ fontWeight: 1000, fontSize: 13.5, color: "text.primary" }}
+							>
+								Penggalang Dana
+							</Typography>
+							<Stack spacing={1} sx={{ mt: 1 }}>
+								<InfoRow k="Nama" v={data.ownerName} />
+								<InfoRow k="Email" v={data.ownerEmail} />
+								<InfoRow k="No. HP" v={data.ownerPhone} />
 							</Stack>
 						</Paper>
 					)}
@@ -756,7 +1124,7 @@ export default function AdminCampaignDetailPage() {
 									size="small"
 									value={data.title}
 									onChange={(e) =>
-										setData((d) => ({ ...d, title: e.target.value }))
+										setData((d: any) => ({ ...d, title: e.target.value }))
 									}
 									fullWidth
 									sx={fieldSx(theme)}
@@ -764,16 +1132,13 @@ export default function AdminCampaignDetailPage() {
 							</FormBlock>
 
 							<FormBlock label="Cerita">
-								<TextField
-									size="small"
+								<RichTextEditor
 									value={data.story}
-									onChange={(e) =>
-										setData((d) => ({ ...d, story: e.target.value }))
+									onChange={(val) =>
+										setData((d: any) => ({ ...d, story: val }))
 									}
-									fullWidth
-									multiline
-									minRows={10}
-									sx={fieldSx(theme)}
+									placeholder="Tulis cerita lengkap..."
+									minHeight={300}
 								/>
 								<Typography
 									sx={{ mt: 0.75, fontSize: 12, color: "text.secondary" }}
@@ -787,7 +1152,7 @@ export default function AdminCampaignDetailPage() {
 									size="small"
 									value={data.shortInvite}
 									onChange={(e) =>
-										setData((d) => ({ ...d, shortInvite: e.target.value }))
+										setData((d: any) => ({ ...d, shortInvite: e.target.value }))
 									}
 									fullWidth
 									multiline
@@ -864,7 +1229,7 @@ export default function AdminCampaignDetailPage() {
 									<Typography
 										sx={{ mt: 0.5, fontSize: 12.5, color: "text.secondary" }}
 									>
-										Centang checklist, lalu approve / reject. (Dummy)
+										Centang checklist, lalu approve / reject.
 									</Typography>
 								</Box>
 
@@ -912,7 +1277,7 @@ export default function AdminCampaignDetailPage() {
 									label="Cerita memadai & meyakinkan"
 									checked={check.storyOk}
 									onChange={(v) => setCheck((c) => ({ ...c, storyOk: v }))}
-									hint="Kronologi, kebutuhan biaya, penggunaan dana jelas."
+									hint="Kronologi, kebutuhan biaya, Useran dana jelas."
 								/>
 								<VerifyItem
 									label="Target biaya wajar & terisi"
@@ -955,7 +1320,6 @@ export default function AdminCampaignDetailPage() {
 								<Button
 									variant="contained"
 									startIcon={<ThumbUpAltRoundedIcon />}
-									disabled={!canVerify || !verifyReady}
 									onClick={() => setConfirmApprove(true)}
 									sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
 								>
@@ -966,7 +1330,6 @@ export default function AdminCampaignDetailPage() {
 									variant="outlined"
 									color="error"
 									startIcon={<ThumbDownAltRoundedIcon />}
-									disabled={!canVerify}
 									onClick={() => setConfirmReject(true)}
 									sx={{ borderRadius: 999, fontWeight: 900 }}
 								>
@@ -1020,7 +1383,7 @@ export default function AdminCampaignDetailPage() {
 							<Typography
 								sx={{ mt: 0.5, fontSize: 12.5, color: "text.secondary" }}
 							>
-								Audit log aktivitas campaign (dummy).
+								Audit log aktivitas campaign.
 							</Typography>
 
 							<Divider sx={{ my: 1.25 }} />
@@ -1029,6 +1392,42 @@ export default function AdminCampaignDetailPage() {
 								{audit.map((e) => (
 									<TimelineRow key={e.id} event={e} />
 								))}
+							</Stack>
+						</Paper>
+					)}
+
+					{tab === "transactions" && (
+						<Paper elevation={0} sx={{ ...shellSx, p: 1.5 }}>
+							<Typography sx={{ fontWeight: 1000, fontSize: 14 }}>
+								Transaksi
+							</Typography>
+							<Typography
+								sx={{ mt: 0.5, fontSize: 12.5, color: "text.secondary" }}
+							>
+								Daftar donasi yang masuk ke campaign ini.
+							</Typography>
+
+							<Divider sx={{ my: 1.25 }} />
+
+							<Stack spacing={1}>
+								{txLoading ? (
+									<Stack alignItems="center" sx={{ py: 4 }}>
+										<CircularProgress size={24} />
+									</Stack>
+								) : txRows.length === 0 ? (
+									<Typography
+										sx={{
+											fontSize: 13,
+											color: "text.secondary",
+											textAlign: "center",
+											py: 4,
+										}}
+									>
+										Belum ada transaksi.
+									</Typography>
+								) : (
+									txRows.map((row) => <TxRowCard key={row.id} row={row} />)
+								)}
 							</Stack>
 						</Paper>
 					)}
@@ -1050,6 +1449,7 @@ export default function AdminCampaignDetailPage() {
 
 						<Stack spacing={1}>
 							<MiniStat label="Pemilik" value={data.ownerName} />
+							<MiniStat label="Email" value={data.ownerEmail} />
 							<MiniStat label="No. HP" value={data.ownerPhone} />
 							<MiniStat label="Kategori" value={data.category} />
 							<MiniStat label="Status" value={statusMeta.label} />
@@ -1097,7 +1497,6 @@ export default function AdminCampaignDetailPage() {
 							</Button>
 
 							<Button
-								component={Link}
 								href={data.publicUrl}
 								target="_blank"
 								variant="contained"
@@ -1201,7 +1600,7 @@ export default function AdminCampaignDetailPage() {
 				<DialogTitle sx={{ fontWeight: 1000 }}>Akhiri campaign?</DialogTitle>
 				<DialogContent>
 					<DialogContentText>
-						Campaign akan diubah statusnya menjadi <b>Berakhir</b>. (Dummy)
+						Campaign akan diubah statusnya menjadi <b>Berakhir</b>.
 					</DialogContentText>
 				</DialogContent>
 				<DialogActions sx={{ p: 2, pt: 0 }}>
@@ -1213,29 +1612,111 @@ export default function AdminCampaignDetailPage() {
 						Batal
 					</Button>
 					<Button
-						onClick={() => {
+						onClick={async () => {
 							setConfirmEnd(false);
-							setData((d) => ({
-								...d,
-								status: "ended",
-								updatedAt: "Hari ini",
-							}));
-							pushAudit({
-								title: "Campaign diakhiri",
-								meta: "Status menjadi Berakhir.",
-								tone: "warning",
-							});
-							setSnack({
-								open: true,
-								msg: "Campaign diakhiri (dummy).",
-								type: "success",
-							});
+							try {
+								const res = await finishCampaign(id);
+								if (res.success) {
+									setData((d: any) => ({
+										...d,
+										status: "ended",
+										updatedAt: "Hari ini",
+									}));
+									pushAudit({
+										title: "Campaign diakhiri",
+										meta: "Status menjadi Berakhir.",
+										tone: "warning",
+									});
+									setSnack({
+										open: true,
+										msg: "Campaign berhasil diakhiri.",
+										type: "success",
+									});
+								} else {
+									setSnack({
+										open: true,
+										msg: res.error || "Gagal mengakhiri campaign.",
+										type: "error",
+									});
+								}
+							} catch (e) {
+								console.error(e);
+								setSnack({
+									open: true,
+									msg: "Terjadi kesalahan.",
+									type: "error",
+								});
+							}
 						}}
 						variant="contained"
 						color="error"
 						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
 					>
 						Akhiri
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Confirm Pause */}
+			<Dialog
+				open={confirmPause}
+				onClose={() => setConfirmPause(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle sx={{ fontWeight: 1000 }}>Jeda campaign?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Campaign akan dijeda sementara dan tidak dapat menerima donasi.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ p: 2, pt: 0 }}>
+					<Button
+						onClick={() => setConfirmPause(false)}
+						variant="outlined"
+						sx={{ borderRadius: 999, fontWeight: 900 }}
+					>
+						Batal
+					</Button>
+					<Button
+						onClick={onPause}
+						variant="contained"
+						color="warning"
+						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
+					>
+						Jeda
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			{/* Confirm Resume */}
+			<Dialog
+				open={confirmResume}
+				onClose={() => setConfirmResume(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle sx={{ fontWeight: 1000 }}>Lanjutkan campaign?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Campaign akan diaktifkan kembali dan dapat menerima donasi.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ p: 2, pt: 0 }}>
+					<Button
+						onClick={() => setConfirmResume(false)}
+						variant="outlined"
+						sx={{ borderRadius: 999, fontWeight: 900 }}
+					>
+						Batal
+					</Button>
+					<Button
+						onClick={onResume}
+						variant="contained"
+						color="success"
+						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
+					>
+						Lanjutkan
 					</Button>
 				</DialogActions>
 			</Dialog>
@@ -1348,53 +1829,55 @@ function SegTab({
 	active: boolean;
 	onClick: () => void;
 }) {
+	const theme = useTheme();
 	return (
 		<Chip
 			label={label}
 			clickable
 			onClick={onClick}
 			variant="outlined"
-			sx={(t) => ({
+			sx={{
 				borderRadius: 999,
 				fontWeight: 1000,
 				px: 0.5,
 				borderColor: active
-					? alpha(t.palette.primary.main, 0.35)
-					: alpha(t.palette.divider, 1),
+					? alpha(theme.palette.primary.main, 0.35)
+					: alpha(theme.palette.divider, 1),
 				bgcolor: active
 					? alpha(
-							t.palette.primary.main,
-							t.palette.mode === "dark" ? 0.18 : 0.08
+							theme.palette.primary.main,
+							theme.palette.mode === "dark" ? 0.18 : 0.08
 					  )
 					: "transparent",
-				color: active ? t.palette.primary.main : t.palette.text.secondary,
+				color: active
+					? theme.palette.primary.main
+					: theme.palette.text.secondary,
 				transition: "all 140ms ease",
 				"&:hover": {
 					bgcolor: alpha(
-						t.palette.primary.main,
-						t.palette.mode === "dark" ? 0.14 : 0.06
+						theme.palette.primary.main,
+						theme.palette.mode === "dark" ? 0.14 : 0.06
 					),
 				},
-			})}
+			}}
 		/>
 	);
 }
 
 function QuickPill({ label, value }: { label: string; value: string }) {
+	const theme = useTheme();
 	return (
 		<Box
-			sx={(t) => ({
+			sx={{
 				px: 1.25,
 				py: 0.75,
 				borderRadius: 2,
-				// border: "1px solid",
-				// borderColor: alpha(t.palette.divider, 1),
 				bgcolor: alpha(
-					t.palette.background.default,
-					t.palette.mode === "dark" ? 0.18 : 1
+					theme.palette.background.default,
+					theme.palette.mode === "dark" ? 0.18 : 1
 				),
 				minWidth: 180,
-			})}
+			}}
 		>
 			<Typography
 				sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 900 }}
@@ -1412,18 +1895,19 @@ function QuickPill({ label, value }: { label: string; value: string }) {
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
+	const theme = useTheme();
 	return (
 		<Paper
 			variant="outlined"
-			sx={(t) => ({
+			sx={{
 				borderRadius: 2.5,
 				p: 1,
-				borderColor: alpha(t.palette.divider, 1),
+				borderColor: alpha(theme.palette.divider, 1),
 				bgcolor: alpha(
-					t.palette.background.default,
-					t.palette.mode === "dark" ? 0.2 : 1
+					theme.palette.background.default,
+					theme.palette.mode === "dark" ? 0.2 : 1
 				),
-			})}
+			}}
 		>
 			<Typography
 				sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 900 }}
@@ -1700,6 +2184,59 @@ function TimelineRow({ event }: { event: AuditEvent }) {
 						)}`,
 					}}
 				/>
+			</Stack>
+		</Paper>
+	);
+}
+
+function TxRowCard({ row }: { row: TxRow }) {
+	const theme = useTheme();
+	const meta = statusMeta(row.status);
+
+	return (
+		<Paper
+			variant="outlined"
+			sx={{
+				p: 2,
+				borderRadius: 2.5,
+				borderColor: alpha(theme.palette.divider, 1),
+				bgcolor: alpha(
+					theme.palette.background.default,
+					theme.palette.mode === "dark" ? 0.2 : 1
+				),
+			}}
+		>
+			<Stack
+				direction="row"
+				spacing={1.5}
+				alignItems="center"
+				sx={{ minWidth: 0 }}
+			>
+				<Box
+					sx={{
+						width: 40,
+						height: 40,
+						borderRadius: 2.5,
+						display: "grid",
+						placeItems: "center",
+						bgcolor: alpha(
+							meta.tone === "success" ? "#22c55e" : "#f97316",
+							0.12
+						),
+						color: meta.tone === "success" ? "#22c55e" : "#f97316",
+					}}
+				>
+					{meta.icon}
+				</Box>
+
+				<Box sx={{ flex: 1 }}>
+					<Typography sx={{ fontSize: 13, fontWeight: 1000 }}>
+						{idr(row.amount)} • {row.donorName}
+					</Typography>
+					<Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+						{row.createdAt} • {methodLabel(row.method)} • {row.refCode}
+					</Typography>
+				</Box>
 			</Stack>
 		</Paper>
 	);

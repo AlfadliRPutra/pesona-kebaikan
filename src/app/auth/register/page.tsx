@@ -23,6 +23,8 @@ import {
 	VisibilityOff,
 	ArrowBack,
 	HowToRegOutlined,
+	CheckCircle,
+	Cancel,
 } from "@mui/icons-material";
 
 export default function RegisterPage() {
@@ -46,10 +48,30 @@ export default function RegisterPage() {
 		});
 	};
 
+	const passwordCriteria = {
+		minLength: formData.password.length >= 8,
+		hasUppercase: /[A-Z]/.test(formData.password),
+		hasNumber: /[0-9]/.test(formData.password),
+		hasSymbol: /[!@#$%^&*(),.?":{}|<>]|[^a-zA-Z0-9]/.test(formData.password),
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
 		setLoading(true);
+
+		if (
+			!passwordCriteria.minLength ||
+			!passwordCriteria.hasUppercase ||
+			!passwordCriteria.hasNumber ||
+			!passwordCriteria.hasSymbol
+		) {
+			setError(
+				"Password harus minimal 8 karakter, mengandung huruf besar, angka, dan simbol",
+			);
+			setLoading(false);
+			return;
+		}
 
 		if (formData.password !== formData.confirmPassword) {
 			setError("Password tidak cocok");
@@ -102,7 +124,7 @@ export default function RegisterPage() {
 					right: 0,
 					height: "30%",
 					background:
-						"linear-gradient(180deg, rgba(97, 206, 112, 0.1) 0%, rgba(248, 250, 252, 0) 100%)",
+						"linear-gradient(180deg, rgba(11, 169, 118, 0.1) 0%, rgba(248, 250, 252, 0) 100%)",
 					zIndex: 0,
 				}}
 			/>
@@ -146,7 +168,7 @@ export default function RegisterPage() {
 								justifyContent: "center",
 								mx: "auto",
 								mb: 2,
-								boxShadow: "0 8px 16px -4px rgba(97, 206, 112, 0.4)",
+								boxShadow: "0 8px 16px -4px rgba(11, 169, 118, 0.4)",
 							}}
 						>
 							<HowToRegOutlined sx={{ color: "white", fontSize: 20 }} />
@@ -321,6 +343,48 @@ export default function RegisterPage() {
 									},
 								}}
 							/>
+							{formData.password && (
+								<Stack
+									direction="row"
+									spacing={1}
+									useFlexGap
+									flexWrap="wrap"
+									sx={{ mt: 1 }}
+								>
+									{[
+										{
+											label: "Min. 8 Karakter",
+											met: passwordCriteria.minLength,
+										},
+										{
+											label: "Huruf Besar",
+											met: passwordCriteria.hasUppercase,
+										},
+										{ label: "Angka", met: passwordCriteria.hasNumber },
+										{ label: "Simbol", met: passwordCriteria.hasSymbol },
+									].map((item, index) => (
+										<Box
+											key={index}
+											sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+										>
+											{item.met ? (
+												<CheckCircle color="success" sx={{ fontSize: 14 }} />
+											) : (
+												<Cancel color="error" sx={{ fontSize: 14 }} />
+											)}
+											<Typography
+												variant="caption"
+												sx={{
+													fontSize: "0.7rem",
+													color: item.met ? "success.main" : "error.main",
+												}}
+											>
+												{item.label}
+											</Typography>
+										</Box>
+									))}
+								</Stack>
+							)}
 						</Box>
 
 						<Box>
@@ -396,10 +460,10 @@ export default function RegisterPage() {
 								borderRadius: 2,
 								fontSize: 14,
 								fontWeight: 700,
-								boxShadow: "0 4px 12px rgba(97, 206, 112, 0.25)",
-								background: "linear-gradient(to right, #61ce70, #4caf50)",
+								boxShadow: "0 4px 12px rgba(11, 169, 118, 0.25)",
+								background: "linear-gradient(to right, #0ba976, #4caf50)",
 								"&:hover": {
-									boxShadow: "0 6px 16px rgba(97, 206, 112, 0.35)",
+									boxShadow: "0 6px 16px rgba(11, 169, 118, 0.35)",
 								},
 							}}
 						>

@@ -7,10 +7,13 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
-  // @ts-ignore
   const userRole = req.auth?.user?.role;
 
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
+  const isPrivateRoute = 
+    nextUrl.pathname.startsWith("/profil") || 
+    nextUrl.pathname.startsWith("/donasi-saya") ||
+    nextUrl.pathname.startsWith("/galang-dana/buat");
 
   if (isAdminRoute) {
     if (!isLoggedIn) {
@@ -18,6 +21,13 @@ export default auth((req) => {
     }
     if (userRole !== "ADMIN") {
       return NextResponse.redirect(new URL("/profil", nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  if (isPrivateRoute) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/auth/login", nextUrl));
     }
     return NextResponse.next();
   }

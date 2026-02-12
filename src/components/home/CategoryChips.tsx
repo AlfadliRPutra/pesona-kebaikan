@@ -8,106 +8,32 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Category, Campaign } from "@/types";
 import { alpha, useTheme } from "@mui/material/styles";
+import { CATEGORY_TITLE } from "@/lib/constants";
+import { getCategoryIcon } from "@/lib/categoryIcons";
 
 // Icons
-import ThunderstormIcon from "@mui/icons-material/Thunderstorm";
-import ChildCareIcon from "@mui/icons-material/ChildCare";
-import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 import GridViewIcon from "@mui/icons-material/GridView";
 
-const categories: Category[] = [
-	{
-		id: "bencana",
-		label: "Bencana Alam",
-		icon: <ThunderstormIcon sx={{ fontSize: 24 }} />,
-	},
-	{
-		id: "anak",
-		label: "Balita & Anak Sakit",
-		icon: <ChildCareIcon sx={{ fontSize: 24 }} />,
-	},
-	{
-		id: "kesehatan",
-		label: "Bantuan Medis",
-		icon: <MedicalServicesIcon sx={{ fontSize: 24 }} />,
-	},
-	{
-		id: "lainnya",
-		label: "Lainnya",
-		icon: <GridViewIcon sx={{ fontSize: 24 }} />,
-	},
-];
+const PRIMARY = "#0ba976";
 
-const campaigns: Campaign[] = [
-	{
-		id: "c1",
-		categoryId: "bencana",
-		title: "Bersama BAZNAS, Bantu Sesama Bangkit dari Bencana",
-		organizer: "BAZNAS Hub",
-		cover: "/campaign/urgent-2.jpg",
-		collected: 3591602064,
-		daysLeft: 1840,
-		recommended: true,
-	},
-	{
-		id: "c2",
-		categoryId: "bencana",
-		title: "Kelambu Demi Pencegahan Penyakit Banjir Aceh",
-		organizer: "Rumah Zakat",
-		cover: "/campaign/urgent-1.jpg",
-		collected: 165000,
-		daysLeft: 29,
-	},
-	{
-		id: "c3",
-		categoryId: "bencana",
-		title: "Truk Kemanusiaan untuk Korban Bencana",
-		organizer: "IZI Zakat",
-		cover: "/campaign/urgent-3.jpg",
-		collected: 234000,
-		daysLeft: 7,
-	},
-
-	{
-		id: "c4",
-		categoryId: "anak",
-		title: "Bantu Biaya Perawatan Anak Pejuang Sembuh",
-		organizer: "Relawan Pesona",
-		cover: "/campaign/urgent-3.jpg",
-		collected: 18350000,
-		daysLeft: 12,
-		recommended: true,
-	},
-	{
-		id: "c5",
-		categoryId: "anak",
-		title: "Susu dan Nutrisi untuk Balita Kurang Gizi",
-		organizer: "Komunitas Peduli",
-		cover: "/campaign/urgent-1.jpg",
-		collected: 5600000,
-		daysLeft: 18,
-	},
-
-	{
-		id: "c6",
-		categoryId: "kesehatan",
-		title: "Bantu Operasi Darurat untuk Pasien Tidak Mampu",
-		organizer: "Yayasan Harapan",
-		cover: "/campaign/urgent-2.jpg",
-		collected: 22400000,
-		daysLeft: 5,
-		recommended: true,
-	},
-	{
-		id: "c7",
-		categoryId: "kesehatan",
-		title: "Ambulans Gratis untuk Warga",
-		organizer: "Lembaga Sosial",
-		cover: "/campaign/urgent-1.jpg",
-		collected: 12450000,
-		daysLeft: 22,
-	},
-];
+function buildDefaultCategories(): Category[] {
+	const pick = ["medis", "pendidikan", "bencana"];
+	const base = pick
+		.map((id) => ({
+			id,
+			label: CATEGORY_TITLE[id],
+			icon: getCategoryIcon(CATEGORY_TITLE[id]).icon,
+		}))
+		.filter((c) => !!c.label);
+	return [
+		...base,
+		{
+			id: "lihat_semua",
+			label: "Lihat Semua",
+			icon: <GridViewIcon sx={{ fontSize: 24 }} />,
+		},
+	];
+}
 
 function rupiah(n: number) {
 	return new Intl.NumberFormat("id-ID").format(n);
@@ -131,26 +57,23 @@ function CategoryButton({
 			tabIndex={0}
 			onClick={onClick}
 			onKeyDown={(e) => e.key === "Enter" && onClick()}
-			className="w-full p-3 cursor-pointer select-none transition-all duration-150 ease-out active:scale-95"
+			className="w-full p-2 cursor-pointer select-none transition-all duration-150 ease-out active:scale-95"
 			sx={{
-				borderRadius: "8px",
-				border: selected
-					? `1px solid ${alpha(primaryMain, 0.45)}`
-					: `1px solid ${alpha(theme.palette.text.primary, 0.1)}`,
-				bgcolor: selected ? alpha(primaryMain, 0.14) : "background.paper",
-				boxShadow: selected
-					? `0 16px 26px ${alpha(primaryMain, 0.14)}`
-					: `0 14px 24px ${alpha(theme.palette.text.primary, 0.06)}`,
+				borderRadius: 1,
+				border: "none",
+				bgcolor: "transparent",
+				boxShadow: "none",
 			}}
 		>
 			<Box
-				className="w-11 h-11 rounded-full mx-auto grid place-items-center"
+				className="w-14 h-14 rounded-full mx-auto grid place-items-center"
 				sx={{
 					bgcolor: selected ? alpha(primaryMain, 0.22) : "action.hover",
 					border: selected
 						? `1px solid ${alpha(primaryMain, 0.3)}`
 						: `1px solid ${alpha(theme.palette.text.primary, 0.08)}`,
 					color: selected ? primaryMain : "text.secondary",
+					"& .MuiSvgIcon-root": { fontSize: 32 },
 				}}
 			>
 				{c.icon}
@@ -168,82 +91,199 @@ function CategoryButton({
 	);
 }
 
+function ProgressMini({ pct }: { pct: number }) {
+	return (
+		<Box
+			sx={{
+				height: 6,
+				borderRadius: 999,
+				bgcolor: "rgba(15,23,42,0.08)",
+				overflow: "hidden",
+			}}
+		>
+			<Box
+				sx={{
+					height: "100%",
+					width: `${Math.min(100, Math.max(0, pct))}%`,
+					bgcolor: pct > 0 ? PRIMARY : "transparent",
+					borderRadius: 999,
+					transition: "width 250ms ease",
+				}}
+			/>
+		</Box>
+	);
+}
+
 function CampaignRowCard({ item }: { item: Campaign }) {
-	const theme = useTheme();
+	const router = useRouter();
 	const [imgSrc, setImgSrc] = React.useState(item.cover || "/defaultimg.webp");
+	const pct = item.target
+		? Math.round((item.collected / item.target) * 100)
+		: 0;
+
+	const handleCardClick = () => {
+		router.push(`/donasi/${item.slug || item.id}`);
+	};
 
 	return (
 		<Box
-			className="flex gap-3 p-3 bg-white shadow-sm border border-slate-200"
+			onClick={handleCardClick}
 			sx={{
-				// Use theme values for precise border/shadow matching if needed, but tailwind is fine here
-				bgcolor: "#fff",
-				borderRadius: "16px",
+				minWidth: 200,
+				maxWidth: 200,
+								borderRadius: 0,
+								border: "none",
+								bgcolor: "#fff",
+				boxShadow: "0 14px 26px rgba(15,23,42,.06)",
+				overflow: "hidden",
+				position: "relative",
+				cursor: "pointer",
+				userSelect: "none",
+				transition: "transform 140ms ease",
+				"&:active": { transform: "scale(0.99)" },
 			}}
 		>
 			{/* Cover */}
-			<Box
-				className="relative w-24 h-24 flex-shrink-0 overflow-hidden bg-gray-100"
-				sx={{ borderRadius: "16px" }}
-			>
-				<Image
-					src={imgSrc}
-					alt={item.title}
-					fill
-					sizes="96px"
-					style={{ objectFit: "cover" }}
-					onError={() => setImgSrc("/defaultimg.webp")}
-				/>
-			</Box>
+			<Box sx={{ position: "relative", height: 120 }}>
+				<Box
+					className="relative w-full h-full flex-shrink-0 overflow-hidden bg-gray-100"
+					sx={{ borderRadius: 0 }}
+				>
+					<Image
+						src={imgSrc}
+						alt={item.title}
+						fill
+						sizes="(max-width: 768px) 100vw, 400px"
+						style={{ objectFit: "cover" }}
+						onError={() => setImgSrc("/defaultimg.webp")}
+					/>
+					<Box
+						sx={{
+							position: "absolute",
+							inset: 0,
+							background:
+								"linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.0) 70%)",
+							pointerEvents: "none",
+						}}
+					/>
 
-			{/* Info */}
-			<Box className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-				<Box>
-					<Typography
-						variant="caption"
-						className="text-[10px] font-bold uppercase tracking-wider text-primary"
-						sx={{ color: "primary.main" }}
-					>
-						{item.organizer}
-					</Typography>
-					<Typography
-						className="text-[13px] font-bold leading-snug line-clamp-2 mt-0.5"
-						sx={{ color: "text.primary" }}
-					>
-						{item.title}
-					</Typography>
-				</Box>
-
-				<Box>
-					<Box className="flex items-center justify-between text-[11px] mb-1 mt-2">
-						<span className="text-gray-500">Terkumpul</span>
-						<span className="font-bold text-gray-600">
-							Rp {rupiah(item.collected)}
-						</span>
-					</Box>
-					{/* Progress Bar */}
-					<Box className="h-1.5 w-full bg-red-500 rounded-full overflow-hidden">
-						<Box
-							className="h-full rounded-full bg-primary"
-							sx={{ width: "55%", bgcolor: "primary.main" }}
-						/>
-					</Box>
-					<Box className="flex items-center gap-1 mt-1.5">
-						<Typography variant="caption" className="text-[10px] text-gray-500">
-							Sisa hari
-						</Typography>
+					<Box sx={{ position: "absolute", top: 10, left: 10 }}>
 						<Chip
-							label={`${item.daysLeft} hari`}
+							label={item.category}
 							size="small"
 							sx={{
-								height: 18,
-								fontSize: 9,
-								fontWeight: 700,
-								bgcolor: alpha(theme.palette.primary.main, 0.1),
-								color: "primary.main",
-								"& .MuiChip-label": { px: 0.8 },
+								height: 22,
+								bgcolor: "rgba(255,255,255,0.92)",
+								backdropFilter: "blur(10px)",
+								fontWeight: 900,
+								"& .MuiChip-label": { px: 1, fontSize: 11 },
 							}}
 						/>
+					</Box>
+
+					<Box
+						sx={{
+							position: "absolute",
+							bottom: 10,
+							left: 10,
+							px: 1,
+							py: "2px",
+							borderRadius: 999,
+							fontSize: 10,
+							fontWeight: 900,
+							color: "#fff",
+							bgcolor: "rgba(15,23,42,0.72)",
+							backdropFilter: "blur(10px)",
+						}}
+					>
+						{item.daysLeft} hari
+					</Box>
+				</Box>
+			</Box>
+
+			{/* Body */}
+			<Box sx={{ p: 1.25 }}>
+				<Typography
+					sx={{
+						fontSize: 13,
+						fontWeight: 900,
+						color: "text.primary",
+						lineHeight: 1.25,
+						display: "-webkit-box",
+						WebkitLineClamp: 2,
+						WebkitBoxOrient: "vertical",
+						overflow: "hidden",
+						minHeight: 34,
+					}}
+				>
+					{item.title}
+				</Typography>
+
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 0.75,
+						mt: 0.8,
+					}}
+				>
+					<Typography sx={{ fontSize: 11, color: "rgba(15,23,42,.60)" }}>
+						{item.organizer}
+					</Typography>
+					<Chip
+						label="ORG"
+						size="small"
+						sx={{
+							height: 18,
+							bgcolor: "rgba(11,169,118,0.14)",
+							color: PRIMARY,
+							fontWeight: 900,
+							"& .MuiChip-label": { px: 0.8, fontSize: 9 },
+						}}
+					/>
+				</Box>
+
+				<Box sx={{ mt: 1.5 }}>
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							mb: 0.5,
+						}}
+					>
+						<Typography
+							sx={{
+								fontSize: 10,
+								fontWeight: 700,
+								color: "rgba(15,23,42,.50)",
+							}}
+						>
+							Terkumpul
+						</Typography>
+						<Typography
+							sx={{
+								fontSize: 10,
+								fontWeight: 900,
+								color: PRIMARY,
+							}}
+						>
+							{pct}%
+						</Typography>
+					</Box>
+					<ProgressMini pct={pct} />
+					<Box
+						sx={{
+							display: "flex",
+							justifyContent: "space-between",
+							mt: 0.5,
+						}}
+					>
+						<Typography
+							sx={{ fontSize: 11, fontWeight: 900, color: "text.primary" }}
+						>
+							Rp {rupiah(item.collected)}
+						</Typography>
 					</Box>
 				</Box>
 			</Box>
@@ -251,51 +291,128 @@ function CampaignRowCard({ item }: { item: Campaign }) {
 	);
 }
 
-export default function CategoryChips() {
+export default function CategoryChips({
+	campaigns = [],
+	categories = [],
+}: {
+	campaigns?: Campaign[];
+	categories?: Category[];
+}) {
 	const router = useRouter();
-	const [selected, setSelected] = React.useState("bencana");
+	const [activeId, setActiveId] = React.useState<string>("bencana");
+
+	const categoriesList = React.useMemo<Category[]>(() => {
+		const base =
+			categories && categories.length > 0
+				? categories
+				: buildDefaultCategories();
+		const allowed = new Set(["medis", "pendidikan", "bencana"]);
+		if (categories && categories.length > 0) {
+			const filtered = categories
+				.filter((c) => allowed.has(c.id))
+				.map((c) => ({
+					...c,
+					label: CATEGORY_TITLE[c.id] || c.label,
+					icon: c.icon || getCategoryIcon(CATEGORY_TITLE[c.id] || c.label).icon,
+				}));
+			return [
+				...filtered,
+				{
+					id: "lihat_semua",
+					label: "Lihat Semua",
+					icon: <GridViewIcon sx={{ fontSize: 24 }} />,
+				},
+			];
+		}
+		return base;
+	}, [categories]);
 
 	const filtered = React.useMemo(() => {
-		// "lainnya" no longer shows all campaigns here, but we keep it safe
-		if (selected === "lainnya") return campaigns;
-		return campaigns.filter((c) => c.categoryId === selected);
-	}, [selected]);
+		if (activeId === "lihat_semua") return campaigns;
+		const selected = categoriesList.find((c) => c.id === activeId);
+		if (!selected) return campaigns;
+		const label = selected.label.toLowerCase();
+		const syn: Record<string, string[]> = {
+			medis: [
+				"medis",
+				"kesehatan",
+				"bantuan medis",
+				"bantuan medis & kesehatan",
+			],
+			pendidikan: ["pendidikan", "bantuan pendidikan"],
+			bencana: ["bencana", "bencana alam"],
+		};
+		const names = syn[activeId] || [label];
+		return campaigns.filter((c) => {
+			const slug = (c.categorySlug || "").toLowerCase();
+			const name = (c.category || "").toLowerCase();
+			return slug === activeId || names.includes(name);
+		});
+	}, [activeId, campaigns, categoriesList]);
 
 	return (
-		<Box className="px-4 mt-6 mb-6">
-			<Box className="flex items-center justify-between mb-4">
-				<Typography
-					className="text-base font-extrabold"
-					sx={{ color: "text.primary" }}
-				>
-					Pilih Kategori
+		<Box sx={{ px: 2, mt: 3 }}>
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					mb: 2,
+				}}
+			>
+				<Typography sx={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>
+					Kategori Pilihan
 				</Typography>
 			</Box>
 
-			{/* Grid Categories */}
-			<Box className="grid grid-cols-4 gap-3">
-				{categories.map((c) => (
+			{/* Chips Grid */}
+			<Box className="grid grid-cols-4 gap-2">
+				{categoriesList.map((cat) => (
 					<CategoryButton
-						key={c.id}
-						c={c}
-						selected={selected === c.id}
+						key={cat.id}
+						c={cat}
+						selected={activeId === cat.id}
 						onClick={() => {
-							if (c.id === "lainnya") {
+							if (cat.id === "lihat_semua") {
 								router.push("/kategori");
-							} else {
-								setSelected(c.id);
+								return;
 							}
+							setActiveId(cat.id);
 						}}
 					/>
 				))}
 			</Box>
 
-			{/* List Campaign */}
-			<Box className="mt-5 flex flex-col gap-3">
-				{filtered.map((item) => (
-					<CampaignRowCard key={item.id} item={item} />
-				))}
+			{/* Filtered List - Horizontal Scroll */}
+			<Box sx={{ mt: 3 }}>
+				{filtered.length > 0 ? (
+					<Box
+						sx={{
+							display: "flex",
+							gap: 1.5,
+							overflowX: "auto",
+							pb: 0,
+							scrollSnapType: "x mandatory",
+							WebkitOverflowScrolling: "touch",
+							"&::-webkit-scrollbar": { display: "none" },
+							msOverflowStyle: "none",
+							scrollbarWidth: "none",
+						}}
+					>
+						{filtered.map((item) => (
+							<Box key={item.id} sx={{ scrollSnapAlign: "start" }}>
+								<CampaignRowCard item={item} />
+							</Box>
+						))}
+					</Box>
+				) : (
+					<Typography className="text-center text-gray-500 text-sm py-8">
+						Belum ada penggalangan dana di kategori ini
+					</Typography>
+				)}
 			</Box>
+
+			<Box sx={{ mt: 2, height: 1, bgcolor: "rgba(15,23,42,0.06)" }} />
 		</Box>
 	);
 }

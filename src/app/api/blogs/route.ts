@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const search = searchParams.get("search") || undefined;
 
   try {
-    const data = await getBlogs(page, limit, categoryId, search);
+    const data = await getBlogs({ page, limit, categoryId, search });
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching blogs:", error);

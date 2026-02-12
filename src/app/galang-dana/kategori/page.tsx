@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import {
 	Box,
@@ -16,10 +17,14 @@ import {
 	Drawer,
 	Button,
 	Stack,
+	LinearProgress,
 } from "@mui/material";
 
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+
+import { getCampaigns } from "@/actions/campaign";
+import { CATEGORY_TITLE } from "@/lib/constants";
 
 import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import FloodRoundedIcon from "@mui/icons-material/FloodRounded";
@@ -39,7 +44,7 @@ type Cat = {
 	examples: Example[];
 };
 
-const BRAND = "#61ce70";
+const BRAND = "#0ba976";
 
 const CATEGORIES: Cat[] = [
 	{
@@ -174,13 +179,41 @@ function ExampleCard({ e }: { e: Example }) {
 
 export default function GalangDanaKategoriPage() {
 	const router = useRouter();
+	const { status } = useSession();
+
+	React.useEffect(() => {
+		if (status === "unauthenticated") {
+			router.replace("/auth/login?callbackUrl=/galang-dana/kategori");
+		}
+	}, [status, router]);
 
 	const [open, setOpen] = React.useState(false);
 	const [selected, setSelected] = React.useState<Cat | null>(null);
+	const [realExamples, setRealExamples] = React.useState<Example[]>([]);
+	const [loadingExamples, setLoadingExamples] = React.useState(false);
 
-	const openSheet = (cat: Cat) => {
+	const openSheet = async (cat: Cat) => {
 		setSelected(cat);
 		setOpen(true);
+		setLoadingExamples(true);
+		setRealExamples([]);
+
+		try {
+			const catName = CATEGORY_TITLE[cat.key];
+			if (catName) {
+				const res = await getCampaigns(1, 5, "active", "", undefined, catName);
+				if (res.success && res.data && res.data.length > 0) {
+					const mapped = res.data.map((c: any) => ({
+						title: c.title,
+						img: c.thumbnail || "/defaultimg.webp",
+					}));
+					setRealExamples(mapped);
+				}
+			}
+		} catch (error) {
+			console.error("Failed to fetch examples", error);
+		}
+		setLoadingExamples(false);
 	};
 
 	const chooseThis = () => {
@@ -192,6 +225,14 @@ export default function GalangDanaKategoriPage() {
 			)}`
 		);
 	};
+
+	if (status === "loading") {
+		return (
+			<Box sx={{ minHeight: "100dvh", display: "grid", placeItems: "center" }}>
+				<LinearProgress sx={{ width: 120, borderRadius: 99 }} />
+			</Box>
+		);
+	}
 
 	return (
 		<Box sx={{ pb: "calc(var(--bottom-nav-h, 72px) + 12px)" }}>
@@ -295,9 +336,16 @@ export default function GalangDanaKategoriPage() {
 							},
 						}}
 					>
-						{(selected?.examples ?? []).map((e) => (
-							<ExampleCard key={e.title} e={e} />
-						))}
+						{loadingExamples ? (
+							<Typography sx={{ fontSize: 13, color: "text.secondary", py: 2 }}>
+								Memuat contoh...
+							</Typography>
+						) : (
+							(realExamples.length > 0
+								? realExamples
+								: selected?.examples ?? []
+							).map((e) => <ExampleCard key={e.title} e={e} />)
+						)}
 					</Box>
 
 					<Stack spacing={1} sx={{ mt: 1 }}>

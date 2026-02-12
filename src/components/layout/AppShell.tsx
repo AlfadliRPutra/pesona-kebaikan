@@ -12,21 +12,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 	const isHome = pathname === "/";
 	const isAdmin = pathname.startsWith("/admin");
 	const isAuth = pathname.startsWith("/auth");
+	// Hide nav on campaign detail pages (/donasi/[slug]) but not on listing (/donasi)
+	// We check startsWith("/donasi/") to match subpaths.
+	const isDonasiDetail = pathname.startsWith("/donasi/");
 
-	const scrollRef = React.useRef<HTMLDivElement | null>(null);
+	const shouldHideNav = isAuth || isDonasiDetail;
+
 	const [scrolled, setScrolled] = React.useState(false);
 
 	React.useEffect(() => {
-		const el = scrollRef.current;
-		if (!el) return;
-
 		const onScroll = () => {
-			setScrolled(el.scrollTop > 280);
+			setScrolled(window.scrollY > 100);
 		};
 
-		onScroll();
-		el.addEventListener("scroll", onScroll, { passive: true });
-		return () => el.removeEventListener("scroll", onScroll);
+		window.addEventListener("scroll", onScroll, { passive: true });
+		return () => window.removeEventListener("scroll", onScroll);
 	}, []);
 
 	const appBarVariant = isHome ? (scrolled ? "solid" : "overlay") : "solid";
@@ -37,41 +37,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 	return (
 		<Paper
-			elevation={5}
+			elevation={0}
 			sx={{
 				position: "relative",
 				width: "100%",
 				maxWidth: { xs: "100%", sm: 480 }, // Full width on mobile, capped on desktop
-				height: "100vh",
-				maxHeight: { xs: "100vh", sm: "calc(100vh - 6px)" }, // Full screen on mobile, windowed on desktop (minus padding top/bottom)
-				borderRadius: { xs: 0, sm: 1 },
-				overflow: "hidden",
+				minHeight: "100dvh",
+				borderRadius: { xs: 0, sm: 0 },
 				display: "flex",
 				flexDirection: "column",
 				bgcolor: "background.default",
 				mx: "auto",
-				border: { xs: "none", sm: "1px solid rgba(0,0,0,0.08)" },
+				border: "none",
 			}}
 		>
-			{!isAuth && <SimpleAppBar variant={appBarVariant} />}
+			{!shouldHideNav && <SimpleAppBar variant={appBarVariant} />}
 
 			<Box
-				ref={scrollRef}
 				className="no-scrollbar"
 				sx={{
 					flex: 1,
-					overflowY: "auto",
-					background: isHome
-						? "linear-gradient(180deg,rgba(255, 255, 255, 1) 0%, rgba(176, 230, 183, 1) 50%, rgba(97, 206, 112, 1) 100%)"
-						: "var(--background)",
-					pb: isAuth ? 0 : 7, // Space for bottom nav
-					pt: (isHome || isAuth) ? 0 : 8, // Add space under AppBar for solid variant (Toolbar ~64px)
+					backgroundColor: "#F8FAFC",
+					pb: shouldHideNav ? 0 : 12, // Space for bottom nav (increased to avoid cutoff)
+					pt: isHome || shouldHideNav ? 0 : 8, // Add space under AppBar for solid variant (Toolbar ~64px)
 				}}
 			>
 				{children}
 			</Box>
 
-			{!isAuth && <SimpleBottomNavigation />}
+			{!shouldHideNav && <SimpleBottomNavigation />}
 		</Paper>
 	);
 }

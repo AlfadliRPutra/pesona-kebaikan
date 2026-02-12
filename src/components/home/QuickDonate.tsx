@@ -1,67 +1,34 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
+import Script from "next/script";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
-const PRIMARY = "#61ce70";
+import type { Campaign } from "@/types";
+import { createDonation } from "@/actions/donation";
+import { getQuickDonationCampaignId } from "@/actions/campaign";
 
-type Method = "ewallet" | "va" | "bank" | "card";
+const PRIMARY = "#0ba976";
+const MIN_DONATION = Number(process.env.NEXT_PUBLIC_MIN_DONATION ?? 1);
 
-type Campaign = {
-	id: string;
-	title: string;
-	organizer: string;
-};
-
-const campaigns: Campaign[] = [
-	{
-		id: "c1",
-		title: "DARURAT! Bantu Korban Banjir Sumut, Aceh & Sumbar",
-		organizer: "Rumah Zakat",
-	},
-	{
-		id: "c2",
-		title: "Bantu Operasi Darurat untuk Pasien Tidak Mampu",
-		organizer: "Yayasan Harapan",
-	},
-	{
-		id: "c3",
-		title: "Beasiswa Anak Desa untuk Tetap Sekolah",
-		organizer: "Relawan Pesona",
-	},
-];
-
-const amountPresets = [10000, 25000, 50000, 100000];
+const amountPresets = [10000, 25000, 50000, 75000, 100000];
 
 function rupiah(n: number) {
 	return new Intl.NumberFormat("id-ID").format(n);
 }
 
-function methodLabel(m: Method) {
-	switch (m) {
-		case "ewallet":
-			return "E-Wallet";
-		case "va":
-			return "Virtual Account";
-		case "bank":
-			return "Transfer Bank";
-		case "card":
-			return "Kartu";
-	}
-}
-
-function methodSub(m: Method) {
-	switch (m) {
-		case "ewallet":
-			return "GoPay • OVO • DANA • ShopeePay";
-		case "va":
-			return "BCA • BRI • BNI • Mandiri";
-		case "bank":
-			return "Transfer antar bank";
-		case "card":
-			return "Visa • Mastercard";
-	}
+function formatIDR(numStr: string) {
+	const n = numStr.replace(/\D/g, "");
+	if (!n) return "";
+	return n.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function CloseIcon() {
@@ -101,61 +68,6 @@ function CheckIcon() {
 	);
 }
 
-function MethodChip({
-	active,
-	label,
-	sub,
-	onClick,
-}: {
-	active: boolean;
-	label: string;
-	sub: string;
-	onClick: () => void;
-}) {
-	return (
-		<Box
-			component="button"
-			type="button"
-			onClick={onClick}
-			sx={{
-				textAlign: "left",
-				width: "100%",
-				borderRadius: "12px",
-				p: 1.1,
-				cursor: "pointer",
-				border: active
-					? "1px solid rgba(97,206,112,0.45)"
-					: "1px solid rgba(15,23,42,0.10)",
-				bgcolor: active ? "rgba(97,206,112,0.10)" : "rgba(15,23,42,0.02)",
-				boxShadow: active ? "0 16px 28px rgba(97,206,112,.10)" : "none",
-				transition: "transform 120ms ease, background-color 120ms ease",
-				"&:active": { transform: "scale(0.995)" },
-			}}
-		>
-			<Typography
-				sx={{
-					fontSize: 12,
-					fontWeight: 1100,
-					color: "rgba(15,23,42,.85)",
-					lineHeight: 1.1,
-				}}
-			>
-				{label}
-			</Typography>
-			<Typography
-				sx={{
-					mt: 0.4,
-					fontSize: 10.5,
-					fontWeight: 800,
-					color: "rgba(15,23,42,.50)",
-				}}
-			>
-				{sub}
-			</Typography>
-		</Box>
-	);
-}
-
 function Toggle({
 	checked,
 	onChange,
@@ -173,9 +85,9 @@ function Toggle({
 				height: 28,
 				borderRadius: 999,
 				border: checked
-					? "1px solid rgba(97,206,112,0.40)"
+					? "1px solid rgba(11,169,118,0.40)"
 					: "1px solid rgba(15,23,42,0.12)",
-				bgcolor: checked ? "rgba(97,206,112,0.35)" : "rgba(15,23,42,0.06)",
+				bgcolor: checked ? "rgba(11,169,118,0.35)" : "rgba(15,23,42,0.06)",
 				position: "relative",
 				cursor: "pointer",
 				transition: "all 140ms ease",
@@ -205,26 +117,36 @@ function Toggle({
 }
 
 export default function QuickDonate() {
+	const router = useRouter();
+
 	const [selectedAmount, setSelectedAmount] = React.useState<number>(
-		amountPresets[0]
+		amountPresets[0],
 	);
 	const [custom, setCustom] = React.useState<string>("");
-	const [method, setMethod] = React.useState<Method>("ewallet");
 
 	// bottom sheet state
 	const [open, setOpen] = React.useState(false);
-	const [campaignId, setCampaignId] = React.useState<string>(
-		campaigns[0]?.id ?? ""
-	);
+	const [campaignId, setCampaignId] = React.useState<string>("");
 
 	// donor identity
 	const [isAnonymous, setIsAnonymous] = React.useState<boolean>(true);
 	const [donorName, setDonorName] = React.useState<string>("");
+	const [donorPhone, setDonorPhone] = React.useState<string>("");
+	const [message, setMessage] = React.useState<string>("");
+	const [loading, setLoading] = React.useState(false);
+	const [error, setError] = React.useState("");
+	const [success, setSuccess] = React.useState(false);
 
-	const selectedCampaign = React.useMemo(
-		() => campaigns.find((c) => c.id === campaignId) ?? campaigns[0],
-		[campaignId]
-	);
+	// Fetch quick donation campaign ID on mount
+	React.useEffect(() => {
+		const fetchId = async () => {
+			const id = await getQuickDonationCampaignId();
+			if (id) {
+				setCampaignId(id);
+			}
+		};
+		fetchId();
+	}, []);
 
 	const finalAmount = React.useMemo(() => {
 		const clean = custom.replace(/[^\d]/g, "");
@@ -233,7 +155,7 @@ export default function QuickDonate() {
 		return selectedAmount;
 	}, [custom, selectedAmount]);
 
-	const isValid = finalAmount >= 10000;
+	const isValid = finalAmount >= MIN_DONATION;
 
 	const displayName = React.useMemo(() => {
 		if (isAnonymous) return "Anonim";
@@ -246,26 +168,192 @@ export default function QuickDonate() {
 		setOpen(true);
 	};
 
-	const onPay = () => {
-		if (!isValid) return;
+	const handleSubmit = async () => {
+		if (!campaignId) {
+			setError("Gagal memuat sistem donasi");
+			return;
+		}
 
-		// nanti: route checkout / midtrans snap + include campaign_id + amount + method + donor_name + is_anonymous
-		alert(
-			`Checkout:\n- Campaign: ${selectedCampaign?.title}\n- Nominal: Rp${rupiah(
-				finalAmount
-			)}\n- Metode: ${methodLabel(method)}\n- Nama: ${displayName}`
-		);
+		if (!finalAmount || Number(finalAmount) < MIN_DONATION) {
+			setError(`Minimal donasi Rp ${MIN_DONATION.toLocaleString("id-ID")}`);
+			return;
+		}
+		// Wajib nomor HP
+		if (!donorPhone) {
+			setError("Nomor HP wajib diisi");
+			return;
+		}
+		// Nama wajib jika tidak anonim
+		if (!isAnonymous && !donorName) {
+			setError("Nama donatur wajib diisi");
+			return;
+		}
+
+		setLoading(true);
+		setError("");
+		try {
+			const res = await createDonation({
+				campaignId: campaignId,
+				amount: Number(finalAmount),
+				donorName: isAnonymous ? "Hamba Allah" : donorName || "Tanpa Nama",
+				donorPhone,
+				message,
+				isAnonymous,
+				paymentMethod: "EWALLET" as any,
+			});
+
+			if (res.success) {
+				const donationId = (res as any).data?.id;
+				const slug = "donasi-cepat"; // Fixed slug for quick donation
+
+				if ((window as any).snap?.show) {
+					(window as any).snap.show();
+				}
+				const r = await fetch("/api/midtrans/snap-token", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ donationId }),
+				});
+				const j = await r.json();
+				if (j.success && j.token && (window as any).snap) {
+					const isProd =
+						process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true";
+					(window as any).snap.pay(j.token, {
+						language: "id",
+						...(isProd ? { uiMode: "qr" } : {}),
+						onSuccess: () => {
+							setSuccess(true);
+							setOpen(false);
+						},
+						onPending: () => {
+							setSuccess(true);
+							setOpen(false);
+						},
+						onError: () => {
+							setError("Pembayaran gagal");
+						},
+						onClose: () => {
+							setError("Pembayaran belum selesai");
+						},
+					});
+				} else {
+					if ((window as any).snap?.hide) {
+						(window as any).snap.hide();
+					}
+					setError(j.error || "Gagal memulai pembayaran");
+				}
+			} else {
+				setError(res.error || "Gagal membuat donasi");
+			}
+		} catch (err) {
+			if ((window as any).snap?.hide) {
+				(window as any).snap.hide();
+			}
+			setError("Terjadi kesalahan sistem");
+		} finally {
+			setLoading(false);
+		}
 	};
 
-	return (
-		<Box sx={{ px: 2, mt: 2, position: "relative" }}>
+	if (success) {
+		return (
 			<Box
 				sx={{
-					borderRadius: "16px",
+					px: 0,
+					mt: 2,
+					position: "relative",
+				}}
+			>
+				<Box
+					sx={{
+						borderRadius: 0,
+						bgcolor: "#fff",
+						boxShadow: "none",
+						p: 3,
+						position: "relative",
+						overflow: "hidden",
+						textAlign: "center",
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+						gap: 2,
+					}}
+				>
+					<Box
+						sx={{
+							width: 60,
+							height: 60,
+							borderRadius: "50%",
+							bgcolor: "rgba(11,169,118,0.1)",
+							color: PRIMARY,
+							display: "grid",
+							placeItems: "center",
+						}}
+					>
+						<CheckIcon />
+					</Box>
+					<Box>
+						<Typography sx={{ fontSize: 16, fontWeight: 900, mb: 0.5 }}>
+							Terima Kasih!
+						</Typography>
+						<Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+							Donasi Anda telah kami terima. Semoga menjadi amal jariyah yang
+							tak terputus pahalanya.
+						</Typography>
+					</Box>
+					<Button
+						variant="outlined"
+						onClick={() => {
+							setSuccess(false);
+							setCustom("");
+							setSelectedAmount(amountPresets[0]);
+							setDonorName("");
+							setDonorPhone("");
+							setMessage("");
+							setIsAnonymous(true);
+						}}
+						sx={{
+							borderRadius: "12px",
+							textTransform: "none",
+							fontWeight: 700,
+							borderColor: PRIMARY,
+							color: PRIMARY,
+							"&:hover": {
+								borderColor: PRIMARY,
+								bgcolor: "rgba(11,169,118,0.05)",
+							},
+						}}
+					>
+						Donasi Lagi
+					</Button>
+				</Box>
+			</Box>
+		);
+	}
+
+	return (
+		<Box
+			sx={{
+				px: 0,
+				mt: 2,
+				position: "relative",
+			}}
+		>
+			<Script
+				src={
+					process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
+						? "https://app.midtrans.com/snap/snap.js"
+						: "https://app.sandbox.midtrans.com/snap/snap.js"
+				}
+				data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""}
+				strategy="afterInteractive"
+			/>
+			<Box
+				sx={{
+					borderRadius: 0,
 					bgcolor: "#fff",
-					boxShadow: "0 20px 40px -4px rgba(0,0,0,0.12)",
+					boxShadow: "none",
 					p: 2,
-					border: "1px solid rgba(15,23,42,0.08)",
 					position: "relative",
 					overflow: "hidden",
 				}}
@@ -278,7 +366,7 @@ export default function QuickDonate() {
 						width: 160,
 						height: 160,
 						borderRadius: 999,
-						bgcolor: "rgba(97,206,112,0.14)",
+						bgcolor: "rgba(11,169,118,0.14)",
 						pointerEvents: "none",
 					}}
 				/>
@@ -297,29 +385,13 @@ export default function QuickDonate() {
 						<Typography
 							sx={{
 								fontSize: 14.5,
-								fontWeight: 1100,
+								fontWeight: 900,
 								color: "#0f172a",
 								lineHeight: 1.15,
 							}}
 						>
 							Donasi Cepat
 						</Typography>
-					</Box>
-
-					<Box
-						sx={{
-							fontSize: 10.5,
-							fontWeight: 1000,
-							px: 1,
-							py: "4px",
-							borderRadius: "12px",
-							color: PRIMARY,
-							bgcolor: "rgba(97,206,112,0.10)",
-							border: "1px solid rgba(97,206,112,0.22)",
-							flexShrink: 0,
-						}}
-					>
-						via Midtrans
 					</Box>
 				</Box>
 
@@ -334,11 +406,9 @@ export default function QuickDonate() {
 					<Box
 						sx={{
 							mt: 1,
-							display: "flex",
+							display: "grid",
+							gridTemplateColumns: "repeat(3, 1fr)",
 							gap: 1,
-							overflowX: "auto",
-							pb: 0.5,
-							"&::-webkit-scrollbar": { height: 0 },
 						}}
 					>
 						{amountPresets.map((a) => {
@@ -353,23 +423,21 @@ export default function QuickDonate() {
 										setSelectedAmount(a);
 									}}
 									sx={{
-										flexShrink: 0,
+										width: "100%",
 										borderRadius: "12px",
-										px: 1.5,
+										px: 1,
 										py: 0.85,
 										cursor: "pointer",
 										fontWeight: 1100,
 										fontSize: 12.5,
 										border: active
-											? "1px solid rgba(97,206,112,0.45)"
+											? "1px solid rgba(11,169,118,0.45)"
 											: "1px solid rgba(15,23,42,0.10)",
 										bgcolor: active
-											? "rgba(97,206,112,0.12)"
+											? "rgba(11,169,118,0.12)"
 											: "rgba(255,255,255,0.92)",
 										color: "rgba(15,23,42,.82)",
-										boxShadow: active
-											? "0 16px 28px rgba(97,206,112,.10)"
-											: "0 14px 22px rgba(15,23,42,.05)",
+										boxShadow: "none",
 										"&:active": { transform: "scale(0.99)" },
 									}}
 								>
@@ -381,19 +449,19 @@ export default function QuickDonate() {
 						{/* Custom */}
 						<Box
 							sx={{
-								flexShrink: 0,
+								gridColumn: "span 1",
 								display: "flex",
 								alignItems: "center",
-								gap: 0.8,
+								gap: 0.5,
 								borderRadius: "12px",
 								px: 1.2,
 								py: 0.55,
 								border:
 									custom.trim().length > 0
-										? "1px solid rgba(97,206,112,0.45)"
+										? "1px solid rgba(11,169,118,0.45)"
 										: "1px solid rgba(15,23,42,0.10)",
 								bgcolor: "rgba(255,255,255,0.92)",
-								boxShadow: "0 14px 22px rgba(15,23,42,.05)",
+								boxShadow: "none",
 							}}
 						>
 							<Typography
@@ -410,9 +478,9 @@ export default function QuickDonate() {
 								inputMode="numeric"
 								placeholder="Custom"
 								value={custom}
-								onChange={(e) => setCustom(e.target.value)}
+								onChange={(e) => setCustom(formatIDR(e.target.value))}
 								style={{
-									width: 86,
+									width: "100%",
 									outline: "none",
 									border: "none",
 									background: "transparent",
@@ -433,52 +501,9 @@ export default function QuickDonate() {
 								fontWeight: 900,
 							}}
 						>
-							Minimal donasi Rp10.000
+							Minimal donasi Rp{MIN_DONATION.toLocaleString("id-ID")}
 						</Typography>
 					)}
-				</Box>
-
-				{/* Methods */}
-				<Box sx={{ position: "relative", mt: 1.4 }}>
-					<Typography
-						sx={{ fontSize: 12, fontWeight: 1000, color: "rgba(15,23,42,.80)" }}
-					>
-						Metode
-					</Typography>
-
-					<Box
-						sx={{
-							mt: 1,
-							display: "grid",
-							gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-							gap: 1,
-						}}
-					>
-						<MethodChip
-							active={method === "ewallet"}
-							label="E-Wallet"
-							sub={methodSub("ewallet")}
-							onClick={() => setMethod("ewallet")}
-						/>
-						<MethodChip
-							active={method === "va"}
-							label="Virtual Account"
-							sub={methodSub("va")}
-							onClick={() => setMethod("va")}
-						/>
-						<MethodChip
-							active={method === "bank"}
-							label="Transfer Bank"
-							sub={methodSub("bank")}
-							onClick={() => setMethod("bank")}
-						/>
-						<MethodChip
-							active={method === "card"}
-							label="Kartu"
-							sub={methodSub("card")}
-							onClick={() => setMethod("card")}
-						/>
-					</Box>
 				</Box>
 
 				{/* CTA */}
@@ -492,13 +517,13 @@ export default function QuickDonate() {
 							width: "100%",
 							borderRadius: "16px",
 							py: 1.2,
-							border: "1px solid rgba(97,206,112,0.35)",
+							border: "1px solid rgba(11,169,118,0.35)",
 							bgcolor: isValid ? PRIMARY : "rgba(15,23,42,0.08)",
 							color: isValid ? "#0b1220" : "rgba(15,23,42,.40)",
-							fontWeight: 1100,
+							fontWeight: 900,
 							fontSize: 13.5,
 							cursor: isValid ? "pointer" : "not-allowed",
-							boxShadow: isValid ? "0 16px 28px rgba(97,206,112,.22)" : "none",
+							boxShadow: "none",
 							transition: "transform 120ms ease, filter 120ms ease",
 							"&:active": { transform: isValid ? "scale(0.99)" : "none" },
 						}}
@@ -609,280 +634,155 @@ export default function QuickDonate() {
 
 						{/* Content */}
 						<Box sx={{ px: 2.2, py: 1.4, flex: 1, overflowY: "auto" }}>
-							{/* Summary */}
+							{/* Summary Nominal */}
 							<Box
 								sx={{
 									borderRadius: "12px",
 									border: "1px solid rgba(15,23,42,0.10)",
-									bgcolor: "#fff",
-									p: 1.2,
+									bgcolor: "#f8fafc",
+									p: 1.5,
+									mb: 3,
 								}}
 							>
 								<Box
 									sx={{
 										display: "flex",
 										justifyContent: "space-between",
-										gap: 1,
+										alignItems: "center",
 									}}
 								>
 									<Typography
 										sx={{
-											fontSize: 11.5,
+											fontSize: 12,
 											fontWeight: 900,
 											color: "rgba(15,23,42,.60)",
 										}}
 									>
-										Nominal
+										Nominal Donasi
 									</Typography>
 									<Typography
-										sx={{ fontSize: 12.5, fontWeight: 1100, color: "#0f172a" }}
+										sx={{ fontSize: 14, fontWeight: 1100, color: "#0f172a" }}
 									>
 										Rp{rupiah(finalAmount)}
-									</Typography>
-								</Box>
-
-								<Box
-									sx={{
-										mt: 0.7,
-										display: "flex",
-										justifyContent: "space-between",
-										gap: 1,
-									}}
-								>
-									<Typography
-										sx={{
-											fontSize: 11.5,
-											fontWeight: 900,
-											color: "rgba(15,23,42,.60)",
-										}}
-									>
-										Metode
-									</Typography>
-									<Typography
-										sx={{
-											fontSize: 12,
-											fontWeight: 1100,
-											color: "rgba(15,23,42,.78)",
-										}}
-									>
-										{methodLabel(method)}
-									</Typography>
-								</Box>
-
-								<Typography
-									sx={{ mt: 0.7, fontSize: 11, color: "rgba(15,23,42,.55)" }}
-								>
-									{methodSub(method)}
-								</Typography>
-
-								<Box
-									sx={{
-										mt: 0.9,
-										display: "flex",
-										justifyContent: "space-between",
-										gap: 1,
-									}}
-								>
-									<Typography
-										sx={{
-											fontSize: 11.5,
-											fontWeight: 900,
-											color: "rgba(15,23,42,.60)",
-										}}
-									>
-										Nama tampil
-									</Typography>
-									<Typography
-										sx={{
-											fontSize: 12,
-											fontWeight: 1100,
-											color: "rgba(15,23,42,.78)",
-										}}
-									>
-										{displayName}
 									</Typography>
 								</Box>
 							</Box>
 
 							{/* Identity */}
-							<Typography
-								sx={{
-									mt: 1.4,
-									fontSize: 12,
-									fontWeight: 1000,
-									color: "rgba(15,23,42,.80)",
-								}}
-							>
-								Identitas Donatur
-							</Typography>
-
-							<Box
-								sx={{
-									mt: 1,
-									borderRadius: "12px",
-									border: "1px solid rgba(15,23,42,0.10)",
-									bgcolor: "#fff",
-									p: 1.2,
-								}}
-							>
-								<Box
+							<Box sx={{ mb: 3 }}>
+								<Typography
 									sx={{
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "space-between",
-										gap: 1,
+										fontSize: 12,
+										fontWeight: 1000,
+										color: "rgba(15,23,42,.80)",
+										mb: 1,
 									}}
 								>
-									<Box sx={{ minWidth: 0 }}>
-										<Typography
-											sx={{
-												fontSize: 12.5,
-												fontWeight: 1100,
-												color: "rgba(15,23,42,.85)",
-											}}
-										>
-											Donasi sebagai Anonim
-										</Typography>
-										<Typography
-											sx={{
-												mt: 0.35,
-												fontSize: 11,
-												color: "rgba(15,23,42,.55)",
-											}}
-										>
-											Nama kamu tidak akan ditampilkan.
-										</Typography>
-									</Box>
-									<Toggle
-										checked={isAnonymous}
-										onChange={(v) => setIsAnonymous(v)}
-									/>
-								</Box>
+									Identitas Donatur
+								</Typography>
 
-								<Box sx={{ mt: 1.1 }}>
-									<Typography
+								<Box
+									sx={{
+										borderRadius: "12px",
+										border: "1px solid rgba(15,23,42,0.10)",
+										bgcolor: "#fff",
+										p: 1.5,
+									}}
+								>
+									<Box
 										sx={{
-											fontSize: 11.5,
-											fontWeight: 900,
-											color: "rgba(15,23,42,.60)",
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "space-between",
+											mb: 2,
 										}}
 									>
-										Nama (opsional)
-									</Typography>
-									<Box
-										component="input"
-										placeholder="Tulis nama kamu"
-										value={donorName}
-										onChange={(e) => setDonorName(e.target.value)}
-										disabled={isAnonymous}
-										style={{
-											width: "100%",
-											marginTop: 8,
-											outline: "none",
-											border: "1px solid rgba(15,23,42,0.10)",
-											borderRadius: 12,
-											padding: "10px 12px",
-											background: isAnonymous ? "rgba(15,23,42,0.04)" : "#fff",
-											fontWeight: 900,
-											fontSize: 12.5,
-											color: "rgba(15,23,42,.82)",
-										}}
-									/>
-								</Box>
-							</Box>
-
-							{/* Campaign list */}
-							<Typography
-								sx={{
-									mt: 1.4,
-									fontSize: 12,
-									fontWeight: 1000,
-									color: "rgba(15,23,42,.80)",
-								}}
-							>
-								Pilih campaign
-							</Typography>
-
-							<Box sx={{ mt: 1, display: "grid", gap: 1 }}>
-								{campaigns.map((c) => {
-									const active = c.id === campaignId;
-
-									return (
-										<Box
-											key={c.id}
-											component="button"
-											type="button"
-											onClick={() => setCampaignId(c.id)}
-											sx={{
-												textAlign: "left",
-												width: "100%",
-												borderRadius: 1,
-												p: 1.2,
-												cursor: "pointer",
-												border: active
-													? "1px solid rgba(97,206,112,0.45)"
-													: "1px solid rgba(15,23,42,0.10)",
-												bgcolor: active
-													? "rgba(97,206,112,0.10)"
-													: "rgba(255,255,255,0.92)",
-												boxShadow: active
-													? "0 16px 28px rgba(97,206,112,.10)"
-													: "0 14px 22px rgba(15,23,42,.05)",
-												transition: "transform 120ms ease",
-												"&:active": { transform: "scale(0.995)" },
-											}}
-										>
+										<Box>
 											<Typography
 												sx={{
 													fontSize: 12.5,
 													fontWeight: 1100,
-													color: "#0f172a",
-													lineHeight: 1.2,
-													display: "-webkit-box",
-													WebkitLineClamp: 2,
-													WebkitBoxOrient: "vertical",
-													overflow: "hidden",
+													color: "rgba(15,23,42,.85)",
 												}}
 											>
-												{c.title}
-											</Typography>
-											<Typography
-												sx={{
-													mt: 0.5,
-													fontSize: 11,
-													color: "rgba(15,23,42,.60)",
-												}}
-											>
-												{c.organizer}
+												Sembunyikan nama (Hamba Allah)
 											</Typography>
 										</Box>
-									);
-								})}
+										<Toggle
+											checked={isAnonymous}
+											onChange={(v) => {
+												setIsAnonymous(v);
+												if (v) {
+													setDonorName("");
+												}
+											}}
+										/>
+									</Box>
+
+									{!isAnonymous && (
+										<TextField
+											fullWidth
+											placeholder="Nama Lengkap"
+											value={donorName}
+											onChange={(e) => setDonorName(e.target.value)}
+											sx={{
+												mb: 2,
+												"& .MuiOutlinedInput-root": {
+													borderRadius: "10px",
+													fontSize: "13px",
+												},
+											}}
+											size="small"
+										/>
+									)}
+
+									<TextField
+										fullWidth
+										placeholder="Nomor WhatsApp / HP"
+										value={donorPhone}
+										onChange={(e) => setDonorPhone(e.target.value)}
+										type="tel"
+										sx={{
+											"& .MuiOutlinedInput-root": {
+												borderRadius: "10px",
+												fontSize: "13px",
+											},
+										}}
+										size="small"
+									/>
+								</Box>
 							</Box>
+
+							{/* Message removed as requested */}
+
+							{/* Payment Method removed as requested */}
 						</Box>
 
 						{/* Footer actions */}
 						<Box sx={{ px: 2.2, pb: 2, display: "grid", gap: 1 }}>
-							<Box
-								component="button"
-								type="button"
-								onClick={onPay}
+							<Button
+								variant="contained"
+								fullWidth
+								size="large"
+								onClick={handleSubmit}
+								disabled={loading}
 								sx={{
-									width: "100%",
 									borderRadius: 3,
 									py: 1.15,
-									border: "1px solid rgba(97,206,112,0.35)",
 									bgcolor: PRIMARY,
 									color: "#0b1220",
 									fontWeight: 1100,
 									fontSize: 13,
-									cursor: "pointer",
-									boxShadow: "0 16px 28px rgba(97,206,112,.22)",
-									"&:active": { transform: "scale(0.99)" },
+									boxShadow: "0 16px 28px rgba(11,169,118,.22)",
+									"&:hover": { bgcolor: "#4bbf59" },
 								}}
 							>
-								Lanjut Bayar
-							</Box>
+								{loading ? (
+									<CircularProgress size={24} color="inherit" />
+								) : (
+									"Lanjut Bayar"
+								)}
+							</Button>
 
 							<Box
 								component="button"
@@ -906,6 +806,19 @@ export default function QuickDonate() {
 					</Box>
 				</Box>
 			)}
+			<Snackbar
+				open={!!error}
+				autoHideDuration={6000}
+				onClose={() => setError("")}
+			>
+				<Alert
+					onClose={() => setError("")}
+					severity="error"
+					sx={{ width: "100%" }}
+				>
+					{error}
+				</Alert>
+			</Snackbar>
 		</Box>
 	);
 }

@@ -22,7 +22,14 @@ import Avatar from "@mui/material/Avatar";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { alpha, useTheme } from "@mui/material/styles";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { getNotifications, markAsRead } from "@/actions/notification";
+import { getCampaigns } from "@/actions/campaign";
+import Paper from "@mui/material/Paper";
+import ClickAwayListener from "@mui/material/ClickAwayListener";
+import CircularProgress from "@mui/material/CircularProgress";
+import Link from "next/link";
 
 interface SimpleAppBarProps {
 	variant?: "solid" | "overlay";
@@ -31,16 +38,76 @@ interface SimpleAppBarProps {
 export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 	const theme = useTheme();
 	const router = useRouter();
-	const [searchValue, setSearchValue] = React.useState("");
+	const searchParams = useSearchParams();
+	const q = searchParams.get("q") || "";
+	const { data: session } = useSession();
+	const [searchValue, setSearchValue] = React.useState(q);
 	const [logoSrc, setLogoSrc] = React.useState("/brand/logo.png");
 	const isOverlay = variant === "overlay";
 
-	// Notification State
-	const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(null);
-	const [tabValue, setTabValue] = React.useState(0);
+	// Search state
+	const [searchResults, setSearchResults] = React.useState<any[]>([]);
+	const [isSearching, setIsSearching] = React.useState(false);
+	const [showResults, setShowResults] = React.useState(false);
 
-	const handleOpenNotifications = (event: React.MouseEvent<HTMLButtonElement>) => {
+	React.useEffect(() => {
+		setSearchValue(q);
+	}, [q]);
+
+	// Debounce search
+	React.useEffect(() => {
+		const timer = setTimeout(async () => {
+			if (searchValue.length >= 3) {
+				setIsSearching(true);
+				setShowResults(true);
+				try {
+					const res = await getCampaigns(1, 5, "all", searchValue);
+					if (res.success && res.data) {
+						setSearchResults(res.data);
+					}
+				} catch (error) {
+					console.error("Search error:", error);
+				} finally {
+					setIsSearching(false);
+				}
+			} else {
+				setSearchResults([]);
+				setShowResults(false);
+			}
+		}, 500);
+
+		return () => clearTimeout(timer);
+	}, [searchValue]);
+
+	// Notification State
+	const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
+		null,
+	);
+	const [tabValue, setTabValue] = React.useState(0);
+	const [notifications, setNotifications] = React.useState<any[]>([]);
+	const [unreadCount, setUnreadCount] = React.useState(0);
+
+	React.useEffect(() => {
+		if (session?.user?.id) {
+			fetchNotifications();
+		}
+	}, [session?.user?.id]);
+
+	const fetchNotifications = async () => {
+		if (!session?.user?.id) return;
+		const { notifications, unreadCount } = await getNotifications(
+			session.user.id,
+		);
+		setNotifications(notifications);
+		setUnreadCount(unreadCount);
+	};
+
+	const handleOpenNotifications = (
+		event: React.MouseEvent<HTMLButtonElement>,
+	) => {
 		setAnchorEl(event.currentTarget);
+		// Optionally refresh notifications on open
+		fetchNotifications();
 	};
 
 	const handleCloseNotifications = () => {
@@ -54,36 +121,10 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 	const open = Boolean(anchorEl);
 	const id = open ? "notification-popover" : undefined;
 
-	// Mock Data
-	const kabarItems = [
-		{
-			id: 1,
-			title: "Donasi Pak Asep Mencapai 50%",
-			desc: "Terima kasih atas partisipasi Anda. Campaign kini sudah setengah jalan!",
-			time: "2 jam lalu",
-		},
-		{
-			id: 2,
-			title: "Bantuan Sekolah Pelosok",
-			desc: "Penyaluran dana tahap 1 telah dilakukan. Cek update terbaru.",
-			time: "1 hari lalu",
-		},
-	];
-
-	const pesanItems = [
-		{
-			id: 1,
-			title: "Admin Pesona Kebaikan",
-			desc: "Selamat datang di Pesona Kebaikan! Lengkapi profil Anda untuk kemudahan berdonasi.",
-			time: "Baru saja",
-		},
-		{
-			id: 2,
-			title: "Verifikasi Akun",
-			desc: "Mohon unggah KTP untuk verifikasi akun penggalang dana.",
-			time: "3 hari lalu",
-		},
-	];
+	// Filter notifications based on tab
+	const displayedNotifications = notifications.filter((n) =>
+		tabValue === 0 ? n.type === "KABAR" : n.type === "PESAN",
+	);
 
 	// Colors depend on variant
 	const textColor = isOverlay ? "#ffffff" : theme.palette.text.primary;
@@ -96,18 +137,21 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 
 	return (
 		<AppBar
-			position="absolute"
+			position="fixed"
 			elevation={0}
 			color="transparent"
 			sx={{
 				top: 0,
-				left: 0,
-				right: 0,
-				zIndex: 50,
+				left: "50%",
+				transform: "translateX(-50%)",
+				width: "100%",
+				maxWidth: 480,
+				zIndex: 1100,
 				bgcolor: isOverlay ? "rgba(255,255,255,0.06)" : "background.paper",
 				backdropFilter: isOverlay ? "blur(12px)" : "none",
-				borderBottom: isOverlay ? "none" : `1px solid ${theme.palette.divider}`,
+				borderBottom: "none",
 				transition: "all 300ms ease",
+				boxShadow: "none",
 			}}
 		>
 			<Toolbar sx={{ px: 2, minHeight: 64, gap: 1.25 }}>
@@ -123,73 +167,240 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 							width: "auto",
 							objectFit: "contain",
 							display: "block",
-							filter: isOverlay
-								? "drop-shadow(0 10px 18px rgba(0,0,0,.45))"
-								: "none",
+							filter: "none",
 						}}
 						onError={() => setLogoSrc("/defaultimg.webp")}
 					/>
 				</Box>
 
-				<Box sx={{ flex: 1, minWidth: 0 }}>
-					<TextField
-						size="small"
-						placeholder="Cari donasi…"
-						value={searchValue}
-						onChange={(e) => setSearchValue(e.target.value)}
-						fullWidth
-						sx={{
-							minWidth: 0,
-							"& .MuiOutlinedInput-root": {
-								height: 40,
-								borderRadius: 3,
-								bgcolor: isOverlay
-									? "rgba(255,255,255,0.14)"
-									: alpha(theme.palette.text.primary, 0.04),
-								backdropFilter: "blur(10px)",
-								"& fieldset": {
-									borderWidth: 1,
-									borderColor: isOverlay
-										? "rgba(255,255,255,0.28)"
-										: "transparent",
-									transition: "all 0.2s ease",
-								},
-								"&:hover fieldset": {
-									borderColor: isOverlay
-										? "rgba(255,255,255,0.45)"
-										: theme.palette.primary.main,
-								},
-								"&.Mui-focused fieldset": {
-									borderColor: theme.palette.primary.main,
-								},
-							},
-							"& input": {
-								fontSize: 13,
-								color: isOverlay ? "#fff" : theme.palette.text.primary,
-							},
-							"& .MuiInputBase-input::placeholder": {
-								color: isOverlay
-									? "rgba(255,255,255,0.72)"
-									: theme.palette.text.secondary,
-								opacity: 1,
-							},
-						}}
-						InputProps={{
-							startAdornment: (
-								<Box
-									sx={{
-										pl: 1.25,
-										pr: 0.75,
+				<Box sx={{ flex: 1, minWidth: 0, position: "relative" }}>
+					<ClickAwayListener onClickAway={() => setShowResults(false)}>
+						<Box>
+							<TextField
+								size="small"
+								placeholder="Cari donasi…"
+								value={searchValue}
+								onChange={(e) => setSearchValue(e.target.value)}
+								onFocus={() => {
+									if (searchValue.length >= 3) setShowResults(true);
+								}}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										router.push(`/donasi?q=${encodeURIComponent(searchValue)}`);
+										setShowResults(false);
+									}
+								}}
+								fullWidth
+								sx={{
+									minWidth: 0,
+									"& .MuiOutlinedInput-root": {
+										height: 40,
+										borderRadius: 3,
+										bgcolor: isOverlay
+											? "rgba(255,255,255,0.14)"
+											: alpha(theme.palette.text.primary, 0.04),
+										backdropFilter: "blur(10px)",
+										"& fieldset": {
+											borderWidth: 1,
+											borderColor: isOverlay
+												? "rgba(255,255,255,0.28)"
+												: "transparent",
+											transition: "all 0.2s ease",
+										},
+										"&:hover fieldset": {
+											borderColor: isOverlay
+												? "rgba(255,255,255,0.45)"
+												: theme.palette.primary.main,
+										},
+										"&.Mui-focused fieldset": {
+											borderColor: theme.palette.primary.main,
+										},
+									},
+									"& input": {
+										fontSize: 13,
+										color: isOverlay ? "#fff" : theme.palette.text.primary,
+									},
+									"& .MuiInputBase-input::placeholder": {
 										color: isOverlay
-											? "rgba(255,255,255,0.9)"
+											? "rgba(255,255,255,0.72)"
 											: theme.palette.text.secondary,
-									}}
-								>
-									🔎
-								</Box>
-							),
-						}}
-					/>
+										opacity: 1,
+									},
+								}}
+								InputProps={{
+									startAdornment: (
+										<Box
+											sx={{
+												pl: 1.25,
+												pr: 0.75,
+												color: isOverlay
+													? "rgba(255,255,255,0.9)"
+													: theme.palette.text.secondary,
+												display: "flex",
+											}}
+										>
+											<svg
+												width="18"
+												height="18"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="2"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											>
+												<circle cx="11" cy="11" r="8" />
+												<path d="m21 21-4.35-4.35" />
+											</svg>
+										</Box>
+									),
+								}}
+							/>
+
+							{/* Search Results Dropdown */}
+							{showResults &&
+								(searchValue.length >= 3 || searchResults.length > 0) && (
+									<Paper
+										elevation={4}
+										sx={{
+											position: "absolute",
+											top: "100%",
+											left: 0,
+											right: 0,
+											mt: 1,
+											maxHeight: 400,
+											overflowY: "auto",
+											zIndex: 1200,
+											borderRadius: 1.5,
+											overflow: "hidden",
+											bgcolor: isOverlay
+												? "rgba(20, 20, 20, 0.85)"
+												: "background.paper",
+											backdropFilter: "blur(1000px)",
+											border: isOverlay
+												? "1px solid rgba(255,255,255,0.1)"
+												: "none",
+										}}
+									>
+										{isSearching ? (
+											<Box
+												sx={{ p: 2, display: "flex", justifyContent: "center" }}
+											>
+												<CircularProgress
+													size={24}
+													sx={{ color: isOverlay ? "#fff" : "primary.main" }}
+												/>
+											</Box>
+										) : searchResults.length > 0 ? (
+											<List disablePadding>
+												{searchResults.map((campaign) => (
+													<ListItemButton
+														key={campaign.id}
+														onClick={() => {
+															router.push(`/donasi/${campaign.slug}`);
+															setShowResults(false);
+														}}
+														sx={{
+															py: 1.5,
+															"&:hover": {
+																bgcolor: isOverlay
+																	? "rgba(255,255,255,0.08)"
+																	: "action.hover",
+															},
+														}}
+													>
+														<ListItemAvatar>
+															<Avatar
+																variant="rounded"
+																src={campaign.thumbnail}
+																alt={campaign.title}
+																sx={{ width: 48, height: 48, borderRadius: 2 }}
+															/>
+														</ListItemAvatar>
+														<ListItemText
+															primary={
+																<Typography
+																	variant="subtitle2"
+																	sx={{
+																		fontWeight: 700,
+																		lineHeight: 1.3,
+																		mb: 0.5,
+																		display: "-webkit-box",
+																		WebkitLineClamp: 2,
+																		WebkitBoxOrient: "vertical",
+																		overflow: "hidden",
+																		color: isOverlay ? "#fff" : "text.primary",
+																	}}
+																>
+																	{campaign.title}
+																</Typography>
+															}
+															secondary={
+																<Typography
+																	variant="caption"
+																	sx={{
+																		color: isOverlay
+																			? "rgba(255,255,255,0.7)"
+																			: "text.secondary",
+																	}}
+																>
+																	{campaign.category}
+																</Typography>
+															}
+														/>
+													</ListItemButton>
+												))}
+												<Divider
+													sx={{
+														borderColor: isOverlay
+															? "rgba(255,255,255,0.1)"
+															: "divider",
+													}}
+												/>
+												<ListItemButton
+													onClick={() => {
+														router.push(
+															`/donasi?q=${encodeURIComponent(searchValue)}`,
+														);
+														setShowResults(false);
+													}}
+													sx={{
+														justifyContent: "center",
+														py: 1.5,
+														"&:hover": {
+															bgcolor: isOverlay
+																? "rgba(255,255,255,0.08)"
+																: "action.hover",
+														},
+													}}
+												>
+													<Typography
+														variant="body2"
+														color="primary"
+														sx={{ fontWeight: 700 }}
+													>
+														Lihat semua hasil
+													</Typography>
+												</ListItemButton>
+											</List>
+										) : (
+											<Box sx={{ p: 3, textAlign: "center" }}>
+												<Typography
+													variant="body2"
+													sx={{
+														color: isOverlay
+															? "rgba(255,255,255,0.7)"
+															: "text.secondary",
+													}}
+												>
+													Tidak ditemukan hasil untuk "{searchValue}"
+												</Typography>
+											</Box>
+										)}
+									</Paper>
+								)}
+						</Box>
+					</ClickAwayListener>
 				</Box>
 
 				<IconButton
@@ -205,7 +416,7 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 						color: textColor,
 					}}
 				>
-					<Badge badgeContent={2} color="error">
+					<Badge badgeContent={unreadCount} color="error">
 						<NotificationsIcon color="inherit" />
 					</Badge>
 				</IconButton>
@@ -246,8 +457,8 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 									fontSize: 14,
 									minHeight: 48,
 								},
-								"& .Mui-selected": { color: "#61ce70" },
-								"& .MuiTabs-indicator": { bgcolor: "#61ce70" },
+								"& .Mui-selected": { color: "#0ba976" },
+								"& .MuiTabs-indicator": { bgcolor: "#0ba976" },
 							}}
 						>
 							<Tab label="Kabar" />
@@ -256,20 +467,59 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 					</Box>
 
 					<Box sx={{ p: 0, overflowY: "auto", maxHeight: 400 }}>
-						{tabValue === 0 && (
-							<List disablePadding>
-								{kabarItems.map((item) => (
+						<List disablePadding>
+							{displayedNotifications.length === 0 ? (
+								<Box sx={{ p: 3, textAlign: "center" }}>
+									<Typography variant="body2" color="text.secondary">
+										Tidak ada notifikasi
+									</Typography>
+								</Box>
+							) : (
+								displayedNotifications.map((item) => (
 									<React.Fragment key={item.id}>
-										<ListItemButton alignItems="flex-start">
+										<ListItemButton
+											alignItems="flex-start"
+											sx={{
+												bgcolor: item.isRead
+													? "transparent"
+													: alpha(theme.palette.primary.main, 0.05),
+											}}
+											onClick={() => {
+												if (!item.isRead) {
+													markAsRead(item.id);
+													setNotifications((prev) =>
+														prev.map((n) =>
+															n.id === item.id ? { ...n, isRead: true } : n,
+														),
+													);
+													setUnreadCount((prev) => Math.max(0, prev - 1));
+												}
+											}}
+										>
 											<ListItemAvatar>
-												<Avatar sx={{ bgcolor: "#f0fdf4", color: "#16a34a" }}>
-													<CampaignIcon />
+												<Avatar
+													sx={{
+														bgcolor:
+															item.type === "KABAR" ? "#f0fdf4" : "#eff6ff",
+														color:
+															item.type === "KABAR" ? "#16a34a" : "#2563eb",
+													}}
+												>
+													{item.type === "KABAR" ? (
+														<CampaignIcon />
+													) : (
+														<AdminPanelSettingsIcon />
+													)}
 												</Avatar>
 											</ListItemAvatar>
 											<ListItemText
 												primary={
 													<Typography
-														sx={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}
+														sx={{
+															fontSize: 14,
+															fontWeight: 700,
+															color: "#0f172a",
+														}}
 													>
 														{item.title}
 													</Typography>
@@ -288,14 +538,22 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 																lineHeight: 1.4,
 															}}
 														>
-															{item.desc}
+															{item.message}
 														</Typography>
 														<Typography
 															component="span"
 															variant="caption"
 															sx={{ fontSize: 11, color: "#94a3b8" }}
 														>
-															{item.time}
+															{new Date(item.createdAt).toLocaleDateString(
+																"id-ID",
+																{
+																	day: "numeric",
+																	month: "short",
+																	hour: "2-digit",
+																	minute: "2-digit",
+																},
+															)}
 														</Typography>
 													</React.Fragment>
 												}
@@ -303,59 +561,9 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 										</ListItemButton>
 										<Divider component="li" />
 									</React.Fragment>
-								))}
-							</List>
-						)}
-						{tabValue === 1 && (
-							<List disablePadding>
-								{pesanItems.map((item) => (
-									<React.Fragment key={item.id}>
-										<ListItemButton alignItems="flex-start">
-											<ListItemAvatar>
-												<Avatar sx={{ bgcolor: "#eff6ff", color: "#2563eb" }}>
-													<AdminPanelSettingsIcon />
-												</Avatar>
-											</ListItemAvatar>
-											<ListItemText
-												primary={
-													<Typography
-														sx={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}
-													>
-														{item.title}
-													</Typography>
-												}
-												secondary={
-													<React.Fragment>
-														<Typography
-															component="span"
-															variant="body2"
-															sx={{
-																display: "block",
-																fontSize: 12,
-																color: "#64748b",
-																mt: 0.5,
-																mb: 0.5,
-																lineHeight: 1.4,
-															}}
-														>
-															{item.desc}
-														</Typography>
-														<Typography
-															component="span"
-															variant="caption"
-															sx={{ fontSize: 11, color: "#94a3b8" }}
-														>
-															{item.time}
-														</Typography>
-													</React.Fragment>
-												}
-											/>
-										</ListItemButton>
-										<Divider component="li" />
-									</React.Fragment>
-								))}
-							</List>
-						)}
+								))
+							)}
+						</List>
 					</Box>
 					<Box
 						sx={{
@@ -374,7 +582,7 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 							sx={{
 								fontSize: 12,
 								fontWeight: 600,
-								color: "#61ce70",
+								color: "#0ba976",
 								cursor: "pointer",
 								"&:hover": { textDecoration: "underline" },
 							}}

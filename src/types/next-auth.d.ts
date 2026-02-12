@@ -1,8 +1,10 @@
-import { Role } from "@/generated/prisma/enums";
-import NextAuth, { DefaultSession } from "next-auth";
+import { Role } from "@/generated/prisma";
+import { DefaultSession } from "next-auth";
 
 export type ExtendedUser = DefaultSession["user"] & {
+  id: string;
   role: Role;
+  phone?: string | null;
 };
 
 declare module "next-auth" {
@@ -12,11 +14,13 @@ declare module "next-auth" {
   
   interface User {
     role: Role;
+    phone?: string | null;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     role: Role;
+    phone?: string | null;
   }
 }

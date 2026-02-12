@@ -6,63 +6,95 @@ import { useRouter } from "next/navigation";
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Snackbar from "@mui/material/Snackbar";
-import Alert from "@mui/material/Alert";
+import ButtonBase from "@mui/material/ButtonBase";
+import Backdrop from "@mui/material/Backdrop";
+import Paper from "@mui/material/Paper";
+import Grow from "@mui/material/Grow";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
+import Portal from "@mui/material/Portal";
+import { alpha } from "@mui/material/styles";
 
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
 import MosqueIcon from "@mui/icons-material/Mosque";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import EventRepeatIcon from "@mui/icons-material/EventRepeat";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import HandshakeIcon from "@mui/icons-material/Handshake";
-import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
-import SavingsIcon from "@mui/icons-material/Savings";
+import type { SvgIconComponent } from "@mui/icons-material";
 
+const BRAND = "#0ba976";
+
+type MenuStatus = "new" | "soon";
 type MenuItem = {
+	id: string;
 	label: string;
-	icon: React.ReactNode;
-	isNew?: boolean;
-	href?: string; // <— tambah ini
+	href?: string;
+	status?: MenuStatus;
+	Icon: SvgIconComponent;
 };
 
-const menus: MenuItem[] = [
+const MENUS: readonly MenuItem[] = [
 	{
+		id: "donasi",
 		label: "Donasi",
-		href: "/donasi", // <— ini yang kita arahkan
-		icon: <VolunteerActivismIcon fontSize="large" color="primary" />,
+		href: "/donasi",
+		status: "new",
+		Icon: VolunteerActivismIcon,
 	},
-	{ label: "Zakat", icon: <MosqueIcon fontSize="large" color="primary" /> },
+	{ id: "zakat", label: "Zakat", status: "soon", Icon: MosqueIcon },
 	{
+		id: "galang-dana",
 		label: "Galang Dana",
-		href: "/galang-dana", // <— ini yang kita arahkan
-		icon: <CampaignIcon fontSize="large" color="primary" />,
+		href: "/galang-dana",
+		Icon: CampaignIcon,
 	},
 	{
+		id: "donasi-otomatis",
 		label: "Donasi Otomatis",
-		icon: <EventRepeatIcon fontSize="large" color="primary" />,
+		status: "soon",
+		Icon: EventRepeatIcon,
 	},
 ];
 
 export default function QuickMenu() {
 	const router = useRouter();
+
 	const [open, setOpen] = React.useState(false);
 	const [msg, setMsg] = React.useState("");
+	const [toastKey, setToastKey] = React.useState(0);
 
-	const toastSoon = (label: string) => {
-		setMsg(`${label} — fitur segera hadir`);
+	const timerRef = React.useRef<number | null>(null);
+
+	const showToast = React.useCallback((text: string) => {
+		setMsg(text);
+		setToastKey((k) => k + 1); // restart animation
 		setOpen(true);
-	};
+	}, []);
 
-	const handleActivate = (m: MenuItem) => {
-		if (m.href) {
-			router.push(m.href);
-			return;
-		}
-		toastSoon(m.label);
-	};
+	// auto close (restart tiap kali toastKey berubah)
+	React.useEffect(() => {
+		if (!open) return;
+
+		if (timerRef.current) window.clearTimeout(timerRef.current);
+		timerRef.current = window.setTimeout(() => setOpen(false), 2200);
+
+		return () => {
+			if (timerRef.current) window.clearTimeout(timerRef.current);
+		};
+	}, [open, toastKey]);
+
+	const handleActivate = React.useCallback(
+		(m: MenuItem) => {
+			if (m.href) {
+				router.push(m.href);
+				return;
+			}
+			showToast(`${m.label} — fitur segera hadir`);
+		},
+		[router, showToast],
+	);
 
 	return (
-		<Box sx={{ px: 2, mt: 2 }}>
+		<Box sx={{ px: 2, mt: 2, position: "relative", zIndex: 2 }}>
 			<Typography
 				sx={{ fontSize: 16, fontWeight: 800, color: "text.primary", mb: 1.5 }}
 			>
@@ -74,50 +106,64 @@ export default function QuickMenu() {
 					display: "grid",
 					gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
 					gap: 1.25,
-					borderRadius: "12px",
-					bgcolor: "background.paper",
 				}}
 			>
-				{menus.map((m) => {
-					const isLink = !!m.href;
-
-					const cell = (
-						<Box
-							role={isLink ? "link" : "button"}
-							tabIndex={0}
+				{MENUS.map((m) => {
+					const content = (
+						<ButtonBase
 							onClick={() => handleActivate(m)}
-							onKeyDown={(e) => e.key === "Enter" && handleActivate(m)}
-							sx={{
+							sx={(theme) => ({
+								width: "100%",
 								textAlign: "center",
 								py: 1,
+								borderRadius: 1,
 								position: "relative",
-								borderRadius: "8px",
-								cursor: "pointer",
-								userSelect: "none",
+								display: "block",
 								transition: "transform 120ms ease, background-color 120ms ease",
 								"&:active": { transform: "scale(0.98)" },
-								"&:hover": { backgroundColor: "action.hover" },
-							}}
+							})}
 						>
-							{/* Icon bubble */}
 							<Box
-								sx={{
+								sx={(theme) => ({
 									mx: "auto",
-									width: 50,
-									height: 50,
+									width: 58,
+									height: 58,
 									borderRadius: 999,
 									display: "grid",
 									placeItems: "center",
-									bgcolor: "rgba(97,206,112,0.14)",
-									border: "1px solid rgba(97,206,112,0.28)",
-									boxShadow: "0 10px 24px rgba(15,23,42,.06)",
+									bgcolor: alpha(theme.palette.success.main, 0.08),
+									border: `1px solid ${alpha(theme.palette.success.main, 0.12)}`,
+									boxShadow: "0 4px 12px rgba(11,169,118,0.08)",
 									overflow: "hidden",
-								}}
+								})}
 							>
-								{m.icon}
+								<m.Icon sx={{ fontSize: 34 }} color="primary" />
 							</Box>
 
-							{/* Label */}
+							{m.status && (
+								<Box
+									sx={(theme) => ({
+										position: "absolute",
+										top: 4,
+										right: 10,
+										bgcolor:
+											m.status === "soon"
+												? theme.palette.error.main
+												: theme.palette.success.main,
+										color: "white",
+										fontSize: "0.5rem",
+										fontWeight: 900,
+										px: 0.45,
+										py: 0.12,
+										borderRadius: 0.6,
+										boxShadow: 1,
+										zIndex: 2,
+									})}
+								>
+									{m.status === "soon" ? "SOON" : "NEW"}
+								</Box>
+							)}
+
 							<Typography
 								sx={{
 									mt: 0.9,
@@ -134,50 +180,95 @@ export default function QuickMenu() {
 							>
 								{m.label}
 							</Typography>
-						</Box>
+						</ButtonBase>
 					);
 
-					// Supaya aksesibilitas & SEO oke, kalau ada href bungkus Link
-					return (
-						<Box key={m.label}>
-							{isLink ? (
-								<Link
-									href={m.href!}
-									style={{ textDecoration: "none", color: "inherit" }}
-								>
-									{cell}
-								</Link>
-							) : (
-								cell
-							)}
+					return m.href ? (
+						<Box
+							key={m.id}
+							component={Link}
+							href={m.href}
+							sx={{ textDecoration: "none" }}
+						>
+							{content}
 						</Box>
+					) : (
+						<Box key={m.id}>{content}</Box>
 					);
 				})}
 			</Box>
 
 			<Box sx={{ mt: 2, height: 1, bgcolor: "divider" }} />
 
-			{/* Toast */}
-			<Snackbar
-				open={open}
-				autoHideDuration={2200}
-				onClose={() => setOpen(false)}
-				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-			>
-				<Alert
-					onClose={() => setOpen(false)}
-					severity="info"
-					variant="filled"
+			<Portal>
+				<Backdrop
+					key={toastKey}
+					open={open}
+					onClick={() => setOpen(false)}
 					sx={{
-						borderRadius: 3,
-						bgcolor: "text.primary",
-						color: "background.paper",
-						"& .MuiAlert-icon": { color: "background.paper" },
+						zIndex: 13000,
+						position: "fixed",
+						inset: 0,
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						p: 2,
+						// lebih soft, tidak bikin gelap berat
+						backgroundColor: alpha("#0f172a", 0.06),
 					}}
 				>
-					{msg}
-				</Alert>
-			</Snackbar>
+					<Grow in={open} timeout={160}>
+						<Paper
+							onClick={(e) => e.stopPropagation()}
+							elevation={0}
+							sx={{
+								borderRadius: 3,
+								bgcolor: "background.paper",
+								color: "text.primary",
+								px: 2,
+								py: 1.25,
+								minWidth: 220,
+								maxWidth: "min(420px, calc(100vw - 32px))",
+								display: "flex",
+								alignItems: "center",
+								gap: 1,
+								border: `1px solid ${alpha(BRAND, 0.28)}`,
+								boxShadow: "0 14px 34px rgba(15,23,42,.14)",
+								position: "relative",
+								overflow: "hidden",
+								// aksen brand di kiri
+								"&::before": {
+									content: '""',
+									position: "absolute",
+									left: 0,
+									top: 0,
+									bottom: 0,
+									width: 6,
+									backgroundColor: BRAND,
+								},
+							}}
+						>
+							<Typography
+								sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1.3, flex: 1 }}
+							>
+								{msg}
+							</Typography>
+
+							<IconButton
+								size="small"
+								onClick={() => setOpen(false)}
+								sx={{
+									color: alpha("#0f172a", 0.7),
+									"&:hover": { bgcolor: alpha(BRAND, 0.1) },
+								}}
+								aria-label="Close"
+							>
+								<CloseIcon fontSize="small" />
+							</IconButton>
+						</Paper>
+					</Grow>
+				</Backdrop>
+			</Portal>
 		</Box>
 	);
 }

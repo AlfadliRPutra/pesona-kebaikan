@@ -4,9 +4,10 @@ import * as React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import Link from "next/link";
 import { keyframes } from "@mui/system";
 
-const PRIMARY = "#61ce70";
+const PRIMARY = "#0ba976";
 
 type Prayer = {
 	id: string;
@@ -16,39 +17,6 @@ type Prayer = {
 	message: string;
 	amiinCount: number;
 };
-
-const prayers: Prayer[] = [
-	{
-		id: "d1",
-		name: "Amanda",
-		time: "9 jam lalu",
-		campaignTitle: "TUHANI Tolong Jamah Anak-Anak...",
-		message: "Smoga bermanfaat dan menjadi berkatt",
-		amiinCount: 5,
-	},
-	{
-		id: "d2",
-		name: "Anonim",
-		time: "3 jam lalu",
-		campaignTitle: "Bantu Operasi Darurat untuk Pasien...",
-		message: "Semoga lekas sembuh dan dipermudah semuanya. Aamiin.",
-		amiinCount: 18,
-	},
-	{
-		id: "d3",
-		name: "Rina",
-		time: "Kemarin",
-		campaignTitle: "DARURAT! Bantu Korban Banjir...",
-		message: "Semoga cepat terkumpul dan penyaluran lancar ya.",
-		amiinCount: 11,
-	},
-];
-
-const heartFloat = keyframes`
-  0%   { transform: translate(0, 0) scale(.85); opacity: 0; }
-  12%  { opacity: 1; }
-  100% { transform: translate(var(--dx), -54px) scale(1.15); opacity: 0; }
-`;
 
 const confettiFloat = keyframes`
   0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
@@ -62,6 +30,12 @@ const pop = keyframes`
   100% { transform: scale(1); }
 `;
 
+const heartFloat = keyframes`
+  0%   { transform: translate(0, 0); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translate(var(--dx), -56px); opacity: 0; }
+`;
+
 function AvatarIcon() {
 	return (
 		<Box
@@ -72,7 +46,7 @@ function AvatarIcon() {
 				display: "grid",
 				placeItems: "center",
 				bgcolor: "rgba(15,23,42,0.06)",
-				border: "1px solid rgba(15,23,42,0.08)",
+				border: "none",
 				flexShrink: 0,
 			}}
 		>
@@ -123,10 +97,15 @@ type Particle = {
 	color?: string;
 };
 
-export default function PrayersSection() {
+export default function PrayersSection({
+	prayers = [],
+}: {
+	prayers?: Prayer[];
+}) {
 	const [liked, setLiked] = React.useState<Record<string, boolean>>({});
 	const [particles, setParticles] = React.useState<Particle[]>([]);
 	const [pulsing, setPulsing] = React.useState<Record<string, boolean>>({});
+	const [counts, setCounts] = React.useState<Record<string, number>>({});
 
 	const idRef = React.useRef(0);
 	const nextId = React.useCallback(() => {
@@ -157,7 +136,7 @@ export default function PrayersSection() {
 		const confetti: Particle[] = Array.from({ length: 8 }).map((_, i) => {
 			const size = 4 + (i % 4);
 			const color =
-				i % 2 === 0 ? "rgba(97,206,112,0.95)" : "rgba(15,23,42,0.18)";
+				i % 2 === 0 ? "rgba(11,169,118,0.95)" : "rgba(15,23,42,0.18)";
 			const dx = ((i * 9) % 56) - 28;
 			const rot = ((i * 37) % 260) - 130;
 			return {
@@ -177,16 +156,35 @@ export default function PrayersSection() {
 
 		next.forEach((p) => {
 			const dur = p.kind === "heart" ? 900 : 800;
-			window.setTimeout(() => {
-				setParticles((prev) => prev.filter((x) => x.id !== p.id));
-			}, dur + p.delayMs + 80);
+			window.setTimeout(
+				() => {
+					setParticles((prev) => prev.filter((x) => x.id !== p.id));
+				},
+				dur + p.delayMs + 80,
+			);
 		});
 	};
 
-	const toggleAmiin = (id: string) => {
-		spawnFX(id);
-		pulseCount(id);
-		setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
+	const toggleAmiin = async (id: string) => {
+		if (liked[id]) return;
+		try {
+			const res = await fetch("/api/prayers/amiin", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ donationId: id }),
+			});
+			const data = await res.json();
+			if (data && typeof data.count === "number") {
+				setCounts((prev) => ({ ...prev, [id]: data.count }));
+			}
+			if (!data?.already) {
+				spawnFX(id);
+				pulseCount(id);
+			}
+			setLiked((prev) => ({ ...prev, [id]: true }));
+		} catch {
+			setLiked((prev) => ({ ...prev, [id]: true }));
+		}
 	};
 
 	return (
@@ -214,7 +212,8 @@ export default function PrayersSection() {
 						borderRadius: 2,
 						"&:hover": { bgcolor: "rgba(15,23,42,.04)" },
 					}}
-					onClick={() => alert("Lihat semua doa (route menyusul)")}
+					component={Link}
+					href="/galang-dana"
 				>
 					Lihat semua
 				</Button>
@@ -225,10 +224,12 @@ export default function PrayersSection() {
 					display: "flex",
 					gap: 1.25,
 					overflowX: "auto",
-					pb: 1,
+					pb: 0,
 					scrollSnapType: "x mandatory",
 					WebkitOverflowScrolling: "touch",
-					"&::-webkit-scrollbar": { height: 0 },
+					"&::-webkit-scrollbar": { display: "none" },
+					msOverflowStyle: "none",
+					scrollbarWidth: "none",
 				}}
 			>
 				{prayers.map((p) => {
@@ -240,17 +241,17 @@ export default function PrayersSection() {
 						<Box
 							key={p.id}
 							sx={{
-								minWidth: 260,
-								maxWidth: 260,
-								borderRadius: "10px",
+								minWidth: 240,
+								maxWidth: 240,
+								borderRadius: 0,
 								bgcolor: "#fff",
-								border: "1px solid rgba(15,23,42,0.08)",
-								boxShadow: "0 14px 26px rgba(15,23,42,.06)",
+								border: "none",
+								boxShadow: "none",
 								overflow: "hidden",
 								scrollSnapAlign: "start",
 							}}
 						>
-							<Box sx={{ p: 1.4 }}>
+							<Box sx={{ p: 1.3 }}>
 								<Box
 									sx={{ display: "flex", alignItems: "flex-start", gap: 1.1 }}
 								>
@@ -298,8 +299,8 @@ export default function PrayersSection() {
 												px: 1,
 												py: "3px",
 												borderRadius: 999,
-												border: "1px solid rgba(97,206,112,0.22)",
-												bgcolor: "rgba(97,206,112,0.10)",
+												border: "1px solid rgba(11,169,118,0.22)",
+												bgcolor: "rgba(11,169,118,0.10)",
 											}}
 										>
 											<Typography
@@ -354,7 +355,7 @@ export default function PrayersSection() {
 										animation: isPulse ? `${pop} 260ms ease` : "none",
 									}}
 								>
-									{p.amiinCount + (isLiked ? 1 : 0)} orang mengaminkan doa ini
+									{counts[p.id] ?? p.amiinCount} orang mengaminkan doa ini
 								</Typography>
 							</Box>
 
