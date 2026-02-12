@@ -2,26 +2,32 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-	Box,
-	Typography,
-	Avatar,
-	Chip,
-	Divider,
-} from "@mui/material";
+import { Box, Typography, Avatar, Chip, Divider } from "@mui/material";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import NoteAddOutlinedIcon from "@mui/icons-material/NoteAddOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 interface CampaignFundraiserProps {
 	data: any;
 	setOpenFundDetailsModal: (open: boolean) => void;
+	setOpenPatientModal: (open: boolean) => void;
 }
 
 export default function CampaignFundraiser({
 	data,
 	setOpenFundDetailsModal,
+	setOpenPatientModal,
 }: CampaignFundraiserProps) {
+	const isMedical = React.useMemo(() => {
+		const slug = (data.categorySlug || "").toLowerCase();
+		const name = (data.category || "").toLowerCase();
+		return (
+			slug === "medis" || name.includes("medis") || name.includes("kesehatan")
+		);
+	}, [data.categorySlug, data.category]);
+
 	return (
 		<Box sx={{ mb: 3 }}>
 			<Typography
@@ -90,29 +96,77 @@ export default function CampaignFundraiser({
 									>
 										{data.ownerName}
 									</Typography>
-									<VerifiedUserIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
-									<Chip
-										label="ORG"
-										size="small"
-										sx={{
-											height: 16,
-											fontSize: 9,
-											fontWeight: 700,
-											bgcolor: "#e0f2fe",
-											color: "#0284c7",
-											borderRadius: 1,
-											px: 0.5,
-											"& .MuiChip-label": { px: 0.5 },
-										}}
-									/>
+									{data.ownerVerifiedAt ? (
+										<>
+											<VerifiedUserIcon
+												sx={{ fontSize: 16, color: "#3b82f6" }}
+											/>
+											<Chip
+												label={
+													data.ownerVerifiedAs === "organization"
+														? "ORG"
+														: "PER"
+												}
+												size="small"
+												sx={{
+													height: 16,
+													fontSize: 9,
+													fontWeight: 700,
+													bgcolor: "#e0f2fe",
+													color: "#0284c7",
+													borderRadius: 1,
+													px: 0.5,
+													"& .MuiChip-label": { px: 0.5 },
+												}}
+											/>
+										</>
+									) : null}
 								</Box>
-								<Typography sx={{ fontSize: 12, color: "#64748b" }}>
-									Identitas terverifikasi
-								</Typography>
+								{data.ownerVerifiedAt ? (
+									<Typography sx={{ fontSize: 12, color: "#64748b" }}>
+										Identitas terverifikasi
+									</Typography>
+								) : null}
 							</Box>
 						</Box>
 					</Link>
 				</Box>
+
+				{isMedical && (
+					<>
+						<Divider />
+
+						<Box
+							onClick={() => setOpenPatientModal(true)}
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								p: 2,
+								cursor: "pointer",
+								"&:hover": { bgcolor: "#f8fafc" },
+							}}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+								<NoteAddOutlinedIcon sx={{ color: "#64748b", fontSize: 22 }} />
+								<Box>
+									<Typography
+										sx={{ fontSize: 14, fontWeight: 600, color: "#334155" }}
+									>
+										Data pasien & Info penerima dana
+									</Typography>
+									<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+										<Typography sx={{ fontSize: 12, color: "#64748b" }}>
+											Terverifikasi
+										</Typography>
+										<CheckCircleIcon sx={{ fontSize: 14, color: "#84cc16" }} />
+									</Box>
+								</Box>
+							</Box>
+							<NavigateNextIcon sx={{ color: "#94a3b8" }} />
+						</Box>
+					</>
+				)}
 
 				<Divider />
 

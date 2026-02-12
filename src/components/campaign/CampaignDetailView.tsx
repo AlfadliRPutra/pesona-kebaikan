@@ -13,6 +13,7 @@ import {
 	Snackbar,
 	Alert,
 	IconButton,
+	Chip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
@@ -36,6 +37,7 @@ import FundDetailsModal from "./detail/modals/FundDetailsModal";
 import DonorsModal from "./detail/modals/DonorsModal";
 import ReportModal from "./detail/modals/ReportModal";
 import MedicalModal from "./detail/modals/MedicalModal";
+import PatientModal from "./detail/modals/PatientModal";
 
 interface TabPanelProps {
 	children?: React.ReactNode;
@@ -137,6 +139,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 
 	// Modals State
 	const [openMedicalModal, setOpenMedicalModal] = React.useState(false);
+	const [openPatientModal, setOpenPatientModal] = React.useState(false);
 	const [openDonorsModal, setOpenDonorsModal] = React.useState(false);
 	const [openShareModal, setOpenShareModal] = React.useState(false);
 	const [openFundDetailsModal, setOpenFundDetailsModal] = React.useState(false);
@@ -181,12 +184,12 @@ export default function CampaignDetailView({ data }: { data: any }) {
 
 	const progress = Math.min(
 		100,
-		Math.round((data.collected / data.target) * 100)
+		Math.round((data.collected / data.target) * 100),
 	);
 
 	const donations = data.donations || [];
 	const prayers = donations.filter(
-		(d: any) => d.comment && d.comment.trim() !== ""
+		(d: any) => d.comment && d.comment.trim() !== "",
 	);
 	const latestDonations = donations.slice(0, 3);
 	const latestPrayers = prayers.slice(0, 3);
@@ -195,6 +198,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 	const withdrawalCount =
 		data.updates?.filter((u: any) => u.type === "withdrawal").length || 0;
 	const updateCount = data.updates?.length || 0;
+	const fundraiserCount = data.fundraisers?.length || 0;
 
 	// Calculate Fund Details
 	const totalCollected = data.collected || 0;
@@ -218,17 +222,17 @@ export default function CampaignDetailView({ data }: { data: any }) {
 		switch (platform) {
 			case "whatsapp":
 				url = `https://wa.me/?text=${encodeURIComponent(
-					shareText + " " + shareUrl
+					shareText + " " + shareUrl,
 				)}`;
 				break;
 			case "facebook":
 				url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-					shareUrl
+					shareUrl,
 				)}`;
 				break;
 			case "twitter":
 				url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-					shareText
+					shareText,
 				)}&url=${encodeURIComponent(shareUrl)}`;
 				break;
 			case "instagram":
@@ -282,7 +286,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				}}
 			>
 				<IconButton
-					onClick={() => router.back()}
+					onClick={() => router.push("/donasi")}
 					sx={{
 						color: "white",
 						bgcolor: "rgba(0,0,0,0.3)",
@@ -301,7 +305,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 					sx={{
 						px: 2,
 						py: 3,
-						mt: { xs: 0, sm: -4 },
+						mt: 0,
 						position: "relative",
 						bgcolor: "white",
 						borderRadius: { xs: 0, sm: "16px 16px 0 0" },
@@ -322,38 +326,51 @@ export default function CampaignDetailView({ data }: { data: any }) {
 					<CampaignFundraiser
 						data={data}
 						setOpenFundDetailsModal={setOpenFundDetailsModal}
+						setOpenPatientModal={setOpenPatientModal}
 					/>
 
 					<Divider sx={{ my: 3 }} />
 
-					{/* Tabs */}
-					<Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-						<Tabs
-							value={tabValue}
-							onChange={handleTabChange}
-							variant="fullWidth"
-							sx={{
-								"& .MuiTab-root": {
-									textTransform: "none",
-									fontWeight: 600,
-									fontSize: 14,
-								},
-								"& .Mui-selected": { color: "#0ba976" },
-								"& .MuiTabs-indicator": { bgcolor: "#0ba976" },
-							}}
-						>
-							<Tab label="Cerita" />
-							<Tab label="Kabar Terbaru" />
-						</Tabs>
-					</Box>
-
 					{/* Tab: Cerita */}
 					<CustomTabPanel value={tabValue} index={0}>
+						<Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+							Cerita Penggalangan Dana
+						</Typography>
 						<CampaignStory
 							data={data}
 							showFullStory={showFullStory}
 							setShowFullStory={setShowFullStory}
 						/>
+
+						<Box
+							onClick={() => setTabValue(1)}
+							sx={{
+								display: "flex",
+								justifyContent: "space-between",
+								alignItems: "center",
+								mb: 3,
+								mt: 3,
+								cursor: "pointer",
+							}}
+						>
+							<Typography variant="h6" sx={{ fontWeight: 700 }}>
+								Kabar Terbaru
+							</Typography>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+								<Chip
+									label={updateCount}
+									size="small"
+									sx={{
+										bgcolor: "#e0f2fe",
+										color: "#0284c7",
+										fontWeight: 700,
+										height: 24,
+										borderRadius: 1.5,
+									}}
+								/>
+								<NavigateNextIcon sx={{ color: "#94a3b8" }} />
+							</Box>
+						</Box>
 
 						{/* Pencairan Dana */}
 						{hasWithdrawals && (
@@ -379,11 +396,32 @@ export default function CampaignDetailView({ data }: { data: any }) {
 							latestDonations={latestDonations}
 							latestPrayers={latestPrayers}
 							setOpenDonorsModal={setOpenDonorsModal}
+							campaignId={data.id}
+							campaignSlug={data.slug}
+							fundraiserCount={fundraiserCount}
 						/>
 					</CustomTabPanel>
 
 					{/* Tab: Kabar Terbaru */}
 					<CustomTabPanel value={tabValue} index={1}>
+						<Box sx={{ mb: 2 }}>
+							<Button
+								startIcon={<ArrowBackIcon />}
+								onClick={() => setTabValue(0)}
+								sx={{
+									textTransform: "none",
+									color: "text.primary",
+									fontWeight: 600,
+									p: 0,
+									"&:hover": {
+										bgcolor: "transparent",
+										textDecoration: "underline",
+									},
+								}}
+							>
+								Kembali ke Cerita
+							</Button>
+						</Box>
 						<CampaignUpdates updates={data.updates} />
 					</CustomTabPanel>
 
@@ -434,6 +472,12 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				onClose={() => setOpenDonorsModal(false)}
 				donorsCount={data.donors}
 				donations={data.donations}
+			/>
+
+			<PatientModal
+				open={openPatientModal}
+				onClose={() => setOpenPatientModal(false)}
+				data={data}
 			/>
 
 			<MedicalModal
