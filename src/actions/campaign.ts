@@ -169,7 +169,10 @@ export async function getCampaigns(
   isEmergency?: boolean,
   isVerified?: boolean,
   sortBy: string = "newest",
-  includeQuickDonation: boolean = false
+  includeQuickDonation: boolean = false,
+  startDate?: string,
+  endDate?: string,
+  provinceId?: string
 ) {
   const skip = (page - 1) * limit;
 
@@ -212,6 +215,21 @@ export async function getCampaigns(
 
   if (isVerified) {
     where.verifiedAt = { not: null };
+  }
+
+  if (startDate || endDate) {
+    const range: any = {};
+    if (startDate) {
+      range.gte = new Date(startDate);
+    }
+    if (endDate) {
+      range.lte = new Date(endDate);
+    }
+    where.createdAt = range;
+  }
+
+  if (provinceId) {
+    where.createdBy = { provinceId };
   }
 
   let orderBy: Prisma.CampaignOrderByWithRelationInput = { createdAt: "desc" };
