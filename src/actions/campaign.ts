@@ -97,12 +97,20 @@ export async function createCampaign(formData: FormData) {
 		const target = parseFloat(targetStr.replace(/[^\d]/g, "")) || 0;
 
 		// Dates
-		const start = new Date();
-		const end = new Date();
-		if (duration && duration !== "custom") {
+		let start = new Date();
+		let end = new Date();
+
+		const customStart = formData.get("customStart") as string;
+		const customEnd = formData.get("customEnd") as string;
+
+		if (duration === "custom" && customStart && customEnd) {
+			start = new Date(customStart);
+			end = new Date(customEnd);
+			end.setHours(23, 59, 59, 999);
+		} else if (duration) {
 			end.setDate(end.getDate() + parseInt(duration));
 		} else {
-			// Default 30 days if custom or not specified
+			// Default 30 days if not specified
 			end.setDate(end.getDate() + 30);
 		}
 
@@ -395,6 +403,8 @@ export async function getCampaignBySlug(slug: string) {
 			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
 			phone: campaign.phone || "-",
 			target: Number(campaign.target),
+			start: campaign.start,
+			end: campaign.end,
 			collected,
 			donors,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
@@ -513,6 +523,8 @@ export async function getCampaignById(id: string) {
 			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
 			phone: campaign.phone || "-",
 			target: Number(campaign.target),
+			start: campaign.start,
+			end: campaign.end,
 			collected,
 			donors,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
@@ -630,6 +642,10 @@ export async function updateCampaign(id: string, formData: FormData) {
 
 		const target = parseFloat(targetStr?.replace(/[^\d]/g, "") || "0") || 0;
 
+		const duration = formData.get("duration") as string;
+		const customStart = formData.get("customStart") as string;
+		const customEnd = formData.get("customEnd") as string;
+
 		let category = await prisma.campaignCategory.findUnique({
 			where: { slug: categoryKey },
 		});
@@ -649,6 +665,27 @@ export async function updateCampaign(id: string, formData: FormData) {
 
 		if (!category) {
 			return { success: false, error: "Invalid category" };
+		}
+
+		// Dates Logic
+		const currentCampaign = await prisma.campaign.findUnique({
+			where: { id },
+			select: { start: true },
+		});
+
+		let start = currentCampaign?.start || new Date();
+		let end = new Date();
+
+		if (duration === "custom" && customStart && customEnd) {
+			start = new Date(customStart);
+			end = new Date(customEnd);
+			end.setHours(23, 59, 59, 999);
+		} else if (duration) {
+			end = new Date(start);
+			end.setDate(end.getDate() + parseInt(duration));
+		} else {
+			// fallback if duration is somehow missing but it shouldn't be
+			end.setDate(end.getDate() + 30);
 		}
 
 		// File upload
@@ -685,6 +722,8 @@ export async function updateCampaign(id: string, formData: FormData) {
 				story,
 				target,
 				phone,
+				start,
+				end,
 				categoryId: category.id,
 				...(status ? { status } : {}),
 			},
