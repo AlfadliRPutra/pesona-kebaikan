@@ -290,6 +290,7 @@ model Campaign {
   start       DateTime
   end         DateTime?
   phone       String?
+  metadata    Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -91,16 +91,53 @@ function statusColor(s: StatusKey) {
 
 function stepHint(stepsDone: number, stepsTotal: number) {
 	const map: Record<number, string> = {
-		0: "Isi judul & kategori",
-		1: "Tentukan target & durasi",
-		2: "Tulis ringkasan",
-		3: "Tulis cerita lengkap",
-		4: "Upload foto sampul",
-		5: "Tambah bukti / dokumen",
-		6: "Review & kirim pengajuan",
+		0: "Isi tujuan & data",
+		1: "Lengkapi detail medis/penerima",
+		2: "Tentukan target donasi",
+		3: "Isi judul campaign",
+		4: "Tulis cerita lengkap",
+		5: "Upload foto & dokumen",
+		6: "Review & kirim",
 	};
 	if (stepsDone >= stepsTotal) return "Selesai • Menunggu review";
 	return `Lanjut: ${map[stepsDone] ?? "Lanjutkan pengisian"}`;
+}
+
+function calculateStepsDone(c: any) {
+	if (c.status !== "draft") return 7;
+
+	const m = c.metadata || {};
+
+	// Step 0: Tujuan
+	if (!m.who && !m.purposeKey) return 0;
+
+	// Step 1: Detail (Pasien / Data Diri)
+	if (!m.patientName && !m.ktpName) return 1;
+
+	// Step 2: Riwayat / Penerima
+	if (c.type === "sakit") {
+		if (!m.treatment) return 2;
+	} else {
+		if (!m.receiverName) return 2;
+	}
+
+	// Step 3: Target
+	if (!c.target || Number(c.target) <= 0) return 3;
+
+	// Step 4: Judul
+	if (!c.title) return 4;
+
+	// Step 5: Cerita
+	if (!c.description) return 5;
+
+	// Step 6: Ajakan (CTA) - Optional? No, usually last step before review
+	// If we are strictly following 0-6 steps:
+	// 0: Tujuan, 1: Detail, 2: Riwayat, 3: Target, 4: Judul, 5: Cerita, 6: Ajakan
+
+	// If CTA is filled, then step 6 is done.
+	if (!m.cta && !m.ctaOther) return 6;
+
+	return 7;
 }
 
 function CounterPill({ n, active }: { n: number; active?: boolean }) {
@@ -152,7 +189,7 @@ export default function GalangDanaSayaPage() {
 				id: c.id,
 				title: c.title,
 				status: c.status,
-				stepsDone: c.status === "draft" ? 3 : 7, // Dummy logic preserved
+				stepsDone: calculateStepsDone(c),
 				stepsTotal: 7,
 				updatedAt: c.updatedAt,
 				thumbnail: c.thumbnail,

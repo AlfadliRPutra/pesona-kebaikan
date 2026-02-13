@@ -49,6 +49,16 @@ export async function createCampaign(formData: FormData) {
 
 		const phone = formData.get("phone") as string;
 
+		const metadataStr = formData.get("metadata") as string;
+		let metadata = undefined;
+		if (metadataStr) {
+			try {
+				metadata = JSON.parse(metadataStr);
+			} catch (e) {
+				console.error("Failed to parse metadata", e);
+			}
+		}
+
 		// File upload
 		const coverFile = formData.get("cover") as File;
 		let coverUrl = "";
@@ -129,6 +139,7 @@ export async function createCampaign(formData: FormData) {
 				categoryId: category.id,
 				createdById: session.user.id,
 				status,
+				metadata: metadata || Prisma.JsonNull,
 				media: coverUrl
 					? {
 							create: {
@@ -295,6 +306,8 @@ export async function getCampaigns(
 				thumbnail,
 				isEmergency: c.isEmergency,
 				verifiedAt: c.verifiedAt,
+				metadata: c.metadata,
+				description: c.story,
 			};
 		});
 
@@ -510,6 +523,7 @@ export async function getCampaignById(id: string) {
 			slug: campaign.slug,
 			title: campaign.title,
 			category: campaign.category.name,
+			categorySlug: campaign.category.slug,
 			type:
 				campaign.category.name === "Bantuan Medis & Kesehatan"
 					? "sakit"
@@ -533,6 +547,7 @@ export async function getCampaignById(id: string) {
 					? "ended"
 					: campaign.status.toLowerCase(),
 			description: campaign.story,
+			metadata: campaign.metadata,
 			updatedAt: campaign.updatedAt,
 			thumbnail,
 			images: campaign.media.map((m) => m.url),
@@ -640,6 +655,16 @@ export async function updateCampaign(id: string, formData: FormData) {
 		const phone = formData.get("phone") as string;
 		const status = formData.get("status") as CampaignStatus | null;
 
+		const metadataStr = formData.get("metadata") as string;
+		let metadata = undefined;
+		if (metadataStr) {
+			try {
+				metadata = JSON.parse(metadataStr);
+			} catch (e) {
+				console.error("Failed to parse metadata", e);
+			}
+		}
+
 		const target = parseFloat(targetStr?.replace(/[^\d]/g, "") || "0") || 0;
 
 		const duration = formData.get("duration") as string;
@@ -725,6 +750,7 @@ export async function updateCampaign(id: string, formData: FormData) {
 				start,
 				end,
 				categoryId: category.id,
+				...(metadata ? { metadata } : {}),
 				...(status ? { status } : {}),
 			},
 		});
