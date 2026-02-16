@@ -137,6 +137,35 @@ function BuatGalangDanaPageContent() {
 			if (res.success && res.data) {
 				const c = res.data;
 
+				// Fix: Ensure URL params match the campaign type/category
+				const correctType = c.type === "sakit" ? "sakit" : "lainnya";
+				const currentType = sp.get("type");
+				const currentCategory = sp.get("category");
+
+				let needsRedirect = false;
+				const newParams = new URLSearchParams(sp.toString());
+
+				if (currentType !== correctType) {
+					newParams.set("type", correctType);
+					needsRedirect = true;
+				}
+
+				if (
+					correctType === "lainnya" &&
+					(c as any).categorySlug &&
+					currentCategory !== (c as any).categorySlug
+				) {
+					newParams.set("category", (c as any).categorySlug);
+					needsRedirect = true;
+				}
+
+				if (needsRedirect) {
+					router.replace(`/galang-dana/buat?${newParams.toString()}`);
+					return;
+				}
+
+				const m = ((c as any).metadata as any) || {};
+
 				if (c.type === "sakit") {
 					setTitle(c.title);
 					setSlug(c.slug || "");
@@ -144,20 +173,30 @@ function BuatGalangDanaPageContent() {
 					setStory(c.description);
 					setPhone(c.phone || "");
 
-					// Dummy data for validation
-					setWho("other");
-					setBank("pasien");
-					setPatientName("Data Tersimpan");
-					setPatientAge("0");
-					setPatientGender("L");
-					setPatientCity("-");
-					setInpatient("tidak");
-					setTreatment("Data Tersimpan............."); // Needs length >= 10
-					setPrevCost("mandiri");
-					setUsage("Data Tersimpan............."); // Needs length >= 10
+					setWho(m.who || "other");
+					setWhoOther(m.whoOther || "");
+					setBank(m.bank || "pasien");
+					setPatientName(m.patientName || "");
+					setPatientAge(m.patientAge || "");
+					setPatientGender(m.patientGender || "L");
+					setPatientCity(m.patientCity || "");
+					setInpatient(m.inpatient || "tidak");
+					setTreatment(m.treatment || "");
+					setHospital(m.hospital || "");
+					setBpjs(m.bpjs || "tidak");
+					setPrevCost(m.prevCost || "mandiri");
+					setUsage(m.usage || "");
+					setCta(m.cta || "");
+
+					if (m.terms) {
+						setT1(m.terms.t1);
+						setT2(m.terms.t2);
+						setT3(m.terms.t3);
+						setT4(m.terms.t4);
+					}
 
 					const startDate = new Date(c.start);
-					const endDate = new Date(c.end);
+					const endDate = new Date(c.end || new Date());
 					const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
 					const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
@@ -170,13 +209,25 @@ function BuatGalangDanaPageContent() {
 						setCustomEnd(endDate.toISOString().split("T")[0]);
 					}
 
-					setCta("Bantu kami................"); // Needs length >= 10
+					// Auto-navigate to last incomplete step
+					let nextStep = 0;
+					// Step 0: Tujuan
+					if ((m.who || "other") && c.phone && (m.bank || "pasien"))
+						nextStep = 1;
+					// Step 1: Detail
+					if (nextStep === 1 && m.patientName && m.patientAge && m.patientCity)
+						nextStep = 2;
+					// Step 2: Riwayat
+					if (nextStep === 2 && m.inpatient && m.treatment && m.prevCost)
+						nextStep = 3;
+					// Step 3: Target
+					if (nextStep === 3 && c.target && Number(c.target) > 0) nextStep = 4;
+					// Step 4: Judul
+					if (nextStep === 4 && c.title) nextStep = 5;
+					// Step 5: Cerita
+					if (nextStep === 5 && c.description) nextStep = 6;
 
-					// Terms
-					setT1(true);
-					setT2(true);
-					setT3(true);
-					setT4(true);
+					setStep(nextStep);
 				} else {
 					setTitleOther(c.title);
 					setSlugOther(c.slug || "");
@@ -184,18 +235,27 @@ function BuatGalangDanaPageContent() {
 					setStoryOther(c.description);
 					setPhoneOther(c.phone || "");
 
-					// Dummy data
-					setPurposeKey("program");
-					setAgreeA(true);
-					setAgreeB(true);
-					setKtpName("Data Tersimpan");
-					setReceiverName("Data Tersimpan");
-					setGoal("Data Tersimpan............."); // >= 10
-					setLocation("Data Tersimpan");
-					setUsageOther("Data Tersimpan............."); // >= 10
+					setPurposeKey(m.purposeKey || "program");
+					setKtpName(m.ktpName || "");
+					setReceiverName(m.receiverName || "");
+					setGoal(m.goal || "");
+					setLocation(m.location || "");
+					setUsageOther(m.usageOther || "");
+					setCtaOther(m.ctaOther || "");
+
+					setJob(m.job || "");
+					setWorkplace(m.workplace || "");
+					setSoc(m.soc || "");
+					setSocHandle(m.socHandle || "");
+					setBeneficiaries(m.beneficiaries || "");
+
+					if (m.agree) {
+						setAgreeA(m.agree.agreeA);
+						setAgreeB(m.agree.agreeB);
+					}
 
 					const startDate = new Date(c.start);
-					const endDate = new Date(c.end);
+					const endDate = new Date(c.end || new Date());
 					const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
 					const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
@@ -208,7 +268,23 @@ function BuatGalangDanaPageContent() {
 						setCustomEndOther(endDate.toISOString().split("T")[0]);
 					}
 
-					setCtaOther("Bantu kami................"); // >= 10
+					// Auto-navigate to last incomplete step
+					let nextStep = 0;
+					// Step 0: Tujuan
+					if ((m.purposeKey || "program") && m.ktpName && c.phone) nextStep = 1;
+					// Step 1: Data Diri
+					if (nextStep === 1 && m.job && m.workplace) nextStep = 2;
+					// Step 2: Penerima
+					if (nextStep === 2 && m.receiverName && m.goal && m.location)
+						nextStep = 3;
+					// Step 3: Target
+					if (nextStep === 3 && c.target && Number(c.target) > 0) nextStep = 4;
+					// Step 4: Judul
+					if (nextStep === 4 && c.title) nextStep = 5;
+					// Step 5: Cerita
+					if (nextStep === 5 && c.description) nextStep = 6;
+
+					setStep(nextStep);
 				}
 
 				if (c.thumbnail) {
@@ -267,6 +343,8 @@ function BuatGalangDanaPageContent() {
 
 	const [inpatient, setInpatient] = React.useState<"ya" | "tidak" | "">("");
 	const [treatment, setTreatment] = React.useState("");
+	const [hospital, setHospital] = React.useState("");
+	const [bpjs, setBpjs] = React.useState<"ya" | "tidak" | "">("");
 	const [prevCost, setPrevCost] = React.useState<"mandiri" | "asuransi" | "">(
 		"",
 	);
@@ -409,7 +487,12 @@ function BuatGalangDanaPageContent() {
 					!!patientName && !!patientAge && !!patientGender && !!patientCity
 				);
 			if (stepKey === "riwayat")
-				return !!inpatient && treatment.trim().length >= 55 && !!prevCost;
+				return (
+					!!inpatient &&
+					(inpatient === "ya" ? !!hospital : true) &&
+					treatment.trim().length >= 55 &&
+					!!prevCost
+				);
 			if (stepKey === "target")
 				return (
 					!!onlyDigits(target) &&
@@ -464,6 +547,7 @@ function BuatGalangDanaPageContent() {
 		patientGender,
 		patientCity,
 		inpatient,
+		hospital,
 		treatment,
 		prevCost,
 		target,
@@ -620,6 +704,42 @@ function BuatGalangDanaPageContent() {
 
 			formData.append("story", storyOther);
 		}
+
+		// Prepare metadata
+		const metadata = isSakit
+			? {
+					who,
+					whoOther,
+					bank,
+					patientName,
+					patientAge,
+					patientGender,
+					patientCity,
+					treatment,
+					hospital,
+					inpatient,
+					bpjs,
+					prevCost,
+					usage,
+					cta,
+					terms: { t1, t2, t3, t4 },
+				}
+			: {
+					purposeKey,
+					ktpName,
+					receiverName,
+					goal,
+					location,
+					usageOther,
+					ctaOther,
+					job,
+					workplace,
+					soc,
+					socHandle,
+					beneficiaries,
+					agree: { agreeA, agreeB },
+				};
+		formData.append("metadata", JSON.stringify(metadata));
 
 		let res;
 		if (isEdit) {
@@ -836,6 +956,27 @@ function BuatGalangDanaPageContent() {
 									</Paper>
 								</RadioGroup>
 
+								{inpatient === "ya" && (
+									<Box sx={{ mt: 2 }}>
+										<Typography
+											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
+										>
+											Nama Rumah Sakit <span style={{ color: "red" }}>*</span>
+										</Typography>
+										<TextField
+											size="small"
+											sx={{
+												"& .MuiInputBase-input": { fontSize: 13.5 },
+												"& .MuiInputLabel-root": { fontSize: 13.5 },
+											}}
+											value={hospital}
+											onChange={(e) => setHospital(e.target.value)}
+											fullWidth
+											placeholder="Masukkan nama rumah sakit"
+										/>
+									</Box>
+								)}
+
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
 										Masukkan no. ponsel kamu{" "}
@@ -1041,6 +1182,27 @@ function BuatGalangDanaPageContent() {
 										/>
 									</Paper>
 								</RadioGroup>
+
+								{inpatient === "ya" && (
+									<Box sx={{ mt: 2 }}>
+										<Typography
+											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
+										>
+											Nama Rumah Sakit <span style={{ color: "red" }}>*</span>
+										</Typography>
+										<TextField
+											size="small"
+											sx={{
+												"& .MuiInputBase-input": { fontSize: 13.5 },
+												"& .MuiInputLabel-root": { fontSize: 13.5 },
+											}}
+											value={hospital}
+											onChange={(e) => setHospital(e.target.value)}
+											fullWidth
+											placeholder="Masukkan nama rumah sakit"
+										/>
+									</Box>
+								)}
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>

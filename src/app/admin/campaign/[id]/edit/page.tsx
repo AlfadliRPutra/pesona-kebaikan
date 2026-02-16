@@ -12,6 +12,8 @@ import {
 	Stack,
 	CircularProgress,
 	InputAdornment,
+	Snackbar,
+	Alert,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
@@ -34,6 +36,28 @@ export default function AdminEditCampaignPage() {
 	const [coverPreview, setCoverPreview] = React.useState<string>("");
 	const [target, setTarget] = React.useState<string>("");
 	const [campaign, setCampaign] = React.useState<any>(null);
+	const [featured, setFeatured] = React.useState<boolean>(false);
+
+	const [snackbar, setSnackbar] = React.useState<{
+		open: boolean;
+		message: string;
+		severity: "success" | "error" | "info" | "warning";
+	}>({
+		open: false,
+		message: "",
+		severity: "info",
+	});
+
+	const showSnackbar = (
+		message: string,
+		severity: "success" | "error" | "info" | "warning" = "info",
+	) => {
+		setSnackbar({ open: true, message, severity });
+	};
+
+	const handleCloseSnackbar = () => {
+		setSnackbar((prev) => ({ ...prev, open: false }));
+	};
 
 	React.useEffect(() => {
 		// Fetch categories
@@ -54,7 +78,7 @@ export default function AdminEditCampaignPage() {
 					setTarget(formatIDR(res.data.target.toString()));
 					setCoverPreview(res.data.thumbnail);
 				} else {
-					alert("Campaign tidak ditemukan");
+					showSnackbar("Campaign tidak ditemukan", "error");
 					router.push("/admin/campaign");
 				}
 				setLoading(false);
@@ -74,12 +98,15 @@ export default function AdminEditCampaignPage() {
 		setSubmitting(true);
 		const formData = new FormData(e.currentTarget);
 		formData.set("target", target.replace(/\D/g, ""));
+		if (featured) {
+			formData.set("metadata", JSON.stringify({ featured: true }));
+		}
 
 		const res = await updateCampaign(id, formData);
 		if (res.success) {
 			router.push("/admin/campaign");
 		} else {
-			alert(res.error || "Gagal mengupdate campaign");
+			showSnackbar(res.error || "Gagal mengupdate campaign", "error");
 		}
 		setSubmitting(false);
 	}
@@ -213,6 +240,17 @@ export default function AdminEditCampaignPage() {
 						)}
 					</Box>
 
+					<Box sx={{ display: "flex", alignItems: "center" }}>
+						<input
+							type="checkbox"
+							id="featured"
+							checked={featured}
+							onChange={(e) => setFeatured(e.target.checked)}
+							style={{ marginRight: 8 }}
+						/>
+						<label htmlFor="featured">Jadikan Pilihan Pesona</label>
+					</Box>
+
 					<Button
 						type="submit"
 						variant="contained"
@@ -229,6 +267,22 @@ export default function AdminEditCampaignPage() {
 					</Button>
 				</Stack>
 			</Paper>
+			<Snackbar
+				open={snackbar.open}
+				autoHideDuration={4000}
+				onClose={handleCloseSnackbar}
+				anchorOrigin={{ vertical: "top", horizontal: "center" }}
+				sx={{ zIndex: 99999 }}
+			>
+				<Alert
+					onClose={handleCloseSnackbar}
+					severity={snackbar.severity}
+					variant="filled"
+					sx={{ width: "100%", boxShadow: 3, fontWeight: 600 }}
+				>
+					{snackbar.message}
+				</Alert>
+			</Snackbar>
 		</Box>
 	);
 }
