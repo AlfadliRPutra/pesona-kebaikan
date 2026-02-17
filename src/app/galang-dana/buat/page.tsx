@@ -98,6 +98,62 @@ function textLen(html: string) {
 		.trim().length;
 }
 
+type Purpose = {
+	key: string;
+	title: string;
+	desc: string;
+};
+
+function getFallbackPurposes(category: string): Purpose[] {
+	if (category === "bencana") {
+		return [
+			{
+				key: "acara",
+				title: "Acara/gerakan/kegiatan/program",
+				desc: "Contoh: Program pemulihan psikologis korban bencana, untuk pengadaan kegiatan tertentu bagi korban bencana, dsb.",
+			},
+			{
+				key: "operasional",
+				title: "Biaya operasional lembaga/yayasan",
+				desc: "Contoh: Kebutuhan operasional posko bencana (makanan, air, selimut, dsb.), biaya logistik pengiriman kebutuhan, dsb.",
+			},
+			{
+				key: "infrastruktur",
+				title: "Pembangunan/perbaikan/pembelian infrastruktur",
+				desc: "Contoh: Perbaikan rumah akibat bencana, pembangunan jalan pasca bencana, dsb.",
+			},
+			{
+				key: "korban",
+				title: "Korban Bencana Alam",
+				desc: "Contoh: Bantuan untuk seorang korban bencana alam tertentu, santunan untuk daerah terdampak bencana, dsb.",
+			},
+		];
+	}
+
+	return [
+		{
+			key: "program",
+			title: "Acara/gerakan/kegiatan/program",
+			desc: "Contoh: kegiatan sosial, pelatihan, program beasiswa, dsb.",
+		},
+		{
+			key: "operasional",
+			title: "Biaya operasional lembaga/yayasan",
+			desc: "Contoh: biaya logistik, konsumsi, transport, operasional kegiatan, dsb.",
+		},
+		{
+			key: "infrastruktur",
+			title: "Pembangunan/perbaikan/pengadaan",
+			desc: "Contoh: renovasi fasilitas, pengadaan perlengkapan, pembangunan sarana, dsb.",
+		},
+		{
+			key: "penerima",
+			title: "Bantuan untuk penerima manfaat",
+			desc: "Contoh: bantuan individu/keluarga/kelompok penerima manfaat, dsb.",
+		},
+	];
+}
+
 function BuatGalangDanaPageContent() {
 	const router = useRouter();
 	const sp = useSearchParams();
@@ -395,6 +451,8 @@ function BuatGalangDanaPageContent() {
 
 	const [title, setTitle] = React.useState("");
 	const [slug, setSlug] = React.useState("");
+	const [slugError, setSlugError] = React.useState("");
+	const [slugChecking, setSlugChecking] = React.useState(false);
 	const [coverName, setCoverName] = React.useState<string>("");
 	const [coverFile, setCoverFile] = React.useState<File | null>(null);
 	const [coverPreview, setCoverPreview] = React.useState<string>("");
@@ -411,59 +469,104 @@ function BuatGalangDanaPageContent() {
 		!!bank;
 	const allTermsOk = t1 && t2 && t3 && t4;
 
-	// =========
-	// LAINNYA STATE
-	// =========
-	const purposes = React.useMemo(() => {
-		if (category === "bencana") {
-			return [
-				{
-					key: "acara",
-					title: "Acara/gerakan/kegiatan/program",
-					desc: "Contoh: Program pemulihan psikologis korban bencana, untuk pengadaan kegiatan tertentu bagi korban bencana, dsb.",
-				},
-				{
-					key: "operasional",
-					title: "Biaya operasional lembaga/yayasan",
-					desc: "Contoh: Kebutuhan operasional posko bencana (makanan, air, selimut, dsb.), biaya logistik pengiriman kebutuhan, dsb.",
-				},
-				{
-					key: "infrastruktur",
-					title: "Pembangunan/perbaikan/pembelian infrastruktur",
-					desc: "Contoh: Perbaikan rumah akibat bencana, pembangunan jalan pasca bencana, dsb.",
-				},
-				{
-					key: "korban",
-					title: "Korban Bencana Alam",
-					desc: "Contoh: Bantuan untuk seorang korban bencana alam tertentu, santunan untuk daerah terdampak bencana, dsb.",
-				},
-			];
+	const [purposes, setPurposes] = React.useState<Purpose[]>([]);
+	const [categoryExamples, setCategoryExamples] = React.useState<string[]>([]);
+
+	React.useEffect(() => {
+		if (!isLainnya) {
+			setPurposes([]);
+			setCategoryExamples([]);
+			return;
 		}
 
-		// default kategori lain (boleh kamu refine nanti)
-		return [
-			{
-				key: "program",
-				title: "Acara/gerakan/kegiatan/program",
-				desc: "Contoh: kegiatan sosial, pelatihan, program beasiswa, dsb.",
-			},
-			{
-				key: "operasional",
-				title: "Biaya operasional lembaga/yayasan",
-				desc: "Contoh: biaya logistik, konsumsi, transport, operasional kegiatan, dsb.",
-			},
-			{
-				key: "infrastruktur",
-				title: "Pembangunan/perbaikan/pengadaan",
-				desc: "Contoh: renovasi fasilitas, pengadaan perlengkapan, pembangunan sarana, dsb.",
-			},
-			{
-				key: "penerima",
-				title: "Bantuan untuk penerima manfaat",
-				desc: "Contoh: bantuan individu/keluarga/kelompok penerima manfaat, dsb.",
-			},
-		];
-	}, [category]);
+		if (!category) {
+			setPurposes([]);
+			setCategoryExamples([]);
+			return;
+		}
+
+		let cancelled = false;
+
+		async function load() {
+			try {
+				const res = await fetch("/api/campaigns/categories", {
+					cache: "no-store",
+				});
+				if (!res.ok) {
+					if (!cancelled) {
+						setPurposes(getFallbackPurposes(category));
+						setCategoryExamples([]);
+					}
+					return;
+				}
+
+				const data = await res.json();
+				if (!Array.isArray(data)) {
+					if (!cancelled) {
+						setPurposes(getFallbackPurposes(category));
+						setCategoryExamples([]);
+					}
+					return;
+				}
+
+				const catName =
+					CATEGORY_TITLE[category as keyof typeof CATEGORY_TITLE] || "";
+
+				const matched =
+					data.find((c: any) => c.slug === category) ||
+					(catName ? data.find((c: any) => c.name === catName) : null);
+
+				if (!matched) {
+					if (!cancelled) {
+						setPurposes(getFallbackPurposes(category));
+						setCategoryExamples([]);
+					}
+					return;
+				}
+
+				const dbOptions = Array.isArray(matched.options) ? matched.options : [];
+				const activeOptions = dbOptions.filter(
+					(o: any) => o.isActive !== false,
+				);
+
+				if (activeOptions.length > 0) {
+					if (!cancelled) {
+						setPurposes(
+							activeOptions.map((o: any) => ({
+								key: o.id,
+								title: o.title,
+								desc: o.desc || "",
+							})),
+						);
+					}
+				} else if (!cancelled) {
+					setPurposes(getFallbackPurposes(category));
+				}
+
+				const dbExamples = Array.isArray(matched.examples)
+					? matched.examples
+					: [];
+				const activeExamples = dbExamples.filter(
+					(e: any) => e.isActive !== false,
+				);
+
+				if (!cancelled) {
+					setCategoryExamples(activeExamples.map((e: any) => e.title));
+				}
+			} catch {
+				if (!cancelled) {
+					setPurposes(getFallbackPurposes(category));
+					setCategoryExamples([]);
+				}
+			}
+		}
+
+		load();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [category, isLainnya]);
 
 	const [purposeKey, setPurposeKey] = React.useState<string>("");
 	const [beneficiaries, setBeneficiaries] = React.useState(""); // opsional
@@ -494,6 +597,8 @@ function BuatGalangDanaPageContent() {
 
 	const [titleOther, setTitleOther] = React.useState("");
 	const [slugOther, setSlugOther] = React.useState("");
+	const [slugOtherError, setSlugOtherError] = React.useState("");
+	const [slugOtherChecking, setSlugOtherChecking] = React.useState(false);
 	const [coverNameOther, setCoverNameOther] = React.useState("");
 	const [coverFileOther, setCoverFileOther] = React.useState<File | null>(null);
 	const [coverPreviewOther, setCoverPreviewOther] = React.useState<string>("");
@@ -536,7 +641,8 @@ function BuatGalangDanaPageContent() {
 					(duration === "custom" ? !!customStart && !!customEnd : true) &&
 					usage.trim().length >= 55
 				);
-			if (stepKey === "judul") return !!title && !!slug && !!coverPreview;
+			if (stepKey === "judul")
+				return !!title && !!slug && !!coverPreview && !slugError;
 			if (stepKey === "cerita") return textLen(story) >= 30;
 			if (stepKey === "ajakan") return cta.trim().length >= 10;
 			return false;
@@ -569,14 +675,15 @@ function BuatGalangDanaPageContent() {
 				usageOther.trim().length >= 55
 			);
 		if (stepKey === "judul")
-			return !!titleOther && !!slugOther && !!coverPreviewOther;
+			return (
+				!!titleOther && !!slugOther && !!coverPreviewOther && !slugOtherError
+			);
 		if (stepKey === "cerita") return textLen(storyOther) >= 30;
 		if (stepKey === "ajakan") return ctaOther.trim().length >= 10;
 		return false;
 	}, [
 		isSakit,
 		stepKey,
-		// sakit deps
 		canOpenConfirm,
 		patientName,
 		patientAge,
@@ -593,6 +700,7 @@ function BuatGalangDanaPageContent() {
 		usage,
 		title,
 		slug,
+		slugError,
 		coverPreview,
 		story,
 		cta,
@@ -1637,10 +1745,50 @@ function BuatGalangDanaPageContent() {
 												"& .MuiInputLabel-root": { fontSize: 13.5 },
 											}}
 											value={slug}
-											onChange={(e) =>
+											onChange={(e) => {
+												setSlugError("");
 												setSlug(
 													e.target.value.replace(/\s+/g, "").toLowerCase(),
-												)
+												);
+											}}
+											onBlur={async () => {
+												if (!slug) {
+													setSlugError("");
+													return;
+												}
+												setSlugChecking(true);
+												setSlugError("");
+												try {
+													const params = new URLSearchParams();
+													params.set("slug", slug);
+													if (isEdit && draftId) {
+														params.set("excludeId", draftId);
+													}
+													const res = await fetch(
+														`/api/campaigns/check-slug?${params.toString()}`,
+													);
+													if (!res.ok) {
+														return;
+													}
+													const data = (await res.json()) as {
+														available: boolean;
+													};
+													if (!data.available) {
+														setSlugError(
+															"URL publik sudah digunakan campaign lain",
+														);
+													}
+												} catch (e) {
+												} finally {
+													setSlugChecking(false);
+												}
+											}}
+											error={!!slugError}
+											helperText={
+												slugError ||
+												(slugChecking
+													? "Memeriksa ketersediaan URL..."
+													: "contoh: bantudolawan...")
 											}
 											fullWidth
 											placeholder="contoh: bantudolawan..."
@@ -2359,6 +2507,42 @@ function BuatGalangDanaPageContent() {
 										helperText={`${titleOther.length}/55`}
 									/>
 
+									{categoryExamples.length > 0 && (
+										<Box>
+											<Typography
+												sx={{
+													fontSize: 12.5,
+													color: "text.secondary",
+													mb: 0.5,
+												}}
+											>
+												Contoh judul dari admin:
+											</Typography>
+											<Stack
+												direction="row"
+												spacing={1}
+												sx={{ flexWrap: "wrap" }}
+											>
+												{categoryExamples.map((ex) => (
+													<Button
+														key={ex}
+														variant="outlined"
+														size="small"
+														onClick={() => setTitleOther(ex.slice(0, 55))}
+														sx={{
+															textTransform: "none",
+															fontSize: 12,
+															borderRadius: 999,
+															mb: 0.5,
+														}}
+													>
+														{ex}
+													</Button>
+												))}
+											</Stack>
+										</Box>
+									)}
+
 									<Box>
 										<Typography
 											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
@@ -2373,10 +2557,47 @@ function BuatGalangDanaPageContent() {
 												"& .MuiInputLabel-root": { fontSize: 13.5 },
 											}}
 											value={slugOther}
-											onChange={(e) =>
+											onChange={(e) => {
+												setSlugOtherError("");
 												setSlugOther(
 													e.target.value.replace(/\s+/g, "").toLowerCase(),
-												)
+												);
+											}}
+											onBlur={async () => {
+												if (!slugOther) {
+													setSlugOtherError("");
+													return;
+												}
+												setSlugOtherChecking(true);
+												setSlugOtherError("");
+												try {
+													const params = new URLSearchParams();
+													params.set("slug", slugOther);
+													const res = await fetch(
+														`/api/campaigns/check-slug?${params.toString()}`,
+													);
+													if (!res.ok) {
+														return;
+													}
+													const data = (await res.json()) as {
+														available: boolean;
+													};
+													if (!data.available) {
+														setSlugOtherError(
+															"URL publik sudah digunakan campaign lain",
+														);
+													}
+												} catch (e) {
+												} finally {
+													setSlugOtherChecking(false);
+												}
+											}}
+											error={!!slugOtherError}
+											helperText={
+												slugOtherError ||
+												(slugOtherChecking
+													? "Memeriksa ketersediaan URL..."
+													: "contoh: bantu-renovasi...")
 											}
 											fullWidth
 											placeholder="contoh: bantu-renovasi..."

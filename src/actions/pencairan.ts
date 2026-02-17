@@ -224,7 +224,9 @@ export async function updateWithdrawalStatus(
         ],
       };
 
-      const createRes = await createPayout(payoutPayload);
+      const createRes = (await createPayout(payoutPayload)) as {
+        payouts?: { reference_no?: string }[];
+      };
       const referenceNo = createRes.payouts?.[0]?.reference_no;
 
       if (!referenceNo) {

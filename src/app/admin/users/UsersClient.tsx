@@ -164,7 +164,7 @@ export default function UsersClient({
 	const [toast, setToast] = useState<{
 		open: boolean;
 		msg: string;
-		severity: "success" | "error";
+		severity: "success" | "error" | "warning";
 	}>({ open: false, msg: "", severity: "success" });
 
 	// Debounce search
@@ -563,7 +563,10 @@ export default function UsersClient({
 		}
 	};
 
-	const showToast = (msg: string, severity: "success" | "error") => {
+	const showToast = (
+		msg: string,
+		severity: "success" | "error" | "warning",
+	) => {
 		setToast({ open: true, msg, severity });
 	};
 

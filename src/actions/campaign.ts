@@ -17,24 +17,49 @@ export async function createCampaign(formData: FormData) {
 	}
 
 	try {
-		const status = (formData.get("status") as CampaignStatus) || "PENDING";
-
-		let title = formData.get("title") as string;
-		if (status === "DRAFT" && !title) {
-			title = "Draft Campaign";
-		}
-
-		let slug = formData.get("slug") as string;
-
-		if (!slug) {
-			slug = title
+		const slugify = (value: string) =>
+			(value || "")
 				.toLowerCase()
 				.trim()
 				.replace(/[^\w\s-]/g, "")
 				.replace(/[\s_-]+/g, "-")
 				.replace(/^-+|-+$/g, "");
 
-			// Add random suffix to ensure uniqueness
+		const status = (formData.get("status") as CampaignStatus) || "PENDING";
+
+		const rawTitle = (formData.get("title") as string) || "";
+		const rawSlug = (formData.get("slug") as string) || "";
+
+		if (!rawTitle.trim() && !rawSlug.trim()) {
+			return {
+				success: false,
+				error: "Judul dan link campaign wajib diisi",
+			};
+		}
+
+		let title = rawTitle;
+		if (status === "DRAFT" && !title) {
+			title = "Draft Campaign";
+		}
+
+		let slug = rawSlug;
+
+		if (slug && slug.trim()) {
+			slug = slugify(slug);
+			const existing = await prisma.campaign.findUnique({
+				where: { slug },
+				select: { id: true },
+			});
+
+			if (existing) {
+				return {
+					success: false,
+					error:
+						"URL publik sudah digunakan campaign lain, silakan pilih URL lain",
+				};
+			}
+		} else {
+			slug = slugify(title);
 			slug = `${slug}-${Date.now().toString().slice(-4)}`;
 		}
 
@@ -701,6 +726,13 @@ export async function finishCampaign(campaignId: string) {
 			return { success: false, error: "Campaign not found" };
 		}
 
+		if (campaign.slug === QUICK_DONATION_SLUG) {
+			return {
+				success: false,
+				error: "Quick donation campaign cannot be finished",
+			};
+		}
+
 		// Allow owner or admin to finish campaign
 		if (
 			campaign.createdById !== session.user.id &&
@@ -741,12 +773,68 @@ export async function updateCampaignStatus(
 
 		const prev = await prisma.campaign.findUnique({
 			where: { id: campaignId },
-			select: { createdById: true, title: true, status: true },
+			select: {
+				createdById: true,
+				title: true,
+				status: true,
+				slug: true,
+				start: true,
+				end: true,
+				metadata: true,
+			},
 		});
+
+		if (status === "COMPLETED" && prev?.slug === QUICK_DONATION_SLUG) {
+			return {
+				success: false,
+				error: "Quick donation campaign cannot be completed",
+			};
+		}
+
+		const updateData: Prisma.CampaignUpdateInput = { status };
+
+		if (
+			status === "ACTIVE" &&
+			prev?.status === "COMPLETED" &&
+			prev.slug !== QUICK_DONATION_SLUG
+		) {
+			const now = new Date();
+			const dayMs = 24 * 60 * 60 * 1000;
+			const extensionDays = 30;
+			const newEnd = new Date(now.getTime() + extensionDays * dayMs);
+
+			updateData.end = newEnd;
+
+			const prevMeta = (prev as any).metadata || {};
+			const existingRestartInfo = (prevMeta as any).restartInfo || {};
+
+			let initialDurationDays = existingRestartInfo.initialDurationDays || 0;
+
+			if (!initialDurationDays && prev.start && prev.end) {
+				const diffMs =
+					new Date(prev.end).getTime() - new Date(prev.start).getTime();
+				initialDurationDays = Math.max(1, Math.ceil(diffMs / dayMs));
+			}
+
+			if (!initialDurationDays) {
+				initialDurationDays = extensionDays;
+			}
+
+			const restartInfo = {
+				initialDurationDays,
+				restartCount: (existingRestartInfo.restartCount || 0) + 1,
+				extensionDays,
+			};
+
+			updateData.metadata = {
+				...(prevMeta || {}),
+				restartInfo,
+			} as any;
+		}
 
 		await prisma.campaign.update({
 			where: { id: campaignId },
-			data: { status },
+			data: updateData,
 		});
 
 		if (status === "ACTIVE" && prev?.createdById && prev.status !== "ACTIVE") {

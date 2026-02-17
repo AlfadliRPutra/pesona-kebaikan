@@ -98,7 +98,7 @@ export default function NotificationClient({
 		if (!query) return;
 		setUserSearchLoading(true);
 		try {
-			const res = await getUsers(query, "all", 1, 10);
+			const res = await getUsers(query, "all", "all", 1, 10);
 			setUserOptions(res.users);
 		} catch (error) {
 			console.error(error);

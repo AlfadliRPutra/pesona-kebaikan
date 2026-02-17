@@ -56,6 +56,8 @@ model User {
   // Address
   provinceId String?
   province   Province? @relation(fields: [provinceId], references: [id])
+
+  campaignChangeRequests CampaignChangeRequest[]
   regencyId  String?
   regency    Regency?  @relation(fields: [regencyId], references: [id])
   districtId String?
@@ -269,6 +271,37 @@ model CampaignCategory {
   updatedAt DateTime @updatedAt
 
   campaigns Campaign[]
+  options   CampaignCategoryOption[]
+  examples  CampaignCategoryExample[]
+}
+
+model CampaignCategoryOption {
+  id        String   @id @default(cuid())
+  title     String
+  desc      String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryId String
+  category   CampaignCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+}
+
+model CampaignCategoryExample {
+  id        String   @id @default(cuid())
+  title     String
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryId String
+  category   CampaignCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
 }
 
 enum CampaignStatus {
@@ -311,6 +344,7 @@ model Campaign {
   reports     Report[]
   carousels   Carousel[]
   fundraisers Fundraiser[] @relation("CampaignFundraisers")
+  changeRequests CampaignChangeRequest[]
 
   @@index([categoryId])
   @@index([createdById])

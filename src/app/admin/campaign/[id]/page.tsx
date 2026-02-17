@@ -92,6 +92,8 @@ type DocItem = {
 	updatedAt?: string;
 };
 
+const QUICK_DONATION_SLUG = "donasi-cepat";
+
 const STATUS_META: Record<
 	CampaignStatus,
 	{ label: string; tone: "neutral" | "warning" | "success" | "info" | "error" }
@@ -222,6 +224,27 @@ export default function AdminCampaignDetailPage() {
 	// transactions state
 	const [txRows, setTxRows] = React.useState<TxRow[]>([]);
 	const [txLoading, setTxLoading] = React.useState(false);
+
+	const restartInitialDays =
+		data &&
+		data.restartInfo &&
+		typeof data.restartInfo.initialDurationDays === "number"
+			? data.restartInfo.initialDurationDays
+			: null;
+
+	const restartExtensionDays =
+		data &&
+		data.restartInfo &&
+		typeof data.restartInfo.extensionDays === "number"
+			? data.restartInfo.extensionDays
+			: null;
+
+	const effectiveInitialDays =
+		restartInitialDays &&
+		restartExtensionDays &&
+		restartInitialDays > restartExtensionDays
+			? restartExtensionDays
+			: restartInitialDays;
 
 	const fetchTransactions = React.useCallback(async () => {
 		setTxLoading(true);
@@ -367,6 +390,13 @@ export default function AdminCampaignDetailPage() {
 							}
 						: null;
 
+				const daysLeft = c.end
+					? Math.ceil(
+							(new Date(c.end).getTime() - new Date().getTime()) /
+								(1000 * 60 * 60 * 24),
+						)
+					: 0;
+
 				const mappedData = {
 					id: c.id,
 					title: c.title,
@@ -391,6 +421,10 @@ export default function AdminCampaignDetailPage() {
 						year: "numeric",
 					}),
 					publicUrl: `/donasi/${c.slug || c.id}`,
+					slug: c.slug || null,
+					restartInfo:
+						((c as any).metadata && (c as any).metadata.restartInfo) || null,
+					daysLeft: daysLeft > 0 ? daysLeft : 0,
 					shortInvite: cleanStory.substring(0, 100) + "...",
 					story: c.description,
 					meta: {
@@ -602,10 +636,18 @@ export default function AdminCampaignDetailPage() {
 		}
 	};
 
+	const isQuickDonation =
+		data?.slug === QUICK_DONATION_SLUG ||
+		(typeof data?.title === "string" &&
+			data.title.toLowerCase() === "donasi cepat");
+
 	const canVerify = data?.status === "review" || data?.status === "pending";
-	const canEnd = data?.status === "active" || data?.status === "paused";
+	const canEnd =
+		!isQuickDonation &&
+		(data?.status === "active" || data?.status === "paused");
 	const canPause = data?.status === "active";
-	const canResume = data?.status === "paused";
+	const canResume =
+		!isQuickDonation && (data?.status === "paused" || data?.status === "ended");
 
 	// derive checklist suggestions from current state (soft suggestion)
 	React.useEffect(() => {
@@ -989,18 +1031,7 @@ export default function AdminCampaignDetailPage() {
 							Verifikasi
 						</Button>
 
-						{data.status === "paused" ? (
-							<Button
-								onClick={() => setConfirmResume(true)}
-								variant="outlined"
-								color="success"
-								startIcon={<PlayCircleFilledRoundedIcon />}
-								disabled={!canResume}
-								sx={{ borderRadius: 999, fontWeight: 900 }}
-							>
-								Lanjutkan
-							</Button>
-						) : (
+						{data.status === "active" && (
 							<Button
 								onClick={() => setConfirmPause(true)}
 								variant="outlined"
@@ -1013,16 +1044,44 @@ export default function AdminCampaignDetailPage() {
 							</Button>
 						)}
 
-						<Button
-							onClick={() => setConfirmEnd(true)}
-							variant="outlined"
-							color="error"
-							startIcon={<StopCircleRoundedIcon />}
-							disabled={!canEnd}
-							sx={{ borderRadius: 999, fontWeight: 900 }}
-						>
-							Akhiri
-						</Button>
+						{data.status === "paused" && (
+							<Button
+								onClick={() => setConfirmResume(true)}
+								variant="outlined"
+								color="success"
+								startIcon={<PlayCircleFilledRoundedIcon />}
+								disabled={!canResume}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Lanjutkan
+							</Button>
+						)}
+
+						{data.status === "ended" && !isQuickDonation && (
+							<Button
+								onClick={() => setConfirmResume(true)}
+								variant="outlined"
+								color="success"
+								startIcon={<PlayCircleFilledRoundedIcon />}
+								disabled={!canResume}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Mulai
+							</Button>
+						)}
+
+						{!isQuickDonation && (
+							<Button
+								onClick={() => setConfirmEnd(true)}
+								variant="outlined"
+								color="error"
+								startIcon={<StopCircleRoundedIcon />}
+								disabled={!canEnd}
+								sx={{ borderRadius: 999, fontWeight: 900 }}
+							>
+								Akhiri
+							</Button>
+						)}
 					</Stack>
 
 					<Stack direction="row" spacing={1} alignItems="center">
@@ -1196,6 +1255,16 @@ export default function AdminCampaignDetailPage() {
 								<InfoRow k="Tipe" v={typeMeta.label} />
 								<InfoRow k="Kategori" v={data.category} />
 								<InfoRow k="Status" v={statusMeta.label} />
+								{data.status === "active" && data.daysLeft > 0 && (
+									<InfoRow
+										k="Sisa Hari"
+										v={
+											effectiveInitialDays
+												? `${effectiveInitialDays} hari (berakhir) + ${data.daysLeft} hari lagi`
+												: `${data.daysLeft} hari`
+										}
+									/>
+								)}
 								<InfoRow k="Target" v={idr(data.target)} />
 								<InfoRow k="Terkumpul" v={idr(data.collected)} />
 								<InfoRow k="Donatur" v={`${data.donors}`} />

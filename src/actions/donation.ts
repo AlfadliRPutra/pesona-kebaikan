@@ -173,8 +173,7 @@ export async function checkPendingDonations(campaignId?: string) {
 							data: { status: newStatus },
 						});
 						updatedCount++;
-						// Create success notification if applicable
-						if ((newStatus === "PAID" || newStatus === "SETTLED") && d.userId) {
+						if (newStatus === "PAID" && d.userId) {
 							const amountNum = Number(d.amount);
 							const amountStr = isFinite(amountNum)
 								? amountNum.toLocaleString("id-ID")

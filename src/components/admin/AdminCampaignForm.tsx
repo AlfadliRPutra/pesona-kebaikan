@@ -47,6 +47,8 @@ export default function AdminCampaignForm({
 	const router = useRouter();
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState("");
+	const [slugError, setSlugError] = React.useState("");
+	const [slugChecking, setSlugChecking] = React.useState(false);
 
 	// Form State
 	const [title, setTitle] = React.useState(initialData?.title || "");
@@ -81,6 +83,7 @@ export default function AdminCampaignForm({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (slugError) return;
 		setLoading(true);
 		setError("");
 
@@ -110,6 +113,31 @@ export default function AdminCampaignForm({
 			setError("Terjadi kesalahan sistem");
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const handleSlugBlur = async () => {
+		if (!slug) {
+			setSlugError("");
+			return;
+		}
+		setSlugChecking(true);
+		setSlugError("");
+		try {
+			const params = new URLSearchParams();
+			params.set("slug", slug);
+			if (mode === "edit" && initialData?.id) {
+				params.set("excludeId", initialData.id);
+			}
+			const res = await fetch(`/api/campaigns/check-slug?${params.toString()}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as { available: boolean };
+			if (!data.available) {
+				setSlugError("URL publik sudah digunakan campaign lain");
+			}
+		} catch (e) {
+		} finally {
+			setSlugChecking(false);
 		}
 	};
 
@@ -143,10 +171,18 @@ export default function AdminCampaignForm({
 						<TextField
 							label="Slug (URL)"
 							value={slug}
-							onChange={(e) => setSlug(e.target.value)}
+							onChange={(e) => {
+								setSlugError("");
+								setSlug(e.target.value);
+							}}
+							onBlur={handleSlugBlur}
 							required
 							fullWidth
-							helperText="Contoh: bantu-budi-sembuh"
+							error={!!slugError}
+							helperText={
+								slugError ||
+								(slugChecking ? "Memeriksa ketersediaan URL..." : "Contoh: bantu-budi-sembuh")
+							}
 						/>
 					</Box>
 

@@ -177,32 +177,53 @@ export default function AdminCampaignKategoriPage() {
 			const res = await fetch("/api/campaigns/categories", {
 				cache: "no-store",
 			});
-			const data: Array<{
-				id: string;
-				name: string;
-				slug?: string;
-				icon?: string;
-				isActive: boolean;
-				updatedAt: string;
-			}> = await res.json();
+			if (!res.ok) {
+				let msg = "Gagal memuat kategori";
+				try {
+					const err = await res.json();
+					if (err?.error) msg = err.error;
+				} catch {}
+				showSnackbar(msg, "error");
+				setRows([]);
+				return;
+			}
 
-			const mapped: Category[] = data.map((c) => ({
+			const raw = await res.json();
+			if (!Array.isArray(raw)) {
+				console.error("Unexpected categories payload", raw);
+				showSnackbar("Gagal memuat kategori", "error");
+				setRows([]);
+				return;
+			}
+
+			const mapped: Category[] = raw.map((c: any) => ({
 				id: c.id,
 				name: c.name,
 				slug: c.slug || slugify(c.name),
-				desc: "", // Not in DB yet
+				desc: "",
 				active: c.isActive,
-				icon: c.icon || c.name, // Fallback to name if icon not set
+				icon: c.icon || c.name,
 				updatedAt: new Date(c.updatedAt).toLocaleDateString("id-ID", {
 					day: "2-digit",
 					month: "short",
 					year: "numeric",
 				}),
-				options: [], // Not in DB yet
-				examples: [], // Not in DB yet
+				options: Array.isArray(c.options)
+					? c.options.map((o: any) => ({
+							id: o.id,
+							title: o.title,
+							desc: o.desc || "",
+							active: o.isActive,
+						}))
+					: [],
+				examples: Array.isArray(c.examples)
+					? c.examples.map((e: any) => ({
+							id: e.id,
+							title: e.title,
+						}))
+					: [],
 			}));
 			setRows(mapped);
-			// If selectedId is invalid, select first
 			if (mapped.length > 0 && !mapped.find((r) => r.id === selectedId)) {
 				setSelectedId(mapped[0].id);
 			}
@@ -252,33 +273,67 @@ export default function AdminCampaignKategoriPage() {
 				body: JSON.stringify({
 					id: selected.id,
 					name: selected.name,
+					slug: selected.slug,
 					icon: selected.icon,
 					isActive: selected.active,
+					options: (selected.options || []).map((opt, index) => ({
+						title: opt.title,
+						desc: opt.desc,
+						isActive: opt.active,
+						order: index,
+					})),
+					examples: (selected.examples || []).map((ex, index) => ({
+						title: ex.title,
+						isActive: true,
+						order: index,
+					})),
 				}),
 			});
 
-			if (!res.ok) throw new Error("Failed to save");
+			if (!res.ok) {
+				let msg = "Gagal menyimpan kategori";
+				try {
+					const err = await res.json();
+					if (err?.error) msg = err.error;
+				} catch {}
+				console.error("Save category failed", msg);
+				setSaveTick(2);
+				setTimeout(() => setSaveTick(0), 1400);
+				showSnackbar(msg, "error");
+				return;
+			}
 
-			const updated = await res.json();
+			const updated: any = await res.json();
+			const mappedUpdated: Category = {
+				id: updated.id,
+				name: updated.name,
+				slug: updated.slug || slugify(updated.name),
+				desc: selected.desc,
+				active: updated.isActive,
+				icon: updated.icon || updated.name,
+				updatedAt: new Date(updated.updatedAt).toLocaleDateString("id-ID", {
+					day: "2-digit",
+					month: "short",
+					year: "numeric",
+				}),
+				options: Array.isArray(updated.options)
+					? updated.options.map((o: any) => ({
+							id: o.id,
+							title: o.title,
+							desc: o.desc || "",
+							active: o.isActive,
+						}))
+					: selected.options,
+				examples: Array.isArray(updated.examples)
+					? updated.examples.map((e: any) => ({
+							id: e.id,
+							title: e.title,
+						}))
+					: selected.examples,
+			};
+
 			setRows((prev) =>
-				prev.map((r) =>
-					r.id === updated.id
-						? {
-								...r,
-								name: updated.name,
-								icon: updated.icon,
-								active: updated.isActive,
-								updatedAt: new Date(updated.updatedAt).toLocaleDateString(
-									"id-ID",
-									{
-										day: "2-digit",
-										month: "short",
-										year: "numeric",
-									},
-								),
-							}
-						: r,
-				),
+				prev.map((r) => (r.id === mappedUpdated.id ? mappedUpdated : r)),
 			);
 			setSaveTick(1);
 			setTimeout(() => setSaveTick(0), 1200);
@@ -286,6 +341,7 @@ export default function AdminCampaignKategoriPage() {
 			console.error(error);
 			setSaveTick(2);
 			setTimeout(() => setSaveTick(0), 1400);
+			showSnackbar("Gagal menyimpan kategori", "error");
 		}
 	};
 
@@ -714,19 +770,142 @@ export default function AdminCampaignKategoriPage() {
 									<Typography
 										sx={{ mt: 0.25, fontSize: 12.5, color: "text.secondary" }}
 									>
-										Fitur ini belum terhubung ke database.
+										Atur opsi tujuan yang muncul saat donatur memilih kategori
+										ini.
 									</Typography>
 								</Box>
 
 								<Button
-									disabled
 									startIcon={<AddRoundedIcon />}
 									variant="contained"
+									onClick={() => {
+										const base = selected.options || [];
+										const nextIndex = base.length + 1;
+										const newOption = {
+											id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+											title: `Opsi ${nextIndex}`,
+											desc: "",
+											active: true,
+										};
+										updateSelected({
+											options: [...base, newOption],
+										});
+									}}
 									sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
 								>
 									Tambah
 								</Button>
 							</Stack>
+							{(selected.options || []).length === 0 ? (
+								<Typography
+									sx={{ mt: 1.5, fontSize: 12.5, color: "text.secondary" }}
+								>
+									Belum ada opsi tujuan untuk kategori ini.
+								</Typography>
+							) : (
+								<Box sx={{ mt: 1.5, display: "grid", gap: 1 }}>
+									{(selected.options || []).map((opt) => (
+										<Paper
+											key={opt.id}
+											elevation={0}
+											sx={{
+												p: 1,
+												borderRadius: 2,
+												bgcolor: alpha(theme.palette.background.paper, 0.9),
+											}}
+										>
+											<Stack
+												direction="row"
+												spacing={1}
+												alignItems="flex-start"
+											>
+												<Box sx={{ flex: 1 }}>
+													<TextField
+														size="small"
+														label="Judul opsi"
+														value={opt.title}
+														onChange={(e) => {
+															const options =
+																selected.options?.map((x) =>
+																	x.id === opt.id
+																		? { ...x, title: e.target.value }
+																		: x,
+																) || [];
+															updateSelected({ options });
+														}}
+														fullWidth
+														sx={fieldNoOutlineSx(theme)}
+													/>
+													<TextField
+														size="small"
+														label="Deskripsi (opsional)"
+														value={opt.desc}
+														onChange={(e) => {
+															const options =
+																selected.options?.map((x) =>
+																	x.id === opt.id
+																		? { ...x, desc: e.target.value }
+																		: x,
+																) || [];
+															updateSelected({ options });
+														}}
+														fullWidth
+														multiline
+														minRows={2}
+														sx={{ ...fieldNoOutlineSx(theme), mt: 1 }}
+													/>
+												</Box>
+												<Stack spacing={1} alignItems="flex-end">
+													<FormControlLabel
+														control={
+															<Switch
+																checked={opt.active}
+																onChange={(e) => {
+																	const options =
+																		selected.options?.map((x) =>
+																			x.id === opt.id
+																				? {
+																						...x,
+																						active: e.target.checked,
+																					}
+																				: x,
+																		) || [];
+																	updateSelected({ options });
+																}}
+																size="small"
+															/>
+														}
+														label={
+															<Typography
+																sx={{
+																	fontSize: 11,
+																	color: "text.secondary",
+																}}
+															>
+																{opt.active ? "Aktif" : "Non-Aktif"}
+															</Typography>
+														}
+														sx={{ m: 0 }}
+													/>
+													<IconButton
+														size="small"
+														color="error"
+														onClick={() => {
+															const options =
+																selected.options?.filter(
+																	(x) => x.id !== opt.id,
+																) || [];
+															updateSelected({ options });
+														}}
+													>
+														<DeleteRoundedIcon fontSize="small" />
+													</IconButton>
+												</Stack>
+											</Stack>
+										</Paper>
+									))}
+								</Box>
+							)}
 						</Paper>
 
 						{/* Example items */}
@@ -744,19 +923,84 @@ export default function AdminCampaignKategoriPage() {
 									<Typography
 										sx={{ mt: 0.25, fontSize: 12.5, color: "text.secondary" }}
 									>
-										Fitur ini belum terhubung ke database.
+										Atur contoh judul campaign untuk inspirasi penggalang dana.
 									</Typography>
 								</Box>
 
 								<Button
-									disabled
 									startIcon={<ImageRoundedIcon />}
 									variant="contained"
+									onClick={() => {
+										const base = selected.examples || [];
+										const nextIndex = base.length + 1;
+										const newExample = {
+											id: `example-${Date.now()}-${Math.random()
+												.toString(36)
+												.slice(2, 8)}`,
+											title: `Contoh ${nextIndex}`,
+										};
+										updateSelected({
+											examples: [...base, newExample],
+										});
+									}}
 									sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
 								>
 									Tambah
 								</Button>
 							</Stack>
+							{(selected.examples || []).length === 0 ? (
+								<Typography
+									sx={{ mt: 1.5, fontSize: 12.5, color: "text.secondary" }}
+								>
+									Belum ada contoh campaign untuk kategori ini.
+								</Typography>
+							) : (
+								<Box sx={{ mt: 1.5, display: "grid", gap: 1 }}>
+									{(selected.examples || []).map((ex) => (
+										<Paper
+											key={ex.id}
+											elevation={0}
+											sx={{
+												p: 1,
+												borderRadius: 2,
+												bgcolor: alpha(theme.palette.background.paper, 0.9),
+											}}
+										>
+											<Stack direction="row" spacing={1} alignItems="center">
+												<TextField
+													size="small"
+													label="Judul contoh"
+													value={ex.title}
+													onChange={(e) => {
+														const examples =
+															selected.examples?.map((x) =>
+																x.id === ex.id
+																	? { ...x, title: e.target.value }
+																	: x,
+															) || [];
+														updateSelected({ examples });
+													}}
+													fullWidth
+													sx={fieldNoOutlineSx(theme)}
+												/>
+												<IconButton
+													size="small"
+													color="error"
+													onClick={() => {
+														const examples =
+															selected.examples?.filter(
+																(x) => x.id !== ex.id,
+															) || [];
+														updateSelected({ examples });
+													}}
+												>
+													<DeleteRoundedIcon fontSize="small" />
+												</IconButton>
+											</Stack>
+										</Paper>
+									))}
+								</Box>
+							)}
 						</Paper>
 					</Box>
 				)}
