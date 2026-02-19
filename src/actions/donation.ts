@@ -7,9 +7,13 @@ import {
 	checkMidtransStatus,
 	mapMidtransToInternal,
 } from "@/lib/midtrans-status";
+import { calculateMidtransFee } from "@/lib/fee-calculator";
+import { createNotification } from "@/actions/notification";
+import { NotificationType } from "@prisma/client";
 
 export type CreateDonationInput = {
 	campaignId: string;
+	fundraiserId?: string;
 	amount: number;
 	donorName: string;
 	donorPhone: string;
@@ -25,6 +29,18 @@ export async function createDonation(input: CreateDonationInput) {
 		const session = await auth();
 		if (session?.user?.id) {
 			userId = session.user.id;
+
+			// Fetch fresh user data
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+				select: { name: true, phone: true },
+			});
+
+			if (user) {
+				// Override identity with session/database data
+				if (user.name) input.donorName = user.name;
+				if (user.phone) input.donorPhone = user.phone;
+			}
 		}
 	} catch (e) {
 		console.warn("Auth check failed during donation creation:", e);
@@ -56,7 +72,9 @@ export async function createDonation(input: CreateDonationInput) {
 		const donation = await prisma.donation.create({
 			data: {
 				campaignId: input.campaignId,
+				fundraiserId: input.fundraiserId,
 				amount: input.amount,
+				fee: calculateMidtransFee(input.amount, input.paymentMethod),
 				donorName: input.donorName,
 				donorPhone: input.donorPhone,
 				message: input.message,
@@ -74,6 +92,7 @@ export async function createDonation(input: CreateDonationInput) {
 		const serializedDonation = {
 			...donation,
 			amount: Number(donation.amount),
+			fee: Number(donation.fee),
 		};
 
 		return { success: true, data: serializedDonation };
@@ -86,6 +105,34 @@ export async function createDonation(input: CreateDonationInput) {
 					? error.message
 					: "Gagal membuat donasi. Silakan coba lagi.",
 		};
+	}
+}
+
+export async function cancelPendingDonation(donationId: string) {
+	try {
+		if (!donationId) {
+			return { success: false, error: "donationId wajib diisi" };
+		}
+		const donation = await prisma.donation.findUnique({
+			where: { id: donationId },
+			select: { status: true },
+		});
+		if (!donation) {
+			return { success: false, error: "Donasi tidak ditemukan" };
+		}
+		if (donation.status !== "PENDING") {
+			return {
+				success: false,
+				error: "Donasi sudah diproses, tidak bisa dibatalkan",
+			};
+		}
+		await prisma.donation.delete({ where: { id: donationId } });
+		revalidatePath(`/donasi`);
+		revalidatePath(`/donasi-saya`);
+		return { success: true };
+	} catch (error) {
+		console.error("Error canceling donation:", error);
+		return { success: false, error: "Gagal membatalkan donasi" };
 	}
 }
 
@@ -116,7 +163,7 @@ export async function checkPendingDonations(campaignId?: string) {
 				if (midtransData && midtransData.transaction_status) {
 					const newStatus = mapMidtransToInternal(
 						midtransData.transaction_status,
-						midtransData.fraud_status
+						midtransData.fraud_status,
 					);
 
 					if (newStatus !== "PENDING" && newStatus !== d.status) {
@@ -126,9 +173,26 @@ export async function checkPendingDonations(campaignId?: string) {
 							data: { status: newStatus },
 						});
 						updatedCount++;
+						// Create success notification if applicable
+						if ((newStatus === "PAID" || newStatus === "SETTLED") && d.userId) {
+							const amountNum = Number(d.amount);
+							const amountStr = isFinite(amountNum)
+								? amountNum.toLocaleString("id-ID")
+								: `${d.amount}`;
+							const campaign = await prisma.campaign.findUnique({
+								where: { id: d.campaignId },
+								select: { title: true },
+							});
+							await createNotification(
+								d.userId,
+								"Donasi Berhasil",
+								`Terima kasih. Donasi Rp ${amountStr} ke ${campaign?.title || "Campaign"} telah berhasil.`,
+								NotificationType.KABAR,
+							);
+						}
 					}
 				}
-			})
+			}),
 		);
 
 		if (updatedCount > 0) {

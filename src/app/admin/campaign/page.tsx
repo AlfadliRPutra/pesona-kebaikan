@@ -17,10 +17,18 @@ import {
 	Skeleton,
 	Tooltip,
 	Button,
-	Avatar,
-	AvatarGroup,
 	Divider,
 	Pagination,
+	FormControl,
+	InputLabel,
+	Select,
+	Snackbar,
+	Alert,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogActions,
+	DialogContentText,
 } from "@mui/material";
 
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
@@ -34,11 +42,13 @@ import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+
 import {
 	getCampaigns,
 	updateCampaignStatus,
 	deleteCampaign,
 } from "@/actions/campaign";
+import AdminCampaignTable from "@/components/admin/AdminCampaignTable";
 
 const PAGE_SIZE = 9;
 
@@ -49,6 +59,7 @@ type CampaignStatus =
 	| "ended"
 	| "rejected"
 	| "pending";
+
 type CampaignType = "sakit" | "lainnya";
 
 type CampaignRow = {
@@ -65,28 +76,17 @@ type CampaignRow = {
 	thumbnail?: string;
 };
 
-// Removed MOCK
-
 function idr(n: number) {
-	if (!n) return "Rp0";
-	const s = Math.round(n).toString();
+	const v = Number(n) || 0;
+	const s = Math.round(v).toString();
 	return "Rp" + s.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function pct(collected: number, target: number) {
-	if (!target || target <= 0) return 0;
-	return Math.max(0, Math.min(100, Math.round((collected / target) * 100)));
-}
-
-function matchQuery(q: string, row: CampaignRow) {
-	if (!q) return true;
-	const s = q.toLowerCase();
-	return (
-		row.title.toLowerCase().includes(s) ||
-		row.category.toLowerCase().includes(s) ||
-		row.ownerName.toLowerCase().includes(s) ||
-		row.id.toLowerCase().includes(s)
-	);
+	const c = Number(collected) || 0;
+	const t = Number(target) || 0;
+	if (!t || t <= 0) return 0;
+	return Math.max(0, Math.min(100, Math.round((c / t) * 100)));
 }
 
 function statusChip(status: CampaignStatus) {
@@ -169,6 +169,7 @@ const FILTERS: { key: "all" | CampaignStatus; label: string }[] = [
 export default function AdminCampaignPage() {
 	const [rows, setRows] = React.useState<CampaignRow[]>([]);
 	const [loading, setLoading] = React.useState(true);
+
 	const [page, setPage] = React.useState(1);
 	const [totalPages, setTotalPages] = React.useState(1);
 	const [totalRows, setTotalRows] = React.useState(0);
@@ -176,71 +177,271 @@ export default function AdminCampaignPage() {
 	const [q, setQ] = React.useState("");
 	const [filter, setFilter] = React.useState<"all" | CampaignStatus>("all");
 
+	const [provinceId, setProvinceId] = React.useState<string>("all");
+	const [startDate, setStartDate] = React.useState<string>("");
+	const [endDate, setEndDate] = React.useState<string>("");
+	const [provinces, setProvinces] = React.useState<
+		Array<{ id: string; name: string }>
+	>([]);
+
 	const [menu, setMenu] = React.useState<{
 		anchor: HTMLElement | null;
 		row?: CampaignRow;
 	}>({ anchor: null });
 
+	const [snackbar, setSnackbar] = React.useState<{
+		open: boolean;
+		message: string;
+		severity: "success" | "error" | "info" | "warning";
+	}>({
+		open: false,
+		message: "",
+		severity: "info",
+	});
+
+	const [confirmDialog, setConfirmDialog] = React.useState<{
+		open: boolean;
+		title: string;
+		message: string;
+		confirmColor?:
+			| "primary"
+			| "secondary"
+			| "error"
+			| "info"
+			| "success"
+			| "warning";
+		onConfirm: () => void;
+	}>({
+		open: false,
+		title: "",
+		message: "",
+		onConfirm: () => {},
+	});
+
+	const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+
+	const showSnackbar = (
+		message: string,
+		severity: "success" | "error" | "info" | "warning" = "info",
+	) => {
+		setSnackbar({ open: true, message, severity });
+	};
+
+	const handleCloseSnackbar = () => {
+		setSnackbar((prev) => ({ ...prev, open: false }));
+	};
+
 	const fetchCampaigns = React.useCallback(async () => {
 		setLoading(true);
 		try {
-			const res = await getCampaigns(page, PAGE_SIZE, filter, q, undefined, undefined, undefined, undefined, "newest", true);
+			const res = await getCampaigns(
+				page,
+				PAGE_SIZE,
+				filter,
+				q,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				"newest",
+				true,
+				startDate || undefined,
+				endDate || undefined,
+				provinceId !== "all" ? provinceId : undefined,
+			);
+
 			if (res.success && res.data) {
 				setRows(res.data as any);
 				setTotalPages(res.totalPages || 1);
 				setTotalRows(res.total || 0);
+			} else {
+				setRows([]);
+				setTotalPages(1);
+				setTotalRows(0);
 			}
 		} catch (e) {
 			console.error(e);
+			setRows([]);
+			setTotalPages(1);
+			setTotalRows(0);
+		} finally {
+			setLoading(false);
 		}
-		setLoading(false);
-	}, [page, filter, q]);
+	}, [page, filter, q, startDate, endDate, provinceId]);
 
+	// debounce fetch
 	React.useEffect(() => {
-		const t = setTimeout(() => {
-			fetchCampaigns();
-		}, 450);
+		const t = setTimeout(() => fetchCampaigns(), 450);
 		return () => clearTimeout(t);
 	}, [fetchCampaigns]);
 
+	// load provinces once
+	React.useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const res = await fetch("/api/address?type=province");
+				if (!res.ok) return;
+				const data = await res.json();
+				if (!active) return;
+				setProvinces(Array.isArray(data) ? data : []);
+			} catch {
+				// ignore
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, []);
+
 	const openMenu = (e: React.MouseEvent<HTMLElement>, row: CampaignRow) =>
 		setMenu({ anchor: e.currentTarget, row });
+
 	const closeMenu = () => setMenu({ anchor: null, row: undefined });
 
-	const onEnd = async (id: string) => {
-		if (confirm("Apakah anda yakin ingin mengakhiri campaign ini?")) {
-			await updateCampaignStatus(id, "COMPLETED");
-			fetchCampaigns();
-		}
-	};
-
-	const onDelete = async (id: string) => {
-		if (confirm("Apakah anda yakin ingin menghapus campaign ini?")) {
-			const res = await deleteCampaign(id);
-			if (res.success) {
+	const onEnd = (id: string) => {
+		setConfirmDialog({
+			open: true,
+			title: "Akhiri Campaign",
+			message: "Apakah anda yakin ingin mengakhiri campaign ini?",
+			confirmColor: "warning",
+			onConfirm: async () => {
+				await updateCampaignStatus(id, "COMPLETED");
 				fetchCampaigns();
-			} else {
-				alert(
-					"Gagal menghapus campaign: " + (res.error || "Terjadi kesalahan")
-				);
+				showSnackbar("Campaign berhasil diakhiri", "success");
+				setConfirmDialog((prev) => ({ ...prev, open: false }));
+			},
+		});
+	};
+
+	const onDelete = (id: string) => {
+		setConfirmDialog({
+			open: true,
+			title: "Hapus Campaign",
+			message: "Apakah anda yakin ingin menghapus campaign ini?",
+			confirmColor: "error",
+			onConfirm: async () => {
+				const res = await deleteCampaign(id);
+				if (res.success) {
+					fetchCampaigns();
+					showSnackbar("Campaign berhasil dihapus", "success");
+				} else {
+					showSnackbar(
+						"Gagal menghapus campaign: " + (res.error || "Terjadi kesalahan"),
+						"error",
+					);
+				}
+				setConfirmDialog((prev) => ({ ...prev, open: false }));
+			},
+		});
+	};
+
+	const onVerify = (id: string) => {
+		setConfirmDialog({
+			open: true,
+			title: "Verifikasi Campaign",
+			message: "Verifikasi campaign ini agar aktif?",
+			confirmColor: "success",
+			onConfirm: async () => {
+				await updateCampaignStatus(id, "ACTIVE");
+				fetchCampaigns();
+				showSnackbar("Campaign berhasil diverifikasi", "success");
+				setConfirmDialog((prev) => ({ ...prev, open: false }));
+			},
+		});
+	};
+
+	const onRefresh = () => fetchCampaigns();
+
+	// kalau filter berubah, balik ke page 1
+	React.useEffect(() => {
+		setPage(1);
+		setSelectedIds([]);
+	}, [filter, q, provinceId, startDate, endDate]);
+
+	const toggleRowSelect = (id: string) => {
+		setSelectedIds((prev) => {
+			const i = prev.indexOf(id);
+			if (i === -1) return [...prev, id];
+			const next = prev.slice();
+			next.splice(i, 1);
+			return next;
+		});
+	};
+
+	const toggleAllVisible = (checked: boolean, ids: string[]) => {
+		setSelectedIds((prev) => {
+			if (checked) {
+				const set = new Set(prev);
+				ids.forEach((id) => set.add(id));
+				return Array.from(set);
 			}
-		}
+			const toRemove = new Set(ids);
+			return prev.filter((id) => !toRemove.has(id));
+		});
 	};
 
-	const onVerify = async (id: string) => {
-		if (confirm("Verifikasi campaign ini agar aktif?")) {
-			await updateCampaignStatus(id, "ACTIVE");
-			fetchCampaigns();
-		}
+	const bulkVerify = () => {
+		setConfirmDialog({
+			open: true,
+			title: "Verifikasi Massal",
+			message: `Verifikasi ${selectedIds.length} campaign menjadi aktif?`,
+			confirmColor: "success",
+			onConfirm: async () => {
+				const tasks = selectedIds.map((id) => updateCampaignStatus(id, "ACTIVE"));
+				const results = await Promise.allSettled(tasks);
+				const ok = results.filter((r) => r.status === "fulfilled").length;
+				showSnackbar(`Berhasil memverifikasi ${ok} campaign`, "success");
+				setSelectedIds([]);
+				fetchCampaigns();
+				setConfirmDialog((prev) => ({ ...prev, open: false }));
+			},
+		});
 	};
 
-	const onRefresh = () => {
-		fetchCampaigns();
+	const bulkEnd = () => {
+		setConfirmDialog({
+			open: true,
+			title: "Akhiri Massal",
+			message: `Akhiri ${selectedIds.length} campaign?`,
+			confirmColor: "warning",
+			onConfirm: async () => {
+				const tasks = selectedIds.map((id) =>
+					updateCampaignStatus(id, "COMPLETED"),
+				);
+				const results = await Promise.allSettled(tasks);
+				const ok = results.filter((r) => r.status === "fulfilled").length;
+				showSnackbar(`Berhasil mengakhiri ${ok} campaign`, "success");
+				setSelectedIds([]);
+				fetchCampaigns();
+				setConfirmDialog((prev) => ({ ...prev, open: false }));
+			},
+		});
+	};
+
+	const bulkDelete = () => {
+		setConfirmDialog({
+			open: true,
+			title: "Hapus Massal",
+			message: `Hapus ${selectedIds.length} campaign? Tindakan tidak dapat dibatalkan.`,
+			confirmColor: "error",
+			onConfirm: async () => {
+				const tasks = selectedIds.map((id) => deleteCampaign(id));
+				const results = await Promise.allSettled(tasks);
+				const ok = results.filter(
+					(r) => r.status === "fulfilled" && (r.value as any)?.success,
+				).length;
+				showSnackbar(`Berhasil menghapus ${ok} campaign`, "success");
+				setSelectedIds([]);
+				fetchCampaigns();
+				setConfirmDialog((prev) => ({ ...prev, open: false }));
+			},
+		});
 	};
 
 	return (
-		<Box>
-			{/* Top area (premium panel) */}
+		<Box sx={{ maxWidth: 1040, mx: "auto" }}>
+			{/* Top area */}
 			<Paper
 				elevation={0}
 				sx={{
@@ -398,37 +599,15 @@ export default function AdminCampaignPage() {
 						/>
 						{FILTERS.map((f) => {
 							const selected = filter === f.key;
-							// const n = counts[f.key] ?? 0;
-
 							return (
 								<Chip
 									key={f.key}
 									clickable
 									onClick={() => setFilter(f.key)}
 									label={
-										<Stack direction="row" spacing={1} alignItems="center">
-											<Typography sx={{ fontSize: 12.5, fontWeight: 900 }}>
-												{f.label}
-											</Typography>
-											{/* <Box
-												sx={{
-													minWidth: 26,
-													height: 20,
-													px: 0.9,
-													borderRadius: 999,
-													display: "grid",
-													placeItems: "center",
-													fontSize: 11,
-													fontWeight: 1000,
-													bgcolor: selected
-														? "rgba(255,255,255,.22)"
-														: "rgba(15,23,42,.08)",
-													color: selected ? "#fff" : "rgba(15,23,42,.65)",
-												}}
-											>
-												{n}
-											</Box> */}
-										</Stack>
+										<Typography sx={{ fontSize: 12.5, fontWeight: 900 }}>
+											{f.label}
+										</Typography>
 									}
 									variant={selected ? "filled" : "outlined"}
 									sx={{
@@ -453,49 +632,72 @@ export default function AdminCampaignPage() {
 				</Box>
 			</Paper>
 
-			{/* Grid cards */}
-			<Box
-				sx={{
-					mt: 2,
-					display: "grid",
-					gap: 2,
-					gridTemplateColumns: {
-						xs: "1fr",
-						sm: "repeat(2, minmax(0, 1fr))",
-						lg: "repeat(3, minmax(0, 1fr))",
-					},
-				}}
-			>
-				{loading
-					? Array.from({ length: 6 }).map((_, i) => (
-							<Paper
-								key={i}
-								elevation={0}
-								sx={{
-									borderRadius: 3,
-									border: "1px solid rgba(15,23,42,.10)",
-									bgcolor: "#fff",
-									p: 2,
-								}}
-							>
-								<Stack direction="row" spacing={1.25} alignItems="center">
-									<Skeleton variant="rounded" width={42} height={42} />
-									<Box sx={{ flex: 1 }}>
-										<Skeleton width="85%" />
-										<Skeleton width="60%" />
-									</Box>
-									<Skeleton variant="rounded" width={36} height={36} />
-								</Stack>
-								<Box sx={{ mt: 1.5 }}>
-									<Skeleton width="45%" />
-									<Skeleton width="90%" />
-									<Skeleton width="70%" />
-								</Box>
-							</Paper>
-					  ))
-					: rows.map((row) => (
-							<CampaignCard key={row.id} row={row} onMenu={openMenu} />
-					  ))}
+			{selectedIds.length > 0 ? (
+				<Box
+					sx={{
+						mt: 2,
+						px: 2,
+						py: 1.5,
+						borderRadius: 3,
+						border: "1px solid rgba(15,23,42,.10)",
+						bgcolor: "rgba(11,169,118,.08)",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						gap: 2,
+					}}
+				>
+					<Typography sx={{ fontWeight: 800, color: "#0f172a" }}>
+						{selectedIds.length} campaign terpilih
+					</Typography>
+					<Stack direction="row" spacing={1.5} alignItems="center">
+						<Button
+							variant="contained"
+							color="primary"
+							startIcon={<VerifiedRoundedIcon />}
+							onClick={bulkVerify}
+							sx={{ borderRadius: 2, textTransform: "none", fontWeight: 800 }}
+						>
+							Verifikasi Massal
+						</Button>
+						<Button
+							variant="contained"
+							color="warning"
+							startIcon={<StopCircleRoundedIcon />}
+							onClick={bulkEnd}
+							sx={{ borderRadius: 2, textTransform: "none", fontWeight: 800 }}
+						>
+							Akhiri Massal
+						</Button>
+						<Button
+							variant="contained"
+							color="error"
+							startIcon={<DeleteRoundedIcon />}
+							onClick={bulkDelete}
+							sx={{ borderRadius: 2, textTransform: "none", fontWeight: 800 }}
+						>
+							Hapus Massal
+						</Button>
+					</Stack>
+				</Box>
+			) : null}
+
+			<Box sx={{ mt: 2 }}>
+				<AdminCampaignTable
+					rows={rows}
+					loading={loading}
+					provinces={provinces}
+					provinceId={provinceId}
+					onProvinceChange={(v) => setProvinceId(v)}
+					startDate={startDate}
+					onStartDateChange={(v) => setStartDate(v)}
+					endDate={endDate}
+					onEndDateChange={(v) => setEndDate(v)}
+					onOpenMenu={openMenu}
+					selectedIds={selectedIds}
+					onToggleRow={toggleRowSelect}
+					onToggleAll={toggleAllVisible}
+				/>
 			</Box>
 
 			{/* Pagination */}
@@ -620,306 +822,53 @@ export default function AdminCampaignPage() {
 					</Typography>
 				</MenuItem>
 			</Menu>
-		</Box>
-	);
-}
 
-function CampaignCard({
-	row,
-	onMenu,
-}: {
-	row: CampaignRow;
-	onMenu: (e: React.MouseEvent<HTMLElement>, r: CampaignRow) => void;
-}) {
-	const [imgError, setImgError] = React.useState(false);
-	const progress = pct(row.collected, row.target);
-	const status = statusChip(row.status);
-
-	const typeMeta =
-		row.type === "sakit"
-			? {
-					icon: <LocalHospitalRoundedIcon fontSize="small" />,
-					label: "Medis",
-					pillBg: "rgba(56,189,248,.12)",
-					pillBorder: "rgba(56,189,248,.22)",
-					pillText: "rgba(2,132,199,.95)",
-					glow: "rgba(56,189,248,.18)",
-			  }
-			: {
-					icon: <CategoryRoundedIcon fontSize="small" />,
-					label: "Lainnya",
-					pillBg: "rgba(11,169,118,.14)",
-					pillBorder: "rgba(11,169,118,.26)",
-					pillText: "rgba(22,101,52,.95)",
-					glow: "rgba(11,169,118,.18)",
-			  };
-
-	const initials = (name: string) => {
-		const s = (name || "").trim();
-		if (!s || s === "—") return "—";
-		const parts = s.split(/\s+/).slice(0, 2);
-		return parts.map((p) => p[0]?.toUpperCase()).join("");
-	};
-
-	return (
-		<Paper
-			elevation={0}
-			sx={{
-				position: "relative",
-				borderRadius: 3,
-				overflow: "hidden",
-				bgcolor: "#fff",
-				border: "1px solid rgba(15,23,42,.10)",
-				boxShadow: "0 14px 34px rgba(15,23,42,.08)",
-				transition:
-					"transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
-				"&:hover": {
-					transform: "translateY(-2px)",
-					boxShadow: "0 24px 70px rgba(15,23,42,.12)",
-					borderColor: "rgba(11,169,118,.45)",
-				},
-				"&::before": {
-					content: '""',
-					position: "absolute",
-					inset: 0,
-					pointerEvents: "none",
-					boxShadow: "inset 0 1px 0 rgba(255,255,255,.9)",
-				},
-			}}
-		>
-			<Box
-				sx={{
-					position: "absolute",
-					inset: 0,
-					pointerEvents: "none",
-					background: `radial-gradient(520px 260px at 80% 0%, ${typeMeta.glow}, transparent 58%)`,
-				}}
-			/>
-
-			<Box sx={{ position: "relative", p: 2 }}>
-				<Stack direction="row" spacing={1.25} alignItems="flex-start">
-					{row.thumbnail && !imgError ? (
-						<Box
-							component="img"
-							src={row.thumbnail}
-							alt={row.title}
-							onError={() => setImgError(true)}
-							sx={{
-								width: 50,
-								height: 50,
-								borderRadius: 2.2,
-								objectFit: "cover",
-								flexShrink: 0,
-								bgcolor: "rgba(15,23,42,.04)",
-								border: "1px solid rgba(15,23,42,.08)",
-							}}
-						/>
-					) : (
-						<Box
-							sx={{
-								width: 42,
-								height: 42,
-								borderRadius: 2.2,
-								display: "grid",
-								placeItems: "center",
-								flexShrink: 0,
-								bgcolor: "rgba(15,23,42,.04)",
-								border: "1px solid rgba(15,23,42,.08)",
-								color: "rgba(15,23,42,.72)",
-							}}
-						>
-							{typeMeta.icon}
-						</Box>
-					)}
-
-					<Box sx={{ flex: 1, minWidth: 0 }}>
-						<Typography
-							sx={{
-								fontWeight: 1000,
-								fontSize: 14,
-								lineHeight: 1.25,
-								color: "#0f172a",
-								display: "-webkit-box",
-								WebkitLineClamp: 2,
-								WebkitBoxOrient: "vertical",
-								overflow: "hidden",
-							}}
-						>
-							{row.title}
-						</Typography>
-
-						<Typography
-							sx={{
-								mt: 0.5,
-								fontSize: 12.5,
-								color: "rgba(15,23,42,.60)",
-								whiteSpace: "nowrap",
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-							}}
-						>
-							{row.category}
-						</Typography>
-
-						<Stack
-							direction="row"
-							spacing={0.8}
-							alignItems="center"
-							sx={{ mt: 1, flexWrap: "wrap" }}
-						>
-							<Chip
-								label={typeMeta.label}
-								size="small"
-								variant="outlined"
-								sx={{
-									height: 26,
-									borderRadius: 999,
-									fontWeight: 1000,
-									bgcolor: typeMeta.pillBg,
-									borderColor: typeMeta.pillBorder,
-									color: typeMeta.pillText,
-									"& .MuiChip-label": { px: 1.1, fontSize: 12 },
-								}}
-							/>
-							<Chip
-								label={status.label}
-								size="small"
-								variant="outlined"
-								sx={{
-									height: 26,
-									borderRadius: 999,
-									fontWeight: 1000,
-									...status.sx,
-									"& .MuiChip-label": { px: 1.1, fontSize: 12 },
-								}}
-							/>
-							<Typography sx={{ fontSize: 11.5, color: "rgba(15,23,42,.52)" }}>
-								Update{" "}
-								<b style={{ color: "rgba(15,23,42,.78)" }}>{row.updatedAt}</b>
-							</Typography>
-						</Stack>
-					</Box>
-
-					<IconButton
-						onClick={(e) => onMenu(e, row)}
-						sx={{
-							width: 36,
-							height: 36,
-							borderRadius: 2,
-							bgcolor: "rgba(255,255,255,.55)",
-							border: "1px solid rgba(15,23,42,.10)",
-							color: "rgba(15,23,42,.70)",
-							"&:hover": { bgcolor: "rgba(255,255,255,.78)" },
-						}}
-					>
-						<MoreHorizRoundedIcon fontSize="small" />
-					</IconButton>
-				</Stack>
-
-				<Box sx={{ mt: 1.25 }}>
-					<Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,.62)" }}>
-						Oleh <b style={{ color: "rgba(15,23,42,.86)" }}>{row.ownerName}</b> •
-						ID:{" "}
-						<span style={{ fontWeight: 1000, color: "rgba(15,23,42,.78)" }}>
-							{row.id}
-						</span>
-					</Typography>
-				</Box>
-
-				<Box sx={{ mt: 1.25 }}>
-					<Stack direction="row" alignItems="baseline" spacing={0.8}>
-						<Typography
-							sx={{ fontWeight: 1000, fontSize: 13.5, color: "#0f172a" }}
-						>
-							{idr(row.collected)}
-						</Typography>
-						<Typography
-							sx={{
-								fontWeight: 900,
-								fontSize: 12,
-								color: "rgba(15,23,42,.52)",
-							}}
-						>
-							/ {idr(row.target || 0)}
-						</Typography>
-						<Box sx={{ flex: 1 }} />
-						<Typography
-							sx={{
-								fontWeight: 1000,
-								fontSize: 12.5,
-								color: "rgba(15,23,42,.82)",
-							}}
-						>
-							{progress}%
-						</Typography>
-					</Stack>
-
-					<LinearProgress
-						variant="determinate"
-						value={progress}
-						sx={{
-							mt: 0.8,
-							height: 8,
-							borderRadius: 999,
-							bgcolor: "rgba(15,23,42,.08)",
-							"& .MuiLinearProgress-bar": {
-								borderRadius: 999,
-								background:
-									"linear-gradient(90deg, #0ba976, rgba(11,169,118,.55))",
-								boxShadow: "0 14px 30px rgba(11,169,118,.18)",
-							},
-						}}
-					/>
-				</Box>
-
-				<Divider sx={{ my: 1.5, borderColor: "rgba(15,23,42,.08)" }} />
-
-				<Stack direction="row" alignItems="center" spacing={1.25}>
-					<AvatarGroup
-						max={4}
-						sx={{
-							"& .MuiAvatar-root": {
-								width: 28,
-								height: 28,
-								fontSize: 11,
-								fontWeight: 1000,
-								bgcolor: "rgba(15,23,42,.06)",
-								color: "rgba(15,23,42,.72)",
-								border: "1px solid rgba(15,23,42,.10)",
-							},
-						}}
-					>
-						<Avatar>{initials(row.ownerName) || "U"}</Avatar>
-						<Avatar>R</Avatar>
-						<Avatar>B</Avatar>
-						<Avatar>N</Avatar>
-					</AvatarGroup>
-
-					<Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,.60)" }}>
-						<b style={{ color: "rgba(15,23,42,.82)" }}>{row.donors}</b> donatur
-					</Typography>
-
-					<Box sx={{ flex: 1 }} />
-
+			<Dialog
+				open={confirmDialog.open}
+				onClose={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+			>
+				<DialogTitle sx={{ fontWeight: 700 }}>
+					{confirmDialog.title}
+				</DialogTitle>
+				<DialogContent>
+					<DialogContentText>{confirmDialog.message}</DialogContentText>
+				</DialogContent>
+				<DialogActions sx={{ p: 2 }}>
 					<Button
-						component={Link}
-						href={`/admin/campaign/${row.id}`}
-						variant="contained"
-						sx={{
-							borderRadius: 999,
-							fontWeight: 1000,
-							textTransform: "none",
-							px: 2,
-							py: 0.8,
-							bgcolor: "#0ba976",
-							boxShadow: "0 16px 34px rgba(11,169,118,.22)",
-							"&:hover": { bgcolor: "#55bf64" },
-						}}
+						onClick={() =>
+							setConfirmDialog((prev) => ({ ...prev, open: false }))
+						}
+						sx={{ color: "text.secondary" }}
 					>
-						Detail
+						Batal
 					</Button>
-				</Stack>
-			</Box>
-		</Paper>
+					<Button
+						onClick={confirmDialog.onConfirm}
+						variant="contained"
+						color={confirmDialog.confirmColor || "primary"}
+						sx={{ fontWeight: 700, boxShadow: "none" }}
+					>
+						Ya, Lanjutkan
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Snackbar
+				open={snackbar.open}
+				autoHideDuration={4000}
+				onClose={handleCloseSnackbar}
+				anchorOrigin={{ vertical: "top", horizontal: "center" }}
+				sx={{ zIndex: 99999 }}
+			>
+				<Alert
+					onClose={handleCloseSnackbar}
+					severity={snackbar.severity}
+					variant="filled"
+					sx={{ width: "100%", boxShadow: 3, fontWeight: 600 }}
+				>
+					{snackbar.message}
+				</Alert>
+			</Snackbar>
+		</Box>
 	);
 }

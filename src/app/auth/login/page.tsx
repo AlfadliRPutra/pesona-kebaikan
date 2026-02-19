@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { getSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
 	Box,
 	Typography,
@@ -23,9 +23,11 @@ import {
 	VisibilityOff,
 	ArrowBack,
 } from "@mui/icons-material";
+import { loginAction } from "./action";
 
 export default function LoginPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
@@ -43,18 +45,27 @@ export default function LoginPage() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		e.stopPropagation();
 		setError("");
 		setLoading(true);
 
 		try {
-			const result = await signIn("credentials", {
-				email: formData.email,
-				password: formData.password,
-				redirect: false,
-			});
+			const form = new FormData();
+			form.append("email", formData.email);
+			form.append("password", formData.password);
 
-			if (!result?.ok) {
-				setError("Email atau password salah");
+			const result = await loginAction(undefined, form);
+
+			if (result?.error) {
+				if (result.error === "InvalidEmail") {
+					setError("Email tidak terdaftar");
+				} else if (result.error === "InvalidPassword") {
+					setError("Email atau password salah");
+				} else {
+					setError(
+						"Email atau password yang Anda masukkan tidak terdaftar atau salah",
+					);
+				}
 				return;
 			}
 
@@ -62,6 +73,11 @@ export default function LoginPage() {
 			const session = await getSession();
 			console.log("Login session:", session); // Debugging
 
+			const callbackUrl = searchParams.get("callbackUrl");
+			if (callbackUrl) {
+				router.push(callbackUrl);
+				return;
+			}
 			if (session?.user?.role === "ADMIN") {
 				router.push("/admin");
 			} else {
@@ -97,12 +113,13 @@ export default function LoginPage() {
 					background:
 						"linear-gradient(180deg, rgba(11, 169, 118, 0.1) 0%, rgba(248, 250, 252, 0) 100%)",
 					zIndex: 0,
+					pointerEvents: "none",
 				}}
 			/>
 
 			<Container
 				maxWidth="xs"
-				sx={{ position: "relative", zIndex: 1, maxWidth: "400px !important" }}
+				sx={{ position: "relative", zIndex: 10, maxWidth: "400px !important" }}
 			>
 				{/* Back Button */}
 				<Button
@@ -112,6 +129,8 @@ export default function LoginPage() {
 						mb: 3,
 						color: "text.secondary",
 						"&:hover": { color: "primary.main", bgcolor: "transparent" },
+						position: "relative",
+						zIndex: 11,
 					}}
 				>
 					Kembali ke Beranda
@@ -125,6 +144,8 @@ export default function LoginPage() {
 						border: "1px solid",
 						borderColor: "rgba(0,0,0,0.05)",
 						boxShadow: "0 20px 40px -10px rgba(0,0,0,0.05)",
+						position: "relative",
+						zIndex: 10,
 					}}
 				>
 					<Box sx={{ textAlign: "center", mb: 3 }}>
@@ -162,152 +183,166 @@ export default function LoginPage() {
 					{error && (
 						<Alert
 							severity="error"
-							sx={{ mb: 2.5, borderRadius: 2, py: 0, alignItems: "center" }}
+							sx={{
+								mb: 2.5,
+								borderRadius: 2,
+								alignItems: "center",
+								fontSize: "0.875rem",
+								"& .MuiAlert-message": { width: "100%" },
+							}}
 						>
 							{error}
 						</Alert>
 					)}
 
-					<Stack spacing={2} component="form" onSubmit={handleSubmit}>
-						<Box>
-							<Typography
-								variant="caption"
-								sx={{
-									fontWeight: 600,
-									color: "text.primary",
-									mb: 0.5,
-									display: "block",
-									fontSize: "0.75rem",
-								}}
-							>
-								Email
-							</Typography>
-							<TextField
-								name="email"
-								placeholder="nama@email.com"
-								type="email"
-								fullWidth
-								required
-								value={formData.email}
-								onChange={handleChange}
-								size="small"
-								InputProps={{
-									startAdornment: (
-										<InputAdornment position="start">
-											<EmailOutlined
-												sx={{ color: "text.secondary", fontSize: 18 }}
-											/>
-										</InputAdornment>
-									),
-									sx: { fontSize: "0.875rem" },
-								}}
-								sx={{
-									"& .MuiOutlinedInput-root": {
-										borderRadius: 2,
-										bgcolor: "rgba(241, 245, 249, 0.5)",
-										"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-										"&:hover fieldset": { borderColor: "primary.main" },
-										"&.Mui-focused fieldset": { borderColor: "primary.main" },
-									},
-								}}
-							/>
-						</Box>
-
-						<Box>
-							<Box
-								sx={{
-									display: "flex",
-									justifyContent: "space-between",
-									alignItems: "center",
-									mb: 0.5,
-								}}
-							>
+					<form onSubmit={handleSubmit} noValidate>
+						<Stack spacing={2}>
+							<Box>
 								<Typography
 									variant="caption"
 									sx={{
 										fontWeight: 600,
 										color: "text.primary",
+										mb: 0.5,
+										display: "block",
 										fontSize: "0.75rem",
 									}}
 								>
-									Password
+									Email
 								</Typography>
-								<MuiLink
-									href="#"
-									underline="hover"
-									sx={{ fontSize: 11, fontWeight: 500, color: "primary.main" }}
-								>
-									Lupa Password?
-								</MuiLink>
+								<TextField
+									name="email"
+									placeholder="nama@email.com"
+									type="email"
+									fullWidth
+									required
+									value={formData.email}
+									onChange={handleChange}
+									size="small"
+									InputProps={{
+										startAdornment: (
+											<InputAdornment position="start">
+												<EmailOutlined
+													sx={{ color: "text.secondary", fontSize: 18 }}
+												/>
+											</InputAdornment>
+										),
+										sx: { fontSize: "0.875rem" },
+									}}
+									sx={{
+										"& .MuiOutlinedInput-root": {
+											borderRadius: 2,
+											bgcolor: "rgba(241, 245, 249, 0.5)",
+											"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
+											"&:hover fieldset": { borderColor: "primary.main" },
+											"&.Mui-focused fieldset": { borderColor: "primary.main" },
+										},
+									}}
+								/>
 							</Box>
-							<TextField
-								name="password"
-								placeholder="Masukkan password anda"
-								type={showPassword ? "text" : "password"}
+
+							<Box>
+								<Box
+									sx={{
+										display: "flex",
+										justifyContent: "space-between",
+										alignItems: "center",
+										mb: 0.5,
+									}}
+								>
+									<Typography
+										variant="caption"
+										sx={{
+											fontWeight: 600,
+											color: "text.primary",
+											fontSize: "0.75rem",
+										}}
+									>
+										Password
+									</Typography>
+									<MuiLink
+										href="#"
+										underline="hover"
+										sx={{
+											fontSize: 11,
+											fontWeight: 500,
+											color: "primary.main",
+										}}
+									>
+										Lupa Password?
+									</MuiLink>
+								</Box>
+								<TextField
+									name="password"
+									placeholder="Masukkan password anda"
+									type={showPassword ? "text" : "password"}
+									fullWidth
+									required
+									value={formData.password}
+									onChange={handleChange}
+									size="small"
+									InputProps={{
+										startAdornment: (
+											<InputAdornment position="start">
+												<LockOutlined
+													sx={{ color: "text.secondary", fontSize: 18 }}
+												/>
+											</InputAdornment>
+										),
+										endAdornment: (
+											<InputAdornment position="end">
+												<IconButton
+													aria-label="toggle password visibility"
+													onClick={() => setShowPassword(!showPassword)}
+													edge="end"
+													size="small"
+												>
+													{showPassword ? (
+														<VisibilityOff sx={{ fontSize: 18 }} />
+													) : (
+														<Visibility sx={{ fontSize: 18 }} />
+													)}
+												</IconButton>
+											</InputAdornment>
+										),
+										sx: { fontSize: "0.875rem" },
+									}}
+									sx={{
+										"& .MuiOutlinedInput-root": {
+											borderRadius: 2,
+											bgcolor: "rgba(241, 245, 249, 0.5)",
+											"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
+											"&:hover fieldset": { borderColor: "primary.main" },
+											"&.Mui-focused fieldset": { borderColor: "primary.main" },
+										},
+									}}
+								/>
+							</Box>
+
+							<Button
+								variant="contained"
 								fullWidth
-								required
-								value={formData.password}
-								onChange={handleChange}
-								size="small"
-								InputProps={{
-									startAdornment: (
-										<InputAdornment position="start">
-											<LockOutlined
-												sx={{ color: "text.secondary", fontSize: 18 }}
-											/>
-										</InputAdornment>
-									),
-									endAdornment: (
-										<InputAdornment position="end">
-											<IconButton
-												aria-label="toggle password visibility"
-												onClick={() => setShowPassword(!showPassword)}
-												edge="end"
-												size="small"
-											>
-												{showPassword ? (
-													<VisibilityOff sx={{ fontSize: 18 }} />
-												) : (
-													<Visibility sx={{ fontSize: 18 }} />
-												)}
-											</IconButton>
-										</InputAdornment>
-									),
-									sx: { fontSize: "0.875rem" },
-								}}
+								type="submit"
+								disabled={loading}
 								sx={{
-									"& .MuiOutlinedInput-root": {
-										borderRadius: 2,
-										bgcolor: "rgba(241, 245, 249, 0.5)",
-										"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-										"&:hover fieldset": { borderColor: "primary.main" },
-										"&.Mui-focused fieldset": { borderColor: "primary.main" },
+									py: 1.25,
+									mt: 1,
+									borderRadius: 2,
+									fontSize: 14,
+									fontWeight: 700,
+									boxShadow: "0 4px 12px rgba(11, 169, 118, 0.25)",
+									background: "linear-gradient(to right, #0ba976, #4caf50)",
+									position: "relative",
+									zIndex: 12,
+									"&:hover": {
+										boxShadow: "0 6px 16px rgba(11, 169, 118, 0.35)",
 									},
 								}}
-							/>
-						</Box>
-
-						<Button
-							variant="contained"
-							fullWidth
-							type="submit"
-							disabled={loading}
-							sx={{
-								py: 1.25,
-								mt: 1,
-								borderRadius: 2,
-								fontSize: 14,
-								fontWeight: 700,
-								boxShadow: "0 4px 12px rgba(11, 169, 118, 0.25)",
-								background: "linear-gradient(to right, #0ba976, #4caf50)",
-								"&:hover": {
-									boxShadow: "0 6px 16px rgba(11, 169, 118, 0.35)",
-								},
-							}}
-						>
-							{loading ? "Sedang Memproses..." : "Masuk Sekarang"}
-						</Button>
-					</Stack>
+							>
+								{loading ? "Sedang Memproses..." : "Masuk Sekarang"}
+							</Button>
+						</Stack>
+					</form>
 
 					<Stack spacing={1} sx={{ mt: 3, textAlign: "center" }}>
 						<Typography

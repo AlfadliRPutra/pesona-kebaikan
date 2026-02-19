@@ -3,9 +3,10 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/actions/upload";
-import { CampaignStatus, Prisma } from "@/generated/prisma";
+import { CampaignStatus, Prisma, NotificationType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { CATEGORY_TITLE } from "@/lib/constants";
+import { createNotification } from "@/actions/notification";
 
 const QUICK_DONATION_SLUG = "donasi-cepat";
 
@@ -48,6 +49,16 @@ export async function createCampaign(formData: FormData) {
 		}
 
 		const phone = formData.get("phone") as string;
+
+		const metadataStr = formData.get("metadata") as string;
+		let metadata = undefined;
+		if (metadataStr) {
+			try {
+				metadata = JSON.parse(metadataStr);
+			} catch (e) {
+				console.error("Failed to parse metadata", e);
+			}
+		}
 
 		// File upload
 		const coverFile = formData.get("cover") as File;
@@ -170,6 +181,9 @@ export async function getCampaigns(
 	isVerified?: boolean,
 	sortBy: string = "newest",
 	includeQuickDonation: boolean = false,
+	startDate?: string,
+	endDate?: string,
+	provinceId?: string,
 ) {
 	const skip = (page - 1) * limit;
 
@@ -189,6 +203,8 @@ export async function getCampaigns(
 		where.NOT = {
 			slug: QUICK_DONATION_SLUG,
 		};
+		// Exclude campaigns that have already ended for public contexts
+		where.end = { gte: new Date() };
 	}
 
 	if (search) {
@@ -203,7 +219,7 @@ export async function getCampaigns(
 	}
 
 	if (categoryName && categoryName !== "Semua") {
-		where.category = { name: categoryName };
+		where.category = { is: { name: categoryName } };
 	}
 
 	if (isEmergency) {
@@ -212,6 +228,21 @@ export async function getCampaigns(
 
 	if (isVerified) {
 		where.verifiedAt = { not: null };
+	}
+
+	if (startDate || endDate) {
+		const range: any = {};
+		if (startDate) {
+			range.gte = new Date(startDate);
+		}
+		if (endDate) {
+			range.lte = new Date(endDate);
+		}
+		where.createdAt = range;
+	}
+
+	if (provinceId) {
+		where.createdBy = { provinceId };
 	}
 
 	let orderBy: Prisma.CampaignOrderByWithRelationInput = { createdAt: "desc" };
@@ -245,6 +276,18 @@ export async function getCampaigns(
 			}),
 			prisma.campaign.count({ where }),
 		]);
+
+		const now = new Date();
+		const expiredIds = campaigns
+			.filter((c) => c.end && new Date(c.end).getTime() < now.getTime())
+			.filter((c) => c.status !== "COMPLETED")
+			.map((c) => c.id);
+		if (expiredIds.length > 0) {
+			await prisma.campaign.updateMany({
+				where: { id: { in: expiredIds } },
+				data: { status: "COMPLETED" },
+			});
+		}
 
 		// Map to simplified structure if needed, or return as is.
 		// UI expects: id, title, category, type, ownerName, target, collected, donors, status, updatedAt
@@ -287,6 +330,8 @@ export async function getCampaigns(
 				thumbnail,
 				isEmergency: c.isEmergency,
 				verifiedAt: c.verifiedAt,
+				metadata: c.metadata,
+				description: c.story,
 			};
 		});
 
@@ -331,12 +376,29 @@ export async function getCampaignBySlug(slug: string) {
 			return getCampaignById(slug);
 		}
 
+		if (
+			campaign.end &&
+			new Date(campaign.end).getTime() < new Date().getTime()
+		) {
+			if (campaign.status !== "COMPLETED") {
+				await prisma.campaign.update({
+					where: { id: campaign.id },
+					data: { status: "COMPLETED" },
+				});
+				campaign.status = "COMPLETED";
+			}
+		}
+
 		const validDonations = campaign.donations.filter((d) =>
 			["PAID", "paid", "SETTLED", "COMPLETED"].includes(d.status),
 		);
 
 		const collected = validDonations.reduce(
 			(acc, d) => acc + Number(d.amount),
+			0,
+		);
+		const totalFees = validDonations.reduce(
+			(acc, d) => acc + (Number(d.fee) || 0),
 			0,
 		);
 		const donors = validDonations.length;
@@ -376,6 +438,19 @@ export async function getCampaignBySlug(slug: string) {
 			})),
 		].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+		let fundraisers: {
+			id: string;
+			title: string;
+			slug: string;
+			target: any;
+		}[] = [];
+		if ((prisma as any).fundraiser) {
+			fundraisers = await (prisma as any).fundraiser.findMany({
+				where: { campaignId: campaign.id },
+				select: { id: true, title: true, slug: true, target: true },
+			});
+		}
+
 		const data = {
 			id: campaign.id,
 			slug: campaign.slug,
@@ -391,9 +466,13 @@ export async function getCampaignBySlug(slug: string) {
 			ownerEmail: campaign.createdBy.email || "-",
 			ownerPhone: campaign.createdBy.phone || "-",
 			ownerAvatar: campaign.createdBy.image || "",
+			ownerVerifiedAt: campaign.createdBy.verifiedAt || null,
+			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
 			phone: campaign.phone || "-",
 			target: Number(campaign.target),
 			collected,
+			totalFees,
+			foundationFee: campaign.foundationFee,
 			donors,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
 			status:
@@ -413,6 +492,12 @@ export async function getCampaignBySlug(slug: string) {
 				comment: d.message,
 			})),
 			updates: timeline,
+			fundraisers: fundraisers.map((f) => ({
+				id: f.id,
+				title: f.title,
+				slug: f.slug,
+				target: Number(f.target),
+			})),
 		};
 
 		return { success: true, data };
@@ -448,12 +533,29 @@ export async function getCampaignById(id: string) {
 			return { success: false, error: "Campaign not found" };
 		}
 
+		if (
+			campaign.end &&
+			new Date(campaign.end).getTime() < new Date().getTime()
+		) {
+			if (campaign.status !== "COMPLETED") {
+				await prisma.campaign.update({
+					where: { id: campaign.id },
+					data: { status: "COMPLETED" },
+				});
+				campaign.status = "COMPLETED";
+			}
+		}
+
 		const validDonations = campaign.donations.filter((d) =>
 			["PAID", "paid", "SETTLED", "COMPLETED"].includes(d.status),
 		);
 
 		const collected = validDonations.reduce(
 			(acc, d) => acc + Number(d.amount),
+			0,
+		);
+		const totalFees = validDonations.reduce(
+			(acc, d) => acc + (Number(d.fee) || 0),
 			0,
 		);
 		const donors = validDonations.length;
@@ -493,6 +595,19 @@ export async function getCampaignById(id: string) {
 			})),
 		].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+		let fundraisers: {
+			id: string;
+			title: string;
+			slug: string;
+			target: any;
+		}[] = [];
+		if ((prisma as any).fundraiser) {
+			fundraisers = await (prisma as any).fundraiser.findMany({
+				where: { campaignId: campaign.id },
+				select: { id: true, title: true, slug: true, target: true },
+			});
+		}
+
 		const data = {
 			id: campaign.id,
 			slug: campaign.slug,
@@ -507,9 +622,15 @@ export async function getCampaignById(id: string) {
 			ownerEmail: campaign.createdBy.email || "-",
 			ownerPhone: campaign.createdBy.phone || "-",
 			ownerAvatar: campaign.createdBy.image || "",
+			ownerVerifiedAt: campaign.createdBy.verifiedAt || null,
+			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
 			phone: campaign.phone || "-",
 			target: Number(campaign.target),
+			start: campaign.start,
+			end: campaign.end,
 			collected,
+			totalFees,
+			foundationFee: campaign.foundationFee,
 			donors,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
 			status:
@@ -590,10 +711,24 @@ export async function updateCampaignStatus(
 			return { success: false, error: "Unauthorized" };
 		}
 
+		const prev = await prisma.campaign.findUnique({
+			where: { id: campaignId },
+			select: { createdById: true, title: true, status: true },
+		});
+
 		await prisma.campaign.update({
 			where: { id: campaignId },
 			data: { status },
 		});
+
+		if (status === "ACTIVE" && prev?.createdById && prev.status !== "ACTIVE") {
+			await createNotification(
+				prev.createdById,
+				"Campaign Disetujui",
+				`Campaign "${prev.title}" telah disetujui dan sekarang aktif.`,
+				NotificationType.KABAR,
+			);
+		}
 
 		revalidatePath("/admin/campaign");
 		revalidatePath(`/admin/campaign/${campaignId}`);
@@ -623,6 +758,18 @@ export async function updateCampaign(id: string, formData: FormData) {
 		const story = formData.get("story") as string;
 		const phone = formData.get("phone") as string;
 		const status = formData.get("status") as CampaignStatus | null;
+		const startStr = formData.get("start") as string;
+		const endStr = formData.get("end") as string;
+
+		const metadataStr = formData.get("metadata") as string;
+		let metadata = undefined;
+		if (metadataStr) {
+			try {
+				metadata = JSON.parse(metadataStr);
+			} catch (e) {
+				console.error("Failed to parse metadata", e);
+			}
+		}
 
 		const target = parseFloat(targetStr?.replace(/[^\d]/g, "") || "0") || 0;
 
@@ -681,7 +828,10 @@ export async function updateCampaign(id: string, formData: FormData) {
 				story,
 				target,
 				phone,
+				start: startStr ? new Date(startStr) : undefined,
+				end: endStr ? new Date(endStr) : undefined,
 				categoryId: category.id,
+				...(metadata ? { metadata } : {}),
 				...(status ? { status } : {}),
 			},
 		});
@@ -991,6 +1141,9 @@ export async function getPopularCampaigns(limit: number = 10) {
 		const campaigns = await prisma.campaign.findMany({
 			where: {
 				status: "ACTIVE",
+				end: {
+					gte: new Date(),
+				},
 				slug: {
 					not: QUICK_DONATION_SLUG,
 				},
@@ -1030,12 +1183,75 @@ export async function getPopularCampaigns(limit: number = 10) {
 	}
 }
 
+export async function getFeaturedCampaigns(limit: number = 10) {
+	try {
+		const campaigns = await prisma.campaign.findMany({
+			where: {
+				status: "ACTIVE",
+				end: { gte: new Date() },
+				slug: { not: QUICK_DONATION_SLUG },
+			},
+			orderBy: { createdAt: "desc" },
+			take: limit * 5,
+			include: {
+				category: true,
+				createdBy: true,
+				donations: true,
+				media: true,
+			},
+		});
+
+		let picks = campaigns.filter((c) => {
+			const m: any = (c as any).metadata || {};
+			return m?.featured === true || m?.featured === "true";
+		});
+
+		if (picks.length > 0) {
+			picks = picks
+				.map((c) => {
+					const m: any = (c as any).metadata || {};
+					const order =
+						typeof m?.featuredOrder === "number"
+							? m.featuredOrder
+							: parseInt(m?.featuredOrder || "0", 10) || 0;
+					return { c, order };
+				})
+				.sort((a, b) => a.order - b.order)
+				.map((x) => x.c)
+				.slice(0, limit);
+		} else {
+			picks = campaigns
+				.sort((a, b) => {
+					const validA = a.donations.filter((d) =>
+						["PAID", "paid", "SETTLED", "COMPLETED"].includes(d.status),
+					).length;
+					const validB = b.donations.filter((d) =>
+						["PAID", "paid", "SETTLED", "COMPLETED"].includes(d.status),
+					).length;
+					return validB - validA;
+				})
+				.slice(0, limit);
+		}
+
+		return {
+			success: true,
+			data: mapCampaignsToTypes(picks),
+		};
+	} catch (error) {
+		console.error("Get featured campaigns error:", error);
+		return { success: false, error: "Failed to fetch featured campaigns" };
+	}
+}
+
 export async function getAllActiveCampaigns(limit: number = 50) {
 	try {
 		// Fetch active campaigns
 		const campaigns = await prisma.campaign.findMany({
 			where: {
 				status: "ACTIVE",
+				end: {
+					gte: new Date(),
+				},
 				slug: {
 					not: QUICK_DONATION_SLUG,
 				},
@@ -1096,6 +1312,8 @@ function mapCampaignsToTypes(campaigns: CampaignWithRelations[]) {
 			id: c.id,
 			title: c.title,
 			organizer: c.createdBy.name || "Unknown",
+			organizerVerifiedAt: c.createdBy.verifiedAt || null,
+			organizerVerifiedAs: (c.createdBy as any).verifiedAs || null,
 			categorySlug: slugKey || undefined,
 			category: c.category.name,
 			cover: c.media.find((m) => m.isThumbnail)?.url || "",
@@ -1103,7 +1321,11 @@ function mapCampaignsToTypes(campaigns: CampaignWithRelations[]) {
 			collected,
 			donors: validDonations.length,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
-			tag: c.category.name === "Bantuan Medis & Kesehatan" ? "VERIFIED" : "ORG",
+			tag: c.createdBy.verifiedAt
+				? (c.createdBy as any).verifiedAs === "organization"
+					? "ORG"
+					: "PER"
+				: undefined,
 			slug: c.slug || c.id,
 			isEmergency: c.isEmergency,
 		};

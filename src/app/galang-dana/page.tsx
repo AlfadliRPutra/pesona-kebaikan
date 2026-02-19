@@ -91,16 +91,53 @@ function statusColor(s: StatusKey) {
 
 function stepHint(stepsDone: number, stepsTotal: number) {
 	const map: Record<number, string> = {
-		0: "Isi judul & kategori",
-		1: "Tentukan target & durasi",
-		2: "Tulis ringkasan",
-		3: "Tulis cerita lengkap",
-		4: "Upload foto sampul",
-		5: "Tambah bukti / dokumen",
-		6: "Review & kirim pengajuan",
+		0: "Isi tujuan & data",
+		1: "Lengkapi detail medis/penerima",
+		2: "Tentukan target donasi",
+		3: "Isi judul campaign",
+		4: "Tulis cerita lengkap",
+		5: "Upload foto & dokumen",
+		6: "Review & kirim",
 	};
 	if (stepsDone >= stepsTotal) return "Selesai • Menunggu review";
 	return `Lanjut: ${map[stepsDone] ?? "Lanjutkan pengisian"}`;
+}
+
+function calculateStepsDone(c: any) {
+	if (c.status !== "draft") return 7;
+
+	const m = c.metadata || {};
+
+	// Step 0: Tujuan
+	if (!m.who && !m.purposeKey) return 0;
+
+	// Step 1: Detail (Pasien / Data Diri)
+	if (!m.patientName && !m.ktpName) return 1;
+
+	// Step 2: Riwayat / Penerima
+	if (c.type === "sakit") {
+		if (!m.treatment) return 2;
+	} else {
+		if (!m.receiverName) return 2;
+	}
+
+	// Step 3: Target
+	if (!c.target || Number(c.target) <= 0) return 3;
+
+	// Step 4: Judul
+	if (!c.title) return 4;
+
+	// Step 5: Cerita
+	if (!c.description) return 5;
+
+	// Step 6: Ajakan (CTA) - Optional? No, usually last step before review
+	// If we are strictly following 0-6 steps:
+	// 0: Tujuan, 1: Detail, 2: Riwayat, 3: Target, 4: Judul, 5: Cerita, 6: Ajakan
+
+	// If CTA is filled, then step 6 is done.
+	if (!m.cta && !m.ctaOther) return 6;
+
+	return 7;
 }
 
 function CounterPill({ n, active }: { n: number; active?: boolean }) {
@@ -152,7 +189,7 @@ export default function GalangDanaSayaPage() {
 				id: c.id,
 				title: c.title,
 				status: c.status,
-				stepsDone: c.status === "draft" ? 3 : 7, // Dummy logic preserved
+				stepsDone: calculateStepsDone(c),
 				stepsTotal: 7,
 				updatedAt: c.updatedAt,
 				thumbnail: c.thumbnail,
@@ -200,14 +237,6 @@ export default function GalangDanaSayaPage() {
 	const handleAgreeMedical = () => {
 		setOpenMedicalReq(false);
 		router.push("/galang-dana/buat?type=sakit");
-	};
-
-	const handleSeeExample = () => {
-		setSnack({
-			open: true,
-			msg: "Contoh dokumen medis — segera hadir",
-			type: "info",
-		});
 	};
 
 	const counts: Record<StatusKey, number> = React.useMemo(() => {
@@ -883,29 +912,29 @@ export default function GalangDanaSayaPage() {
 							mb: 3,
 							textAlign: "center",
 						}}
-					>
-						Pilih kategori yang sesuai dengan tujuan kamu
-					</Typography>
+					></Typography>
 
-					<Stack spacing={2}>
+					<Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
 						<PickCard
 							iconBg={alpha("#0ea5e9", 0.1)}
-							icon={<HealingRoundedIcon sx={{ color: "#0ea5e9" }} />}
-							title="Bantuan Pengobatan"
+							icon={
+								<HealingRoundedIcon sx={{ color: "#0ea5e9", fontSize: 36 }} />
+							}
+							title="Bantuan Medis"
 							desc="Galang dana untuk biaya pengobatan, rawat inap, atau kebutuhan medis lainnya."
-							buttonText="Pilih Kategori Ini"
 							onClick={handlePickSakit}
 						/>
 
 						<PickCard
 							iconBg={alpha("#fb7185", 0.1)}
-							icon={<FavoriteRoundedIcon sx={{ color: "#fb7185" }} />}
-							title="Kategori Lainnya"
+							icon={
+								<FavoriteRoundedIcon sx={{ color: "#fb7185", fontSize: 32 }} />
+							}
+							title="Non Medis"
 							desc="Untuk pendidikan, bencana alam, rumah ibadah, panti asuhan, dan sosial."
-							buttonText="Pilih Kategori Ini"
 							onClick={handlePickLainnya}
 						/>
-					</Stack>
+					</Box>
 				</Box>
 			</Drawer>
 
@@ -1003,19 +1032,6 @@ export default function GalangDanaSayaPage() {
 					>
 						Saya Mengerti, Lanjut
 					</Button>
-					<Button
-						variant="text"
-						fullWidth
-						sx={{
-							borderRadius: 99,
-							fontWeight: 600,
-							color: "text.secondary",
-							m: "0 !important",
-						}}
-						onClick={handleSeeExample}
-					>
-						Lihat Contoh Dokumen
-					</Button>
 				</DialogActions>
 			</Dialog>
 		</Box>
@@ -1027,14 +1043,12 @@ function PickCard({
 	iconBg,
 	title,
 	desc,
-	buttonText,
 	onClick,
 }: {
 	icon: React.ReactNode;
 	iconBg: string;
 	title: string;
 	desc: string;
-	buttonText: string;
 	onClick: () => void;
 }) {
 	return (
@@ -1043,53 +1057,64 @@ function PickCard({
 			onClick={onClick}
 			elevation={0}
 			sx={{
-				p: 2,
+				p: 3,
 				width: "100%",
-				borderRadius: 3,
+				height: "100%",
+				borderRadius: 4,
 				border: "1px solid",
 				borderColor: "divider",
 				display: "flex",
+				flexDirection: "column",
 				alignItems: "center",
+				justifyContent: "center",
 				gap: 2,
-				textAlign: "left",
+				textAlign: "center",
 				transition: "all 0.2s",
 				"&:hover": {
 					borderColor: "primary.main",
 					bgcolor: alpha(iconBg, 0.1),
-					transform: "translateY(-2px)",
+					transform: "translateY(-4px)",
 					boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
 				},
 			}}
 		>
 			<Box
 				sx={{
-					width: 56,
-					height: 56,
-					borderRadius: 2.5,
+					width: 72,
+					height: 72,
+					borderRadius: 3.5,
 					display: "grid",
 					placeItems: "center",
 					bgcolor: iconBg,
 					flexShrink: 0,
+					mb: 0.5,
 				}}
 			>
 				{icon}
 			</Box>
 
-			<Box sx={{ flex: 1, minWidth: 0 }}>
-				<Typography sx={{ fontWeight: 800, fontSize: 15 }}>{title}</Typography>
+			<Box>
 				<Typography
 					sx={{
-						mt: 0.5,
+						fontWeight: 700,
+						fontSize: 15,
+						color: "#0f172a",
+						lineHeight: 1.3,
+						mb: 1,
+					}}
+				>
+					{title}
+				</Typography>
+				<Typography
+					sx={{
 						fontSize: 13,
 						color: "text.secondary",
-						lineHeight: 1.4,
+						lineHeight: 1.5,
 					}}
 				>
 					{desc}
 				</Typography>
 			</Box>
-
-			<ArrowForwardRoundedIcon sx={{ color: "text.disabled" }} />
 		</Paper>
 	);
 }

@@ -24,6 +24,8 @@ import {
 	DialogTitle,
 	DialogContent,
 	DialogActions,
+	Snackbar,
+	Alert,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -34,9 +36,10 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import HourglassBottomRoundedIcon from "@mui/icons-material/HourglassBottomRounded";
 import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
-import { getAdminTransactions } from "@/actions/admin";
+import { getAdminTransactions, updateAllCampaignsFee } from "@/actions/admin";
 
 const PAGE_SIZE = 10;
 
@@ -62,6 +65,12 @@ type TxRow = {
 		email: string;
 		phone: string;
 	} | null;
+};
+
+type CampaignOption = {
+	id: string;
+	title: string;
+	foundationFee: number;
 };
 
 function idr(n: number) {
@@ -158,6 +167,53 @@ export default function AdminTransaksiPage() {
 
 	const [page, setPage] = React.useState(1);
 
+	// Fee Adjustment State
+	const [openFeeModal, setOpenFeeModal] = React.useState(false);
+	const [feeValue, setFeeValue] = React.useState<string>("0");
+	const [feeLoading, setFeeLoading] = React.useState(false);
+
+	const [snackbar, setSnackbar] = React.useState<{
+		open: boolean;
+		message: string;
+		severity: "success" | "error" | "info" | "warning";
+	}>({
+		open: false,
+		message: "",
+		severity: "info",
+	});
+
+	const showSnackbar = (
+		message: string,
+		severity: "success" | "error" | "info" | "warning" = "info",
+	) => {
+		setSnackbar({ open: true, message, severity });
+	};
+
+	const handleCloseSnackbar = () => {
+		setSnackbar((prev) => ({ ...prev, open: false }));
+	};
+
+	const handleSaveFee = async () => {
+		setFeeLoading(true);
+		try {
+			const res = await updateAllCampaignsFee(Number(feeValue));
+			if (res.success) {
+				setOpenFeeModal(false);
+				setFeeValue("0");
+				// Refresh transactions if needed, though fee change doesn't directly affect tx list immediately unless we show it
+				onRefresh();
+				showSnackbar("Fee berhasil diupdate untuk semua campaign", "success");
+			} else {
+				showSnackbar(res.error || "Gagal mengupdate fee", "error");
+			}
+		} catch (e) {
+			console.error(e);
+			showSnackbar("Terjadi kesalahan", "error");
+		} finally {
+			setFeeLoading(false);
+		}
+	};
+
 	const onRefresh = React.useCallback(async () => {
 		setLoading(true);
 		try {
@@ -251,6 +307,20 @@ export default function AdminTransaksiPage() {
 						</IconButton>
 					</Tooltip>
 
+					<Button
+						onClick={() => setOpenFeeModal(true)}
+						variant="contained"
+						startIcon={<TuneRoundedIcon />}
+						sx={{
+							borderRadius: 999,
+							fontWeight: 900,
+							boxShadow: "none",
+							bgcolor: "#334155",
+							"&:hover": { bgcolor: "#1e293b" },
+						}}
+					>
+						Adjust Fee Yayasan
+					</Button>
 					<Button
 						href="/admin/campaign"
 						variant="contained"
@@ -412,14 +482,14 @@ export default function AdminTransaksiPage() {
 									height={80}
 									sx={{ borderRadius: 1 }}
 								/>
-						  ))
+							))
 						: paginated.map((row) => (
 								<TxRowCard
 									key={row.id}
 									row={row}
 									onClick={() => setSelected(row)}
 								/>
-						  ))}
+							))}
 				</Stack>
 			</Box>
 
@@ -593,6 +663,94 @@ export default function AdminTransaksiPage() {
 					</>
 				)}
 			</Dialog>
+
+			{/* Adjust Fee Dialog */}
+			<Dialog
+				open={openFeeModal}
+				onClose={() => setOpenFeeModal(false)}
+				maxWidth="sm"
+				fullWidth
+				PaperProps={{
+					sx: {
+						borderRadius: 3,
+					},
+				}}
+			>
+				<DialogTitle
+					sx={{
+						fontWeight: 1000,
+						fontSize: 18,
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+					}}
+				>
+					Adjust Fee Yayasan
+					<IconButton onClick={() => setOpenFeeModal(false)} size="small">
+						<CloseRoundedIcon />
+					</IconButton>
+				</DialogTitle>
+				<DialogContent>
+					<Typography sx={{ fontSize: 13, color: "text.secondary", mb: 2 }}>
+						Atur persentase potongan donasi operasional yayasan untuk{" "}
+						<b>SEMUA CAMPAIGN</b>. Perubahan ini akan mengupdate fee di seluruh
+						data campaign.
+					</Typography>
+
+					<Stack spacing={3}>
+						<TextField
+							label="Fee Yayasan Global (%)"
+							type="number"
+							value={feeValue}
+							onChange={(e) => {
+								const val = e.target.value;
+								// Limit 0-100
+								if (Number(val) > 100) return;
+								if (Number(val) < 0) return;
+								setFeeValue(val);
+							}}
+							fullWidth
+							InputProps={{
+								endAdornment: <InputAdornment position="end">%</InputAdornment>,
+							}}
+							helperText="Masukkan persentase fee (0-100). Default 0%."
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions sx={{ p: 2.5 }}>
+					<Button
+						onClick={() => setOpenFeeModal(false)}
+						disabled={feeLoading}
+						sx={{ borderRadius: 999, fontWeight: 900 }}
+					>
+						Batal
+					</Button>
+					<Button
+						onClick={handleSaveFee}
+						variant="contained"
+						disabled={feeLoading}
+						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
+					>
+						{feeLoading ? "Menyimpan..." : "Simpan Ke Semua Campaign"}
+					</Button>
+				</DialogActions>
+			</Dialog>
+			<Snackbar
+				open={snackbar.open}
+				autoHideDuration={4000}
+				onClose={handleCloseSnackbar}
+				anchorOrigin={{ vertical: "top", horizontal: "center" }}
+				sx={{ zIndex: 99999 }}
+			>
+				<Alert
+					onClose={handleCloseSnackbar}
+					severity={snackbar.severity}
+					variant="filled"
+					sx={{ width: "100%", boxShadow: 3, fontWeight: 600 }}
+				>
+					{snackbar.message}
+				</Alert>
+			</Snackbar>
 		</Box>
 	);
 }
@@ -627,7 +785,7 @@ function TxRowCard({ row, onClick }: { row: TxRow; onClick?: () => void }) {
 						placeItems: "center",
 						bgcolor: alpha(
 							meta.tone === "success" ? "#22c55e" : "#f97316",
-							0.12
+							0.12,
 						),
 						color: meta.tone === "success" ? "#22c55e" : "#f97316",
 					}}

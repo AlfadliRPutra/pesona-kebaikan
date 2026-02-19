@@ -38,6 +38,12 @@ import {
 } from "@/actions/campaign";
 import { CATEGORY_TITLE } from "@/lib/constants";
 import RichTextEditor from "@/components/admin/RichTextEditor";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import DateRangePickerInput from "@/components/ui/DateRangePickerInput";
 
 type StepKeySakit =
 	| "tujuan"
@@ -101,7 +107,7 @@ function BuatGalangDanaPageContent() {
 		if (status === "unauthenticated") {
 			const returnUrl = `/galang-dana/buat?${sp.toString()}`;
 			router.replace(
-				`/auth/login?callbackUrl=${encodeURIComponent(returnUrl)}`
+				`/auth/login?callbackUrl=${encodeURIComponent(returnUrl)}`,
 			);
 		}
 	}, [status, router, sp]);
@@ -131,6 +137,35 @@ function BuatGalangDanaPageContent() {
 			if (res.success && res.data) {
 				const c = res.data;
 
+				// Fix: Ensure URL params match the campaign type/category
+				const correctType = c.type === "sakit" ? "sakit" : "lainnya";
+				const currentType = sp.get("type");
+				const currentCategory = sp.get("category");
+
+				let needsRedirect = false;
+				const newParams = new URLSearchParams(sp.toString());
+
+				if (currentType !== correctType) {
+					newParams.set("type", correctType);
+					needsRedirect = true;
+				}
+
+				if (
+					correctType === "lainnya" &&
+					(c as any).categorySlug &&
+					currentCategory !== (c as any).categorySlug
+				) {
+					newParams.set("category", (c as any).categorySlug);
+					needsRedirect = true;
+				}
+
+				if (needsRedirect) {
+					router.replace(`/galang-dana/buat?${newParams.toString()}`);
+					return;
+				}
+
+				const m = ((c as any).metadata as any) || {};
+
 				if (c.type === "sakit") {
 					setTitle(c.title);
 					setSlug(c.slug || "");
@@ -138,25 +173,61 @@ function BuatGalangDanaPageContent() {
 					setStory(c.description);
 					setPhone(c.phone || "");
 
-					// Dummy data for validation
-					setWho("other");
-					setBank("pasien");
-					setPatientName("Data Tersimpan");
-					setPatientAge("0");
-					setPatientGender("L");
-					setPatientCity("-");
-					setInpatient("tidak");
-					setTreatment("Data Tersimpan............."); // Needs length >= 10
-					setPrevCost("mandiri");
-					setUsage("Data Tersimpan............."); // Needs length >= 10
-					setDuration("30");
-					setCta("Bantu kami................"); // Needs length >= 10
+					setWho(m.who || "other");
+					setWhoOther(m.whoOther || "");
+					setBank(m.bank || "pasien");
+					setPatientName(m.patientName || "");
+					setPatientAge(m.patientAge || "");
+					setPatientGender(m.patientGender || "L");
+					setPatientCity(m.patientCity || "");
+					setInpatient(m.inpatient || "tidak");
+					setTreatment(m.treatment || "");
+					setHospital(m.hospital || "");
+					setBpjs(m.bpjs || "tidak");
+					setPrevCost(m.prevCost || "mandiri");
+					setUsage(m.usage || "");
+					setCta(m.cta || "");
 
-					// Terms
-					setT1(true);
-					setT2(true);
-					setT3(true);
-					setT4(true);
+					if (m.terms) {
+						setT1(m.terms.t1);
+						setT2(m.terms.t2);
+						setT3(m.terms.t3);
+						setT4(m.terms.t4);
+					}
+
+					const startDate = new Date(c.start);
+					const endDate = new Date(c.end || new Date());
+					const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+					const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+					if (diffDays === 30) setDuration("30");
+					else if (diffDays === 60) setDuration("60");
+					else if (diffDays === 120) setDuration("120");
+					else {
+						setDuration("custom");
+						setCustomStart(startDate.toISOString().split("T")[0]);
+						setCustomEnd(endDate.toISOString().split("T")[0]);
+					}
+
+					// Auto-navigate to last incomplete step
+					let nextStep = 0;
+					// Step 0: Tujuan
+					if ((m.who || "other") && c.phone && (m.bank || "pasien"))
+						nextStep = 1;
+					// Step 1: Detail
+					if (nextStep === 1 && m.patientName && m.patientAge && m.patientCity)
+						nextStep = 2;
+					// Step 2: Riwayat
+					if (nextStep === 2 && m.inpatient && m.treatment && m.prevCost)
+						nextStep = 3;
+					// Step 3: Target
+					if (nextStep === 3 && c.target && Number(c.target) > 0) nextStep = 4;
+					// Step 4: Judul
+					if (nextStep === 4 && c.title) nextStep = 5;
+					// Step 5: Cerita
+					if (nextStep === 5 && c.description) nextStep = 6;
+
+					setStep(nextStep);
 				} else {
 					setTitleOther(c.title);
 					setSlugOther(c.slug || "");
@@ -164,17 +235,56 @@ function BuatGalangDanaPageContent() {
 					setStoryOther(c.description);
 					setPhoneOther(c.phone || "");
 
-					// Dummy data
-					setPurposeKey("program");
-					setAgreeA(true);
-					setAgreeB(true);
-					setKtpName("Data Tersimpan");
-					setReceiverName("Data Tersimpan");
-					setGoal("Data Tersimpan............."); // >= 10
-					setLocation("Data Tersimpan");
-					setUsageOther("Data Tersimpan............."); // >= 10
-					setDurationOther("30");
-					setCtaOther("Bantu kami................"); // >= 10
+					setPurposeKey(m.purposeKey || "program");
+					setKtpName(m.ktpName || "");
+					setReceiverName(m.receiverName || "");
+					setGoal(m.goal || "");
+					setLocation(m.location || "");
+					setUsageOther(m.usageOther || "");
+					setCtaOther(m.ctaOther || "");
+
+					setJob(m.job || "");
+					setWorkplace(m.workplace || "");
+					setSoc(m.soc || "");
+					setSocHandle(m.socHandle || "");
+					setBeneficiaries(m.beneficiaries || "");
+
+					if (m.agree) {
+						setAgreeA(m.agree.agreeA);
+						setAgreeB(m.agree.agreeB);
+					}
+
+					const startDate = new Date(c.start);
+					const endDate = new Date(c.end || new Date());
+					const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+					const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+					if (diffDays === 30) setDurationOther("30");
+					else if (diffDays === 60) setDurationOther("60");
+					else if (diffDays === 120) setDurationOther("120");
+					else {
+						setDurationOther("custom");
+						setCustomStartOther(startDate.toISOString().split("T")[0]);
+						setCustomEndOther(endDate.toISOString().split("T")[0]);
+					}
+
+					// Auto-navigate to last incomplete step
+					let nextStep = 0;
+					// Step 0: Tujuan
+					if ((m.purposeKey || "program") && m.ktpName && c.phone) nextStep = 1;
+					// Step 1: Data Diri
+					if (nextStep === 1 && m.job && m.workplace) nextStep = 2;
+					// Step 2: Penerima
+					if (nextStep === 2 && m.receiverName && m.goal && m.location)
+						nextStep = 3;
+					// Step 3: Target
+					if (nextStep === 3 && c.target && Number(c.target) > 0) nextStep = 4;
+					// Step 4: Judul
+					if (nextStep === 4 && c.title) nextStep = 5;
+					// Step 5: Cerita
+					if (nextStep === 5 && c.description) nextStep = 6;
+
+					setStep(nextStep);
 				}
 
 				if (c.thumbnail) {
@@ -216,6 +326,7 @@ function BuatGalangDanaPageContent() {
 	// SAKIT STATE
 	// =========
 	const [who, setWho] = React.useState<string>("");
+	const [whoOther, setWhoOther] = React.useState("");
 	const [phone, setPhone] = React.useState("");
 	const [bank, setBank] = React.useState<string>(""); // pasien / kk / beda / rs
 	const [openTerms, setOpenTerms] = React.useState(false);
@@ -232,14 +343,18 @@ function BuatGalangDanaPageContent() {
 
 	const [inpatient, setInpatient] = React.useState<"ya" | "tidak" | "">("");
 	const [treatment, setTreatment] = React.useState("");
+	const [hospital, setHospital] = React.useState("");
+	const [bpjs, setBpjs] = React.useState<"ya" | "tidak" | "">("");
 	const [prevCost, setPrevCost] = React.useState<"mandiri" | "asuransi" | "">(
-		""
+		"",
 	);
 
 	const [target, setTarget] = React.useState("");
 	const [duration, setDuration] = React.useState<
 		"30" | "60" | "120" | "custom" | ""
 	>("");
+	const [customStart, setCustomStart] = React.useState("");
+	const [customEnd, setCustomEnd] = React.useState("");
 	const [usage, setUsage] = React.useState("");
 
 	const [title, setTitle] = React.useState("");
@@ -254,7 +369,10 @@ function BuatGalangDanaPageContent() {
 	const [cta, setCta] = React.useState("");
 	const ctaLeft = 160 - cta.length;
 
-	const canOpenConfirm = !!who && phone.trim().length >= 8 && !!bank;
+	const canOpenConfirm =
+		(who === "other" ? !!whoOther : !!who) &&
+		phone.trim().length >= 8 &&
+		!!bank;
 	const allTermsOk = t1 && t2 && t3 && t4;
 
 	// =========
@@ -334,6 +452,8 @@ function BuatGalangDanaPageContent() {
 	const [durationOther, setDurationOther] = React.useState<
 		"30" | "60" | "120" | "custom" | ""
 	>("");
+	const [customStartOther, setCustomStartOther] = React.useState("");
+	const [customEndOther, setCustomEndOther] = React.useState("");
 	const [usageOther, setUsageOther] = React.useState("");
 
 	const [titleOther, setTitleOther] = React.useState("");
@@ -363,12 +483,24 @@ function BuatGalangDanaPageContent() {
 		if (isSakit) {
 			if (stepKey === "tujuan") return canOpenConfirm;
 			if (stepKey === "detail")
-				return !!patientName && !!patientAge && !!patientGender;
+				return (
+					!!patientName && !!patientAge && !!patientGender && !!patientCity
+				);
 			if (stepKey === "riwayat")
-				return !!inpatient && treatment.trim().length >= 10 && !!prevCost;
+				return (
+					!!inpatient &&
+					(inpatient === "ya" ? !!hospital : true) &&
+					treatment.trim().length >= 55 &&
+					!!prevCost
+				);
 			if (stepKey === "target")
-				return !!onlyDigits(target) && !!duration && usage.trim().length >= 10;
-			if (stepKey === "judul") return !!title && !!slug;
+				return (
+					!!onlyDigits(target) &&
+					!!duration &&
+					(duration === "custom" ? !!customStart && !!customEnd : true) &&
+					usage.trim().length >= 55
+				);
+			if (stepKey === "judul") return !!title && !!slug && !!coverPreview;
 			if (stepKey === "cerita") return textLen(story) >= 30;
 			if (stepKey === "ajakan") return cta.trim().length >= 10;
 			return false;
@@ -377,7 +509,14 @@ function BuatGalangDanaPageContent() {
 		// ---- lainnya
 		if (stepKey === "tujuan") return !!purposeKey && agreeA && agreeB;
 		if (stepKey === "data_diri")
-			return ktpName.trim().length >= 3 && phoneOther.trim().length >= 8;
+			return (
+				ktpName.trim().length >= 3 &&
+				phoneOther.trim().length >= 8 &&
+				!!job &&
+				!!workplace &&
+				!!soc &&
+				!!socHandle
+			);
 		if (stepKey === "penerima")
 			return (
 				receiverName.trim().length >= 3 &&
@@ -388,9 +527,13 @@ function BuatGalangDanaPageContent() {
 			return (
 				!!onlyDigits(targetOther) &&
 				!!durationOther &&
-				usageOther.trim().length >= 10
+				(durationOther === "custom"
+					? !!customStartOther && !!customEndOther
+					: true) &&
+				usageOther.trim().length >= 55
 			);
-		if (stepKey === "judul") return !!titleOther && !!slugOther;
+		if (stepKey === "judul")
+			return !!titleOther && !!slugOther && !!coverPreviewOther;
 		if (stepKey === "cerita") return textLen(storyOther) >= 30;
 		if (stepKey === "ajakan") return ctaOther.trim().length >= 10;
 		return false;
@@ -402,14 +545,19 @@ function BuatGalangDanaPageContent() {
 		patientName,
 		patientAge,
 		patientGender,
+		patientCity,
 		inpatient,
+		hospital,
 		treatment,
 		prevCost,
 		target,
 		duration,
+		customStart,
+		customEnd,
 		usage,
 		title,
 		slug,
+		coverPreview,
 		story,
 		cta,
 		// lainnya deps
@@ -418,14 +566,21 @@ function BuatGalangDanaPageContent() {
 		agreeB,
 		ktpName,
 		phoneOther,
+		job,
+		workplace,
+		soc,
+		socHandle,
 		receiverName,
 		goal,
 		location,
 		targetOther,
 		durationOther,
+		customStartOther,
+		customEndOther,
 		usageOther,
 		titleOther,
 		slugOther,
+		coverPreviewOther,
 		storyOther,
 		ctaOther,
 	]);
@@ -450,6 +605,10 @@ function BuatGalangDanaPageContent() {
 				formData.append("type", "sakit");
 				formData.append("target", target);
 				formData.append("duration", duration);
+				if (duration === "custom") {
+					formData.append("customStart", customStart);
+					formData.append("customEnd", customEnd);
+				}
 				formData.append("phone", phone);
 
 				if (coverFile) formData.append("cover", coverFile);
@@ -462,6 +621,10 @@ function BuatGalangDanaPageContent() {
 				formData.append("type", "lainnya");
 				formData.append("target", targetOther);
 				formData.append("duration", durationOther);
+				if (durationOther === "custom") {
+					formData.append("customStart", customStartOther);
+					formData.append("customEnd", customEndOther);
+				}
 				formData.append("phone", phoneOther);
 
 				if (coverFileOther) formData.append("cover", coverFileOther);
@@ -515,6 +678,10 @@ function BuatGalangDanaPageContent() {
 			formData.append("type", "sakit");
 			formData.append("target", target);
 			formData.append("duration", duration);
+			if (duration === "custom") {
+				formData.append("customStart", customStart);
+				formData.append("customEnd", customEnd);
+			}
 			formData.append("phone", phone);
 
 			if (coverFile) formData.append("cover", coverFile);
@@ -527,12 +694,52 @@ function BuatGalangDanaPageContent() {
 			formData.append("type", "lainnya");
 			formData.append("target", targetOther);
 			formData.append("duration", durationOther);
+			if (durationOther === "custom") {
+				formData.append("customStart", customStartOther);
+				formData.append("customEnd", customEndOther);
+			}
 			formData.append("phone", phoneOther);
 
 			if (coverFileOther) formData.append("cover", coverFileOther);
 
 			formData.append("story", storyOther);
 		}
+
+		// Prepare metadata
+		const metadata = isSakit
+			? {
+					who,
+					whoOther,
+					bank,
+					patientName,
+					patientAge,
+					patientGender,
+					patientCity,
+					treatment,
+					hospital,
+					inpatient,
+					bpjs,
+					prevCost,
+					usage,
+					cta,
+					terms: { t1, t2, t3, t4 },
+				}
+			: {
+					purposeKey,
+					ktpName,
+					receiverName,
+					goal,
+					location,
+					usageOther,
+					ctaOther,
+					job,
+					workplace,
+					soc,
+					socHandle,
+					beneficiaries,
+					agree: { agreeA, agreeB },
+				};
+		formData.append("metadata", JSON.stringify(metadata));
 
 		let res;
 		if (isEdit) {
@@ -564,8 +771,8 @@ function BuatGalangDanaPageContent() {
 	const headerTitle = isEdit
 		? "Edit Campaign"
 		: isSakit
-		? "Bantuan Medis & Kesehatan"
-		: CATEGORY_TITLE[category] ?? "Galang Dana";
+			? "Bantuan Medis & Kesehatan"
+			: (CATEGORY_TITLE[category] ?? "Galang Dana");
 
 	return (
 		<Box
@@ -641,8 +848,8 @@ function BuatGalangDanaPageContent() {
 												bgcolor: active
 													? "primary.main"
 													: done
-													? "rgba(2,132,199,.18)"
-													: "rgba(15,23,42,.08)",
+														? "rgba(2,132,199,.18)"
+														: "rgba(15,23,42,.08)",
 												color: active ? "primary.contrastText" : "text.primary",
 											}}
 										>
@@ -677,7 +884,7 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "tujuan" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Siapa yang sakit?
+									Siapa yang sakit? <span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<RadioGroup
@@ -734,18 +941,50 @@ function BuatGalangDanaPageContent() {
 												"& .MuiFormControlLabel-label": { fontSize: 13.5 },
 											}}
 										/>
+										{who === "other" && (
+											<Box sx={{ px: 1.5, pb: 1.5, mt: -0.5 }}>
+												<TextField
+													size="small"
+													fullWidth
+													placeholder="Sebutkan hubungan dengan pasien"
+													value={whoOther}
+													onChange={(e) => setWhoOther(e.target.value)}
+													sx={{ "& .MuiInputBase-input": { fontSize: 13.5 } }}
+												/>
+											</Box>
+										)}
 									</Paper>
 								</RadioGroup>
 
+								{inpatient === "ya" && (
+									<Box sx={{ mt: 2 }}>
+										<Typography
+											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
+										>
+											Nama Rumah Sakit <span style={{ color: "red" }}>*</span>
+										</Typography>
+										<TextField
+											size="small"
+											sx={{
+												"& .MuiInputBase-input": { fontSize: 13.5 },
+												"& .MuiInputLabel-root": { fontSize: 13.5 },
+											}}
+											value={hospital}
+											onChange={(e) => setHospital(e.target.value)}
+											fullWidth
+											placeholder="Masukkan nama rumah sakit"
+										/>
+									</Box>
+								)}
+
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-										Masukkan no. ponsel kamu
+										Masukkan no. ponsel kamu{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 									<Typography
 										sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}
-									>
-										Seluruh notifikasi akan dikirim melalui nomor ini
-									</Typography>
+									></Typography>
 
 									<TextField
 										size="small"
@@ -754,16 +993,30 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
 										value={phone}
-										onChange={(e) => setPhone(onlyDigits(e.target.value))}
+										onChange={(e) =>
+											setPhone(onlyDigits(e.target.value).slice(0, 15))
+										}
 										fullWidth
 										placeholder="Pastikan nomor aktif memiliki WA"
 										inputMode="numeric"
+										error={phone.length > 0 && phone.length < 10}
+										helperText={
+											phone.length > 0 && phone.length < 10 ? (
+												<Typography
+													component="span"
+													sx={{ fontSize: 11, color: "error.main" }}
+												>
+													Nomor ponsel belum lengkap (minimal 10 digit)
+												</Typography>
+											) : null
+										}
 									/>
 								</Box>
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-										Pilih rekening bank penggalangan dana
+										Pilih rekening bank penggalangan dana{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 									<Typography
 										sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}
@@ -771,36 +1024,40 @@ function BuatGalangDanaPageContent() {
 										Donasi hanya bisa dicairkan ke rekening ini.
 									</Typography>
 
-									<Stack spacing={1}>
-										{[
-											{ k: "pasien", t: "Pasien langsung" },
-											{ k: "kk", t: "Keluarga satu KK" },
-											{ k: "beda_kk", t: "Keluarga inti berbeda KK" },
-											{ k: "rs", t: "Rumah sakit" },
-										].map((x) => (
-											<Paper
-												key={x.k}
-												variant="outlined"
-												sx={{ borderRadius: 2 }}
-											>
-												<FormControlLabel
-													sx={{
-														px: 1.5,
-														py: 0.5,
-														width: "100%",
-														"& .MuiFormControlLabel-label": { fontSize: 13.5 },
-													}}
-													control={
-														<Checkbox
-															checked={bank === x.k}
-															onChange={() => setBank(x.k)}
-														/>
-													}
-													label={x.t}
-												/>
-											</Paper>
-										))}
-									</Stack>
+									<RadioGroup
+										value={bank}
+										onChange={(e) => setBank(e.target.value)}
+									>
+										<Stack spacing={1}>
+											{[
+												{ k: "pasien", t: "Pasien langsung" },
+												{ k: "kk", t: "Keluarga satu KK" },
+												{ k: "beda_kk", t: "Keluarga inti berbeda KK" },
+												{ k: "rs", t: "Rumah sakit" },
+												{ k: "yayasan", t: "Rekening Pesona Kebaikan" },
+											].map((x) => (
+												<Paper
+													key={x.k}
+													variant="outlined"
+													sx={{ borderRadius: 2 }}
+												>
+													<FormControlLabel
+														value={x.k}
+														sx={{
+															px: 1.5,
+															py: 0.5,
+															width: "100%",
+															"& .MuiFormControlLabel-label": {
+																fontSize: 13.5,
+															},
+														}}
+														control={<Radio size="small" />}
+														label={x.t}
+													/>
+												</Paper>
+											))}
+										</Stack>
+									</RadioGroup>
 								</Box>
 							</Box>
 						)}
@@ -818,7 +1075,11 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputBase-input": { fontSize: 13.5 },
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
-										label="Nama pasien"
+										label={
+											<>
+												Nama pasien <span style={{ color: "red" }}>*</span>
+											</>
+										}
 										value={patientName}
 										onChange={(e) => setPatientName(e.target.value)}
 										fullWidth
@@ -829,7 +1090,11 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputBase-input": { fontSize: 13.5 },
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
-										label="Usia pasien"
+										label={
+											<>
+												Usia pasien <span style={{ color: "red" }}>*</span>
+											</>
+										}
 										value={patientAge}
 										onChange={(e) => setPatientAge(onlyDigits(e.target.value))}
 										inputMode="numeric"
@@ -841,7 +1106,12 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputBase-input": { fontSize: 13.5 },
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
-										label="Domisili pasien (kota/kab)"
+										label={
+											<>
+												Domisili pasien (kota/kab){" "}
+												<span style={{ color: "red" }}>*</span>
+											</>
+										}
 										value={patientCity}
 										onChange={(e) => setPatientCity(e.target.value)}
 										fullWidth
@@ -849,7 +1119,7 @@ function BuatGalangDanaPageContent() {
 
 									<Paper variant="outlined" sx={{ borderRadius: 2, p: 1 }}>
 										<Typography sx={{ fontWeight: 600, mb: 0.5 }}>
-											Jenis kelamin
+											Jenis kelamin <span style={{ color: "red" }}>*</span>
 										</Typography>
 										<RadioGroup
 											row
@@ -877,7 +1147,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "riwayat" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Apakah pasien sedang menjalani rawat inap di rumah sakit?
+									Apakah pasien sedang menjalani rawat inap di rumah sakit?{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<RadioGroup
@@ -912,9 +1183,31 @@ function BuatGalangDanaPageContent() {
 									</Paper>
 								</RadioGroup>
 
+								{inpatient === "ya" && (
+									<Box sx={{ mt: 2 }}>
+										<Typography
+											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
+										>
+											Nama Rumah Sakit <span style={{ color: "red" }}>*</span>
+										</Typography>
+										<TextField
+											size="small"
+											sx={{
+												"& .MuiInputBase-input": { fontSize: 13.5 },
+												"& .MuiInputLabel-root": { fontSize: 13.5 },
+											}}
+											value={hospital}
+											onChange={(e) => setHospital(e.target.value)}
+											fullWidth
+											placeholder="Masukkan nama rumah sakit"
+										/>
+									</Box>
+								)}
+
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Upaya pengobatan yang sudah atau sedang dilakukan
+										Upaya pengobatan yang sudah atau sedang dilakukan{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 									<TextField
 										size="small"
@@ -928,12 +1221,19 @@ function BuatGalangDanaPageContent() {
 										multiline
 										minRows={4}
 										placeholder="Jelaskan secara lengkap upaya apa yang dilakukan dan tempat dilakukan..."
+										error={treatment.length > 0 && treatment.length < 55}
+										helperText={
+											treatment.length > 0 && treatment.length < 55
+												? `Minimal 55 karakter (${treatment.length}/55)`
+												: ""
+										}
 									/>
 								</Box>
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Dari mana sumber biaya pengobatan/perawatan sebelumnya?
+										Dari mana sumber biaya pengobatan/perawatan sebelumnya?{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 
 									<RadioGroup
@@ -974,7 +1274,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "target" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-									Tentukan perkiraan biaya yang dibutuhkan
+									Tentukan perkiraan biaya yang dibutuhkan{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<TextField
@@ -997,16 +1298,24 @@ function BuatGalangDanaPageContent() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Tentukan lama galang dana berlangsung
+										Tentukan lama galang dana berlangsung{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 
 									<RadioGroup
 										value={duration}
-										onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-											setDuration(
-												e.target.value as "30" | "60" | "120" | "custom" | ""
-											)
-										}
+										onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+											const val = e.target.value as
+												| "30"
+												| "60"
+												| "120"
+												| "custom"
+												| "";
+											setDuration(val);
+											if (val === "custom" && !customStart) {
+												setCustomStart(format(new Date(), "yyyy-MM-dd"));
+											}
+										}}
 									>
 										<Stack spacing={1}>
 											{[
@@ -1032,6 +1341,18 @@ function BuatGalangDanaPageContent() {
 															},
 														}}
 													/>
+													{x.v === "custom" && duration === "custom" && (
+														<Box sx={{ px: 1.5, pb: 1.5, pt: 0 }}>
+															<DateRangePickerInput
+																start={customStart}
+																end={customEnd}
+																onChange={(start, end) => {
+																	setCustomStart(start || "");
+																	setCustomEnd(end || "");
+																}}
+															/>
+														</Box>
+													)}
 												</Paper>
 											))}
 										</Stack>
@@ -1040,7 +1361,8 @@ function BuatGalangDanaPageContent() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Isi rincian Useran dana
+										Isi rincian Useran dana{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 									<TextField
 										size="small"
@@ -1054,6 +1376,12 @@ function BuatGalangDanaPageContent() {
 										multiline
 										minRows={4}
 										placeholder="Contoh: vitamin Rp2.000.000, rawat inap 10 hari Rp5.000.000, operasi Rp20.000.000"
+										error={usage.length > 0 && usage.trim().length < 55}
+										helperText={
+											usage.length > 0 && usage.trim().length < 55
+												? `Minimal 55 karakter (${usage.trim().length}/55)`
+												: ""
+										}
 									/>
 								</Box>
 							</Box>
@@ -1062,7 +1390,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "judul" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Beri judul untuk galang dana ini
+									Beri judul untuk galang dana ini{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<Stack spacing={1.25}>
@@ -1073,16 +1402,18 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
 										value={title}
-										onChange={(e) => setTitle(e.target.value)}
+										onChange={(e) => setTitle(e.target.value.slice(0, 55))}
 										fullWidth
 										placeholder="Contoh: Bantu Abi melawan kanker hati"
+										helperText={`${title.length}/55`}
 									/>
 
 									<Box>
 										<Typography
 											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
 										>
-											Tentukan link untuk galang dana ini
+											Tentukan link untuk galang dana ini{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1093,7 +1424,7 @@ function BuatGalangDanaPageContent() {
 											value={slug}
 											onChange={(e) =>
 												setSlug(
-													e.target.value.replace(/\s+/g, "").toLowerCase()
+													e.target.value.replace(/\s+/g, "").toLowerCase(),
 												)
 											}
 											fullWidth
@@ -1105,7 +1436,8 @@ function BuatGalangDanaPageContent() {
 										<Typography
 											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
 										>
-											Upload foto galang dana
+											Upload foto galang dana{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 
 										<Paper
@@ -1201,7 +1533,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "cerita" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Tuliskan cerita tentang galang dana ini
+									Tuliskan cerita tentang galang dana ini{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<Paper
@@ -1249,7 +1582,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "ajakan" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Tulis ajakan singkat untuk donasi di galang dana ini
+									Tulis ajakan singkat untuk donasi di galang dana ini{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<TextField
@@ -1289,7 +1623,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "tujuan" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Donasi akan ditujukan kepada...
+									Donasi akan ditujukan kepada...{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								{/* kalau belum pilih tujuan, tampil list */}
@@ -1423,7 +1758,8 @@ function BuatGalangDanaPageContent() {
 								<Stack spacing={1.25}>
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.6 }}>
-											Nama kamu sesuai KTP
+											Nama kamu sesuai KTP{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1436,7 +1772,8 @@ function BuatGalangDanaPageContent() {
 
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-											Masukkan no. ponsel kamu
+											Masukkan no. ponsel kamu{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<Typography
 											sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}
@@ -1448,16 +1785,28 @@ function BuatGalangDanaPageContent() {
 											sx={{ "& .MuiInputBase-input": { fontSize: 13.5 } }}
 											value={phoneOther}
 											onChange={(e) =>
-												setPhoneOther(onlyDigits(e.target.value))
+												setPhoneOther(onlyDigits(e.target.value).slice(0, 15))
 											}
 											fullWidth
 											inputMode="numeric"
+											error={phoneOther.length > 0 && phoneOther.length < 10}
+											helperText={
+												phoneOther.length > 0 && phoneOther.length < 10 ? (
+													<Typography
+														component="span"
+														sx={{ fontSize: 11, color: "error.main" }}
+													>
+														Nomor ponsel belum lengkap (minimal 10 digit)
+													</Typography>
+												) : null
+											}
 										/>
 									</Box>
 
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.6 }}>
-											Pekerjaan kamu saat ini
+											Pekerjaan kamu saat ini{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1471,7 +1820,8 @@ function BuatGalangDanaPageContent() {
 
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.6 }}>
-											Nama sekolah/tempat kerja
+											Nama sekolah/tempat kerja{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1485,7 +1835,8 @@ function BuatGalangDanaPageContent() {
 
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-											Akun media sosial kamu
+											Akun media sosial kamu{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<Typography
 											sx={{ color: "text.secondary", fontSize: 12.5, mb: 1 }}
@@ -1565,7 +1916,8 @@ function BuatGalangDanaPageContent() {
 								<Stack spacing={1.25}>
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.6 }}>
-											Nama penerima/infrastruktur
+											Nama penerima/infrastruktur{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1576,12 +1928,27 @@ function BuatGalangDanaPageContent() {
 											multiline
 											minRows={2}
 											placeholder="Contoh: Masjid Al-Iman / Sekolah X / Posko A"
+											error={
+												receiverName.length > 0 &&
+												receiverName.trim().length < 3
+											}
+											helperText={
+												receiverName.length > 0 &&
+												receiverName.trim().length < 3 ? (
+													<Typography
+														component="span"
+														sx={{ fontSize: 11, color: "error.main" }}
+													>
+														Minimal 3 karakter
+													</Typography>
+												) : null
+											}
 										/>
 									</Box>
 
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.6 }}>
-											Tujuan galang dana
+											Tujuan galang dana <span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1592,12 +1959,23 @@ function BuatGalangDanaPageContent() {
 											multiline
 											minRows={3}
 											placeholder="Contoh: pembangunan ulang fasilitas yang rusak..."
+											error={goal.length > 0 && goal.trim().length < 10}
+											helperText={
+												goal.length > 0 && goal.trim().length < 10 ? (
+													<Typography
+														component="span"
+														sx={{ fontSize: 11, color: "error.main" }}
+													>
+														Minimal 10 karakter
+													</Typography>
+												) : null
+											}
 										/>
 									</Box>
 
 									<Box>
 										<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.6 }}>
-											Lokasi
+											Lokasi <span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1608,6 +1986,17 @@ function BuatGalangDanaPageContent() {
 											multiline
 											minRows={2}
 											placeholder="Contoh: Kelurahan..., Kecamatan..., Kota/Kab..."
+											error={location.length > 0 && location.trim().length < 8}
+											helperText={
+												location.length > 0 && location.trim().length < 8 ? (
+													<Typography
+														component="span"
+														sx={{ fontSize: 11, color: "error.main" }}
+													>
+														Minimal 8 karakter
+													</Typography>
+												) : null
+											}
 										/>
 									</Box>
 								</Stack>
@@ -1618,7 +2007,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "target" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-									Tentukan perkiraan biaya yang dibutuhkan
+									Tentukan perkiraan biaya yang dibutuhkan{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<TextField
@@ -1641,16 +2031,24 @@ function BuatGalangDanaPageContent() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Tentukan lama galang dana berlangsung
+										Tentukan lama galang dana berlangsung{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 
 									<RadioGroup
 										value={durationOther}
-										onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-											setDurationOther(
-												e.target.value as "30" | "60" | "120" | "custom" | ""
-											)
-										}
+										onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+											const val = e.target.value as
+												| "30"
+												| "60"
+												| "120"
+												| "custom"
+												| "";
+											setDurationOther(val);
+											if (val === "custom" && !customStartOther) {
+												setCustomStartOther(format(new Date(), "yyyy-MM-dd"));
+											}
+										}}
 									>
 										<Stack spacing={1}>
 											{[
@@ -1676,6 +2074,18 @@ function BuatGalangDanaPageContent() {
 															},
 														}}
 													/>
+													{x.v === "custom" && durationOther === "custom" && (
+														<Box sx={{ px: 1.5, pb: 1.5, pt: 0 }}>
+															<DateRangePickerInput
+																start={customStartOther}
+																end={customEndOther}
+																onChange={(start, end) => {
+																	setCustomStartOther(start || "");
+																	setCustomEndOther(end || "");
+																}}
+															/>
+														</Box>
+													)}
 												</Paper>
 											))}
 										</Stack>
@@ -1684,7 +2094,8 @@ function BuatGalangDanaPageContent() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Isi rincian Useran dana
+										Isi rincian Useran dana{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 									<TextField
 										size="small"
@@ -1698,6 +2109,14 @@ function BuatGalangDanaPageContent() {
 										multiline
 										minRows={4}
 										placeholder="Contoh: biaya bahan bangunan Rp2.000.000, biaya tukang Rp10.000.000"
+										error={
+											usageOther.length > 0 && usageOther.trim().length < 55
+										}
+										helperText={
+											usageOther.length > 0 && usageOther.trim().length < 55
+												? `Minimal 55 karakter (${usageOther.trim().length}/55)`
+												: ""
+										}
 									/>
 								</Box>
 							</Box>
@@ -1707,7 +2126,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "judul" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Beri judul untuk galang dana ini
+									Beri judul untuk galang dana ini{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<Stack spacing={1.25}>
@@ -1718,16 +2138,18 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
 										value={titleOther}
-										onChange={(e) => setTitleOther(e.target.value)}
+										onChange={(e) => setTitleOther(e.target.value.slice(0, 55))}
 										fullWidth
 										placeholder="Contoh: Bantu renovasi masjid terdampak bencana"
+										helperText={`${titleOther.length}/55`}
 									/>
 
 									<Box>
 										<Typography
 											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
 										>
-											Tentukan link untuk galang dana ini
+											Tentukan link untuk galang dana ini{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 										<TextField
 											size="small"
@@ -1738,7 +2160,7 @@ function BuatGalangDanaPageContent() {
 											value={slugOther}
 											onChange={(e) =>
 												setSlugOther(
-													e.target.value.replace(/\s+/g, "").toLowerCase()
+													e.target.value.replace(/\s+/g, "").toLowerCase(),
 												)
 											}
 											fullWidth
@@ -1750,7 +2172,8 @@ function BuatGalangDanaPageContent() {
 										<Typography
 											sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}
 										>
-											Upload foto galang dana
+											Upload foto galang dana{" "}
+											<span style={{ color: "red" }}>*</span>
 										</Typography>
 
 										<Paper
@@ -1896,7 +2319,8 @@ function BuatGalangDanaPageContent() {
 						{stepKey === "ajakan" && (
 							<Box>
 								<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 1 }}>
-									Tulis ajakan singkat untuk donasi di galang dana ini
+									Tulis ajakan singkat untuk donasi di galang dana ini{" "}
+									<span style={{ color: "red" }}>*</span>
 								</Typography>
 
 								<TextField
@@ -1968,10 +2392,10 @@ function BuatGalangDanaPageContent() {
 							{submitting
 								? "Menyimpan..."
 								: stepKey === "ajakan"
-								? isEdit
-									? "Simpan Perubahan"
-									: "Selesai"
-								: "Selanjutnya"}
+									? isEdit
+										? "Simpan Perubahan"
+										: "Selesai"
+									: "Selanjutnya"}
 						</Button>
 					</Stack>
 
@@ -2009,13 +2433,14 @@ function BuatGalangDanaPageContent() {
 					},
 				}}
 			>
-				<Box sx={{ p: 1.25 }}>
-					<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
+				<Box sx={{ p: 3 }}>
+					<Typography sx={{ fontWeight: 600, fontSize: 15, mb: 2 }}>
 						Baca dan beri tanda syarat penggalangan di bawah ini
 					</Typography>
 
 					<Stack spacing={1}>
 						<FormControlLabel
+							sx={{ "& .MuiFormControlLabel-label": { fontSize: 13 } }}
 							control={
 								<Checkbox
 									checked={t1}
@@ -2025,6 +2450,7 @@ function BuatGalangDanaPageContent() {
 							label="Pemilik rekening bertanggung jawab atas Useran dana yang diterima dari galang dana ini."
 						/>
 						<FormControlLabel
+							sx={{ "& .MuiFormControlLabel-label": { fontSize: 13 } }}
 							control={
 								<Checkbox
 									checked={t2}
@@ -2034,6 +2460,7 @@ function BuatGalangDanaPageContent() {
 							label="Kamu sebagai penggalang dana bertanggung jawab atas permintaan pencairan dan pelaporan Useran dana."
 						/>
 						<FormControlLabel
+							sx={{ "& .MuiFormControlLabel-label": { fontSize: 13 } }}
 							control={
 								<Checkbox
 									checked={t3}
@@ -2043,6 +2470,7 @@ function BuatGalangDanaPageContent() {
 							label="Pasien dan/atau keluarga benar-benar membutuhkan biaya dari galang dana ini."
 						/>
 						<FormControlLabel
+							sx={{ "& .MuiFormControlLabel-label": { fontSize: 13 } }}
 							control={
 								<Checkbox
 									checked={t4}

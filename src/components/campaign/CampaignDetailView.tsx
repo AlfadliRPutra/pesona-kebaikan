@@ -7,23 +7,28 @@ import {
 	Box,
 	Button,
 	Container,
-	Tabs,
-	Tab,
 	Divider,
 	Snackbar,
 	Alert,
 	IconButton,
+	Chip,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	List,
+	ListItemButton,
+	ListItemText,
+	Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
-import Typography from "@mui/material/Typography";
 
 import { createReport } from "@/actions/report";
 import { checkPendingDonations } from "@/actions/donation";
-import { ReportReason } from "@/generated/prisma";
+import { ReportReason } from "@prisma/client";
 
-// New Components
+// Components
 import CampaignHero from "./detail/CampaignHero";
 import CampaignHeader from "./detail/CampaignHeader";
 import CampaignFundraiser from "./detail/CampaignFundraiser";
@@ -36,6 +41,7 @@ import FundDetailsModal from "./detail/modals/FundDetailsModal";
 import DonorsModal from "./detail/modals/DonorsModal";
 import ReportModal from "./detail/modals/ReportModal";
 import MedicalModal from "./detail/modals/MedicalModal";
+import PatientModal from "./detail/modals/PatientModal";
 
 interface TabPanelProps {
 	children?: React.ReactNode;
@@ -59,12 +65,25 @@ function CustomTabPanel(props: TabPanelProps) {
 	);
 }
 
-export default function CampaignDetailView({ data }: { data: any }) {
+export default function CampaignDetailView({
+	data,
+	showFundraiser = true,
+}: {
+	data: any;
+	showFundraiser?: boolean;
+}) {
 	const router = useRouter();
 	const { data: session } = useSession();
 	const searchParams = useSearchParams();
+
 	const [tabValue, setTabValue] = React.useState(0);
 	const [showFullStory, setShowFullStory] = React.useState(false);
+
+	// Share URL state (avoid empty on first click)
+	const [shareUrl, setShareUrl] = React.useState("");
+	React.useEffect(() => {
+		if (typeof window !== "undefined") setShareUrl(window.location.href);
+	}, []);
 
 	// Report state
 	const [reportLoading, setReportLoading] = React.useState(false);
@@ -94,49 +113,9 @@ export default function CampaignDetailView({ data }: { data: any }) {
 		{ value: "OTHER", label: "Lainnya" },
 	];
 
-	const handleSubmitReport = async () => {
-		if (
-			!reportReason ||
-			!reportDetails ||
-			!reporterName ||
-			!reporterPhone ||
-			!reporterEmail
-		) {
-			setSnack({ open: true, msg: "Mohon lengkapi semua data", type: "error" });
-			return;
-		}
-
-		setReportLoading(true);
-		const res = await createReport({
-			campaignId: data.id,
-			reason: reportReason as ReportReason,
-			details: reportDetails,
-			reporterName,
-			reporterPhone,
-			reporterEmail,
-		});
-		setReportLoading(false);
-
-		if (res.success) {
-			setOpenReportModal(false);
-			setReportSuccessOpen(true);
-			// Reset form
-			setReportReason("");
-			setReportDetails("");
-			setReporterName("");
-			setReporterPhone("");
-			setReporterEmail("");
-		} else {
-			setSnack({
-				open: true,
-				msg: res.error || "Gagal mengirim laporan",
-				type: "error",
-			});
-		}
-	};
-
 	// Modals State
 	const [openMedicalModal, setOpenMedicalModal] = React.useState(false);
+	const [openPatientModal, setOpenPatientModal] = React.useState(false);
 	const [openDonorsModal, setOpenDonorsModal] = React.useState(false);
 	const [openShareModal, setOpenShareModal] = React.useState(false);
 	const [openFundDetailsModal, setOpenFundDetailsModal] = React.useState(false);
@@ -144,6 +123,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 	const [donationSuccessOpen, setDonationSuccessOpen] = React.useState(false);
 	const [openReportModal, setOpenReportModal] = React.useState(false);
 	const [reportSuccessOpen, setReportSuccessOpen] = React.useState(false);
+	const [openFundraiserModal, setOpenFundraiserModal] = React.useState(false);
 
 	// Prefill report form with session data
 	React.useEffect(() => {
@@ -153,9 +133,11 @@ export default function CampaignDetailView({ data }: { data: any }) {
 		}
 	}, [openReportModal, session]);
 
+	// Donation success check (stable deps)
+	const donationSuccessParam = searchParams.get("donation_success");
 	React.useEffect(() => {
 		const checkStatus = async () => {
-			if (searchParams.get("donation_success") === "true") {
+			if (donationSuccessParam === "true") {
 				setDonationSuccessOpen(true);
 
 				// Clean up URL first
@@ -173,73 +155,128 @@ export default function CampaignDetailView({ data }: { data: any }) {
 			}
 		};
 		checkStatus();
-	}, [searchParams, data.slug, data.id, router]);
+	}, [donationSuccessParam, data.slug, data.id, router]);
 
-	const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-		setTabValue(newValue);
-	};
+	const effectiveTitle =
+		(data as any).fundraiserTitle && !showFundraiser
+			? (data as any).fundraiserTitle
+			: data.title;
 
-	const progress = Math.min(
-		100,
-		Math.round((data.collected / data.target) * 100)
-	);
+	const effectiveTarget =
+		(data as any).fundraiserTarget && !showFundraiser
+			? (data as any).fundraiserTarget
+			: data.target;
 
-	const donations = data.donations || [];
-	const prayers = donations.filter(
-		(d: any) => d.comment && d.comment.trim() !== ""
-	);
+	// Safe progress calc (avoid NaN/Infinity)
+	const safeTarget = Number(effectiveTarget) || 0;
+	const safeCollected = Number(data.collected) || 0;
+	const progress =
+		safeTarget > 0
+			? Math.min(100, Math.round((safeCollected / safeTarget) * 100))
+			: 0;
+
+	const donations = Array.isArray(data.donations) ? data.donations : [];
+	const prayers =
+		Array.isArray((data as any).fundraiserPrayers) &&
+		(data as any).fundraiserPrayers.length > 0
+			? (data as any).fundraiserPrayers
+			: donations.filter(
+					(d: any) => d.comment && String(d.comment).trim() !== "",
+				);
+
 	const latestDonations = donations.slice(0, 3);
 	const latestPrayers = prayers.slice(0, 3);
-	const hasWithdrawals =
-		data.updates && data.updates.some((u: any) => u.type === "withdrawal");
-	const withdrawalCount =
-		data.updates?.filter((u: any) => u.type === "withdrawal").length || 0;
-	const updateCount = data.updates?.length || 0;
+
+	const hasWithdrawals = Array.isArray(data.updates)
+		? data.updates.some((u: any) => u?.type === "withdrawal")
+		: false;
+
+	const withdrawalCount = Array.isArray(data.updates)
+		? data.updates.filter((u: any) => u?.type === "withdrawal").length
+		: 0;
+
+	const updateCount = Array.isArray(data.updates) ? data.updates.length : 0;
+	const fundraiserCount = Array.isArray(data.fundraisers)
+		? data.fundraisers.length
+		: 0;
 
 	// Calculate Fund Details
-	const totalCollected = data.collected || 0;
-	// Mocking fees as 5% for display purposes to match design (in real app, this comes from backend)
-	const fees = Math.round(totalCollected * 0.05);
-	// Calculate withdrawn amount from updates if available
-	const withdrawn =
-		data.updates
-			?.filter((u: any) => u.type === "withdrawal")
-			.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0) || 0;
-	const remaining = totalCollected - fees - withdrawn;
-	// Mock duration
-	const campaignDuration = 23; // Days running
+	const totalCollected = safeCollected;
+	// Use server-provided totalFees if available, otherwise fallback to 5% estimate (only for legacy data)
+	const fees =
+		(data as any).totalFees !== undefined
+			? (data as any).totalFees
+			: Math.round(totalCollected * 0.05);
 
-	// Share Logic
-	const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-	const shareText = `Bantu ${data.title} di Pesona Kebaikan`;
+	const foundationFeePercentage = (data as any).foundationFee || 0;
+	const foundationFeeAmount = Math.round(
+		totalCollected * (foundationFeePercentage / 100),
+	);
+
+	const withdrawn = Array.isArray(data.updates)
+		? data.updates
+				.filter((u: any) => u?.type === "withdrawal")
+				.reduce(
+					(acc: number, curr: any) => acc + (Number(curr?.amount) || 0),
+					0,
+				)
+		: 0;
+
+	const remaining = Math.max(
+		0,
+		totalCollected - fees - foundationFeeAmount - withdrawn,
+	);
+
+	// Calculate duration
+	const startDate = new Date(data.start || data.createdAt);
+	const now = new Date();
+	const diffTime = Math.abs(now.getTime() - startDate.getTime());
+	const campaignDuration = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+	// Normalize images to string[]
+	const images =
+		Array.isArray(data.images) && data.images.length > 0
+			? data.images
+					.map((img: any) => (typeof img === "string" ? img : img?.url))
+					.filter(Boolean)
+			: [data.thumbnail || "https://placehold.co/600x400?text=No+Image"];
+
+	const shareText = `Bantu ${effectiveTitle} di Pesona Kebaikan`;
+
+	const copyToClipboard = async (text: string) => {
+		try {
+			await navigator.clipboard.writeText(text);
+			setSnackbarOpen(true);
+		} catch {
+			setSnack({ open: true, msg: "Gagal menyalin tautan", type: "error" });
+		}
+	};
 
 	const handleShareAction = (platform: string) => {
 		let url = "";
 		switch (platform) {
 			case "whatsapp":
 				url = `https://wa.me/?text=${encodeURIComponent(
-					shareText + " " + shareUrl
+					shareText + " " + shareUrl,
 				)}`;
 				break;
 			case "facebook":
 				url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-					shareUrl
+					shareUrl,
 				)}`;
 				break;
 			case "twitter":
 				url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-					shareText
+					shareText,
 				)}&url=${encodeURIComponent(shareUrl)}`;
 				break;
 			case "instagram":
-				navigator.clipboard.writeText(shareUrl);
-				setSnackbarOpen(true);
+				copyToClipboard(shareUrl);
 				window.open("https://www.instagram.com/", "_blank");
 				setOpenShareModal(false);
 				return;
 			case "copy":
-				navigator.clipboard.writeText(shareUrl);
-				setSnackbarOpen(true);
+				copyToClipboard(shareUrl);
 				setOpenShareModal(false);
 				return;
 			default:
@@ -251,15 +288,61 @@ export default function CampaignDetailView({ data }: { data: any }) {
 		}
 	};
 
-	const images =
-		data.images && data.images.length > 0
-			? data.images
-			: [data.thumbnail || "https://placehold.co/600x400?text=No+Image"];
+	const handleSubmitReport = async () => {
+		if (
+			!reportReason ||
+			!reportDetails ||
+			!reporterName ||
+			!reporterPhone ||
+			!reporterEmail
+		) {
+			setSnack({ open: true, msg: "Mohon lengkapi semua data", type: "error" });
+			return;
+		}
+
+		setReportLoading(true);
+		try {
+			const res = await createReport({
+				campaignId: data.id,
+				reason: reportReason as ReportReason,
+				details: reportDetails,
+				reporterName,
+				reporterPhone,
+				reporterEmail,
+			});
+
+			if (res.success) {
+				setOpenReportModal(false);
+				setReportSuccessOpen(true);
+
+				// Reset form
+				setReportReason("");
+				setReportDetails("");
+				setReporterName("");
+				setReporterPhone("");
+				setReporterEmail("");
+			} else {
+				setSnack({
+					open: true,
+					msg: res.error || "Gagal mengirim laporan",
+					type: "error",
+				});
+			}
+		} catch (e) {
+			console.error(e);
+			setSnack({
+				open: true,
+				msg: "Terjadi kesalahan saat mengirim laporan",
+				type: "error",
+			});
+		} finally {
+			setReportLoading(false);
+		}
+	};
 
 	return (
 		<Box
 			sx={{
-				// Add extra padding at bottom for sticky footer
 				pb: "100px",
 				bgcolor: "#fff",
 				minHeight: "100vh",
@@ -282,7 +365,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				}}
 			>
 				<IconButton
-					onClick={() => router.back()}
+					onClick={() => router.push("/donasi")}
 					sx={{
 						color: "white",
 						bgcolor: "rgba(0,0,0,0.3)",
@@ -294,14 +377,14 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				</IconButton>
 			</Box>
 
-			<CampaignHero images={images} title={data.title} />
+			<CampaignHero images={images} title={effectiveTitle} />
 
 			<Container maxWidth="md" sx={{ px: { xs: 0, sm: 2 } }}>
 				<Box
 					sx={{
 						px: 2,
 						py: 3,
-						mt: { xs: 0, sm: -4 },
+						mt: 0,
 						position: "relative",
 						bgcolor: "white",
 						borderRadius: { xs: 0, sm: "16px 16px 0 0" },
@@ -309,7 +392,7 @@ export default function CampaignDetailView({ data }: { data: any }) {
 					}}
 				>
 					<CampaignHeader
-						data={data}
+						data={{ ...data, title: effectiveTitle, target: effectiveTarget }}
 						progress={progress}
 						updateCount={updateCount}
 						withdrawalCount={withdrawalCount}
@@ -319,41 +402,58 @@ export default function CampaignDetailView({ data }: { data: any }) {
 
 					<Divider sx={{ my: 3 }} />
 
-					<CampaignFundraiser
-						data={data}
-						setOpenFundDetailsModal={setOpenFundDetailsModal}
-					/>
+					{showFundraiser && (
+						<CampaignFundraiser
+							data={data}
+							setOpenFundDetailsModal={setOpenFundDetailsModal}
+							setOpenPatientModal={setOpenPatientModal}
+							setOpenFundraiserModal={setOpenFundraiserModal}
+						/>
+					)}
 
 					<Divider sx={{ my: 3 }} />
 
-					{/* Tabs */}
-					<Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-						<Tabs
-							value={tabValue}
-							onChange={handleTabChange}
-							variant="fullWidth"
-							sx={{
-								"& .MuiTab-root": {
-									textTransform: "none",
-									fontWeight: 600,
-									fontSize: 14,
-								},
-								"& .Mui-selected": { color: "#0ba976" },
-								"& .MuiTabs-indicator": { bgcolor: "#0ba976" },
-							}}
-						>
-							<Tab label="Cerita" />
-							<Tab label="Kabar Terbaru" />
-						</Tabs>
-					</Box>
-
 					{/* Tab: Cerita */}
 					<CustomTabPanel value={tabValue} index={0}>
+						<Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+							Cerita Penggalangan Dana
+						</Typography>
+
 						<CampaignStory
-							data={data}
+							data={{ ...data, title: effectiveTitle, target: effectiveTarget }}
 							showFullStory={showFullStory}
 							setShowFullStory={setShowFullStory}
 						/>
+
+						<Box
+							onClick={() => setTabValue(1)}
+							sx={{
+								display: "flex",
+								justifyContent: "space-between",
+								alignItems: "center",
+								mb: 3,
+								mt: 3,
+								cursor: "pointer",
+							}}
+						>
+							<Typography variant="h6" sx={{ fontWeight: 700 }}>
+								Kabar Terbaru
+							</Typography>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+								<Chip
+									label={updateCount}
+									size="small"
+									sx={{
+										bgcolor: "#e0f2fe",
+										color: "#0284c7",
+										fontWeight: 700,
+										height: 24,
+										borderRadius: 1.5,
+									}}
+								/>
+								<NavigateNextIcon sx={{ color: "#94a3b8" }} />
+							</Box>
+						</Box>
 
 						{/* Pencairan Dana */}
 						{hasWithdrawals && (
@@ -379,11 +479,34 @@ export default function CampaignDetailView({ data }: { data: any }) {
 							latestDonations={latestDonations}
 							latestPrayers={latestPrayers}
 							setOpenDonorsModal={setOpenDonorsModal}
+							campaignId={data.id}
+							campaignSlug={data.slug}
+							fundraiserCount={fundraiserCount}
+							setOpenFundraiserModal={setOpenFundraiserModal}
+							showFundraiserLabel={showFundraiser}
 						/>
 					</CustomTabPanel>
 
 					{/* Tab: Kabar Terbaru */}
 					<CustomTabPanel value={tabValue} index={1}>
+						<Box sx={{ mb: 2 }}>
+							<Button
+								startIcon={<ArrowBackIcon />}
+								onClick={() => setTabValue(0)}
+								sx={{
+									textTransform: "none",
+									color: "text.primary",
+									fontWeight: 600,
+									p: 0,
+									"&:hover": {
+										bgcolor: "transparent",
+										textDecoration: "underline",
+									},
+								}}
+							>
+								Kembali ke Cerita
+							</Button>
+						</Box>
 						<CampaignUpdates updates={data.updates} />
 					</CustomTabPanel>
 
@@ -427,6 +550,11 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				withdrawn={withdrawn}
 				remaining={remaining}
 				campaignDuration={campaignDuration}
+				foundationFeePercentage={foundationFeePercentage}
+				foundationFeeAmount={foundationFeeAmount}
+				target={safeTarget}
+				updatedAt={data.updatedAt}
+				allocations={(data.metadata as any)?.allocations || []}
 			/>
 
 			<DonorsModal
@@ -434,6 +562,12 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				onClose={() => setOpenDonorsModal(false)}
 				donorsCount={data.donors}
 				donations={data.donations}
+			/>
+
+			<PatientModal
+				open={openPatientModal}
+				onClose={() => setOpenPatientModal(false)}
+				data={data}
 			/>
 
 			<MedicalModal
@@ -459,6 +593,98 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				reportReasons={REPORT_REASONS}
 			/>
 
+			<Dialog
+				open={openFundraiserModal}
+				onClose={() => setOpenFundraiserModal(false)}
+				fullWidth
+				maxWidth="sm"
+			>
+				<DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>
+					Fundraiser terkait
+				</DialogTitle>
+				<DialogContent>
+					{Array.isArray(data.fundraisers) && data.fundraisers.length > 0 ? (
+						<List>
+							{data.fundraisers.map((f: any) => (
+								<ListItemButton
+									key={f.id}
+									onClick={() => {
+										setOpenFundraiserModal(false);
+										if (f.slug) router.push(`/donasi/fundraiser/${f.slug}`);
+									}}
+									sx={{ borderRadius: 2, mb: 0.5 }}
+								>
+									<ListItemText
+										primaryTypographyProps={{
+											sx: { fontWeight: 700, fontSize: 14 },
+										}}
+										secondaryTypographyProps={{
+											sx: { fontSize: 12, color: "#64748b" },
+										}}
+										primary={f.title}
+										secondary={`Target: Rp ${new Intl.NumberFormat("id-ID", {
+											maximumFractionDigits: 0,
+										}).format(Number(f.target || 0))}`}
+									/>
+								</ListItemButton>
+							))}
+						</List>
+					) : (
+						<Box sx={{ py: 2 }}>
+							<Typography sx={{ fontSize: 13, color: "#64748b" }}>
+								Belum ada fundraiser terkait
+							</Typography>
+						</Box>
+					)}
+
+					<Box sx={{ mt: 2 }}>
+						<Divider sx={{ my: 2 }} />
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+							<Box
+								onClick={() => {
+									setOpenFundraiserModal(false);
+									if (data.slug)
+										router.push(`/donasi/${data.slug}/create-fundraiser`);
+									else router.push("/donasi/fundraiser");
+								}}
+								sx={{
+									bgcolor: "primary.main",
+									color: "primary.contrastText",
+									borderRadius: 2,
+									textAlign: "center",
+									fontWeight: 800,
+									py: 1.25,
+									cursor: "pointer",
+									"&:hover": { opacity: 0.9 },
+								}}
+							>
+								Jadi fundraiser
+							</Box>
+							<Box
+								onClick={() => {
+									setOpenFundraiserModal(false);
+									if (data.slug)
+										router.push(`/donasi/${data.slug}/create-fundraiser`);
+									else router.push("/donasi/fundraiser");
+								}}
+								sx={{
+									color: "primary.main",
+									borderRadius: 2,
+									textAlign: "center",
+									fontWeight: 800,
+									py: 1.25,
+									cursor: "pointer",
+									"&:hover": { bgcolor: "#f8fafc" },
+								}}
+							>
+								Undang fundraiser
+							</Box>
+						</Box>
+					</Box>
+				</DialogContent>
+			</Dialog>
+
+			{/* Copy-link snackbar */}
 			<Snackbar
 				open={snackbarOpen}
 				autoHideDuration={3000}
@@ -467,6 +693,8 @@ export default function CampaignDetailView({ data }: { data: any }) {
 				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
 			/>
 
+			{/* ✅ FIX TS ERROR: Alert children exists. If your TS says otherwise, it means your Alert import/type is wrong.
+          This version avoids that mismatch by using message prop instead of children. */}
 			<Snackbar
 				open={reportSuccessOpen}
 				autoHideDuration={6000}
@@ -485,11 +713,11 @@ export default function CampaignDetailView({ data }: { data: any }) {
 			<Snackbar
 				open={snack.open}
 				autoHideDuration={4000}
-				onClose={() => setSnack({ ...snack, open: false })}
+				onClose={() => setSnack((s) => ({ ...s, open: false }))}
 				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
 			>
 				<Alert
-					onClose={() => setSnack({ ...snack, open: false })}
+					onClose={() => setSnack((s) => ({ ...s, open: false }))}
 					severity={snack.type}
 					sx={{ width: "100%", borderRadius: "12px", boxShadow: 3 }}
 				>
