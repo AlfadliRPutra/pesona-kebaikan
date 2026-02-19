@@ -1,5 +1,5 @@
 import { prisma } from "../../src/lib/prisma";
-import { CampaignStatus, CampaignMediaType, PaymentMethod } from "@/generated/prisma";
+import { CampaignStatus, CampaignMediaType, PaymentMethod, ReportReason } from "@/generated/prisma";
 import { faker } from "@faker-js/faker";
 import { CATEGORY_TITLE } from "../../src/lib/constants";
 
@@ -143,8 +143,108 @@ export async function seedCampaigns() {
 					campaignId: campaign.id,
 				},
 			});
+
+			const donations = await prisma.donation.findMany({
+				where: { campaignId: campaign.id },
+				select: { id: true, userId: true },
+				take: 20,
+				orderBy: { createdAt: "asc" },
+			});
+			const amiinData = donations.map((d) => ({
+				donationId: d.id,
+				userId: d.userId || pickRandom(users).id,
+				ipAddress: faker.internet.ip(),
+			}));
+			if (amiinData.length) {
+				await prisma.amiin.createMany({
+					data: amiinData,
+					skipDuplicates: true,
+				});
+			}
+
+			const update1 = await prisma.campaignUpdate.create({
+				data: {
+					campaignId: campaign.id,
+					title: "Update Penyaluran Tahap 1",
+					content: faker.lorem.paragraphs(),
+					amount: Math.floor(withdrawalAmount * 0.5),
+					media: {
+						create: [
+							{
+								url: `https://picsum.photos/800/600?update=${faker.number.int({ min: 1, max: 9999 })}`,
+								type: "IMAGE",
+							},
+						],
+					},
+				},
+			});
+			await prisma.campaignUpdate.create({
+				data: {
+					campaignId: campaign.id,
+					title: "Update Penyaluran Tahap 2",
+					content: faker.lorem.paragraphs(),
+					amount: Math.floor(withdrawalAmount * 0.3),
+					media: {
+						create: [
+							{
+								url: `https://picsum.photos/800/600?update=${faker.number.int({ min: 1, max: 9999 })}`,
+								type: "IMAGE",
+							},
+						],
+					},
+				},
+			});
 		}
 	}
 
 	console.log("Seeded campaigns with donations and withdrawals per category.");
+
+	const carouselCount = await prisma.carousel.count();
+	if (carouselCount === 0) {
+		const activeCampaigns = await prisma.campaign.findMany({
+			where: { status: CampaignStatus.ACTIVE },
+			select: { id: true, title: true, slug: true },
+			take: 10,
+			orderBy: { createdAt: "desc" },
+		});
+		const carouselsData = activeCampaigns.map((c, idx) => ({
+			title: c.title,
+			description: faker.lorem.sentence(),
+			link: `/campaign/${c.slug}`,
+			image: `https://picsum.photos/1200/600?carousel=${idx + 1}`,
+			isActive: true,
+			order: idx,
+			campaignId: c.id,
+		}));
+		if (carouselsData.length) {
+			await prisma.carousel.createMany({ data: carouselsData });
+		}
+	}
+
+	const reportCount = await prisma.report.count();
+	if (reportCount === 0) {
+		const activeCampaigns = await prisma.campaign.findMany({
+			where: { status: CampaignStatus.ACTIVE },
+			select: { id: true },
+			take: 5,
+			orderBy: { createdAt: "desc" },
+		});
+		const reasons = [
+			ReportReason.FRAUD,
+			ReportReason.NO_PERMISSION,
+			ReportReason.IRRELEVANT,
+			ReportReason.OTHER,
+		];
+		const reportsData = activeCampaigns.map((c) => ({
+			campaignId: c.id,
+			reason: reasons[Math.floor(Math.random() * reasons.length)],
+			details: faker.lorem.paragraph(),
+			reporterName: faker.person.fullName(),
+			reporterPhone: faker.phone.number(),
+			reporterEmail: faker.internet.email(),
+		}));
+		if (reportsData.length) {
+			await prisma.report.createMany({ data: reportsData });
+		}
+	}
 }

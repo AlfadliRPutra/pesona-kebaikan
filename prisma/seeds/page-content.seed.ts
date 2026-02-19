@@ -64,4 +64,33 @@ export async function seedPageContent() {
 			],
 		},
 	});
+
+	const faqCount = await prisma.faq.count();
+	if (faqCount === 0) {
+		await prisma.faq.createMany({
+			data: [
+				{
+					question: "Bagaimana cara berdonasi?",
+					answer: "Pilih campaign, masukkan nominal, pilih metode pembayaran, dan konfirmasi.",
+					category: "umum",
+				},
+				{
+					question: "Apakah donasi saya transparan?",
+					answer: "Semua campaign memiliki update berkala dan laporan penyaluran.",
+					category: "transparansi",
+				},
+				{
+					question: "Bagaimana cara membuat campaign?",
+					answer: "Masuk sebagai pengguna, ajukan verifikasi, lalu buat campaign dari dashboard.",
+					category: "penggalangan",
+				},
+			],
+		});
+	}
+
+	await prisma.notifyKey.upsert({
+		where: { key: "home_featured_title" },
+		update: { value: "Pilihan Kitabisa" },
+		create: { key: "home_featured_title", value: "Pilihan Kitabisa" },
+	});
 }
