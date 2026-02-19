@@ -68,15 +68,18 @@ export async function seedAddress() {
 
 		const villages = readCsv("_Village__202512271348.csv");
 		if (villages.length > 0) {
-			// Get all existing district IDs first to ensure FK validity
 			const existingDistricts = await prisma.district.findMany({
-				select: { id: true }
+				select: { id: true },
 			});
-			const districtIdSet = new Set(existingDistricts.map(d => d.id));
+			const districtIdSet = new Set(
+				existingDistricts.map((d: { id: string }) => d.id),
+			);
 
-			const validVillages = villages.filter(p => districtIdSet.has(p[3]));
+			const validVillages = villages.filter((p) => districtIdSet.has(p[3]));
 			if (validVillages.length < villages.length) {
-				console.warn(`Skipping ${villages.length - validVillages.length} villages due to missing district FK`);
+				console.warn(
+					`Skipping ${villages.length - validVillages.length} villages due to missing district FK`,
+				);
 			}
 
 			for (let i = 0; i < validVillages.length; i += 1000) {

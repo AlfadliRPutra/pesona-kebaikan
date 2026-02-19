@@ -18,7 +18,6 @@ import {
 	ListItem,
 	ListItemAvatar,
 	ListItemText,
-	Grid,
 	IconButton,
 	Container,
 	Table,
@@ -31,6 +30,7 @@ import {
 	alpha,
 	Breadcrumbs,
 } from "@mui/material";
+import Grid from "@mui/material/Grid";
 import {
 	ArrowBack as ArrowBackIcon,
 	Email as EmailIcon,
@@ -250,7 +250,7 @@ export default function AdminUserDetailClient({
 
 				<Grid container spacing={3}>
 					{/* Left Column: User Profile Card */}
-					<Grid item xs={12} md={4} lg={3}>
+					<Grid size={{ xs: 12, md: 4, lg: 3 }}>
 						<Paper
 							elevation={0}
 							sx={{
@@ -392,10 +392,10 @@ export default function AdminUserDetailClient({
 					</Grid>
 
 					{/* Right Column: Main Content */}
-					<Grid item xs={12} md={8} lg={9}>
+					<Grid size={{ xs: 12, md: 8, lg: 9 }}>
 						{/* Stats Cards */}
 						<Grid container spacing={2} sx={{ mb: 3 }}>
-							<Grid item xs={12} sm={4}>
+							<Grid size={{ xs: 12, sm: 4 }}>
 								<Card
 									sx={{
 										borderRadius: 3,
@@ -428,7 +428,7 @@ export default function AdminUserDetailClient({
 									</CardContent>
 								</Card>
 							</Grid>
-							<Grid item xs={12} sm={4}>
+							<Grid size={{ xs: 12, sm: 4 }}>
 								<Card
 									sx={{
 										borderRadius: 3,
@@ -461,7 +461,7 @@ export default function AdminUserDetailClient({
 									</CardContent>
 								</Card>
 							</Grid>
-							<Grid item xs={12} sm={4}>
+							<Grid size={{ xs: 12, sm: 4 }}>
 								<Card
 									sx={{
 										borderRadius: 3,
