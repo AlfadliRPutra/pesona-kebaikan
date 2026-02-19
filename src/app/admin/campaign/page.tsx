@@ -73,8 +73,22 @@ type CampaignRow = {
 	donors: number;
 	status: CampaignStatus;
 	updatedAt: string;
+	slug?: string;
 	thumbnail?: string;
 };
+
+const QUICK_DONATION_SLUG = "donasi-cepat";
+
+function isQuickDonation(row?: CampaignRow) {
+	if (!row) return false;
+	if (row.slug === QUICK_DONATION_SLUG) return true;
+	if (
+		typeof row.title === "string" &&
+		row.title.toLowerCase() === "donasi cepat"
+	)
+		return true;
+	return false;
+}
 
 function idr(n: number) {
 	const v = Number(n) || 0;
@@ -300,6 +314,11 @@ export default function AdminCampaignPage() {
 	const closeMenu = () => setMenu({ anchor: null, row: undefined });
 
 	const onEnd = (id: string) => {
+		const row = rows.find((r) => r.id === id);
+		if (isQuickDonation(row)) {
+			showSnackbar("Campaign Donasi Cepat tidak bisa diakhiri.", "warning");
+			return;
+		}
 		setConfirmDialog({
 			open: true,
 			title: "Akhiri Campaign",
@@ -388,7 +407,9 @@ export default function AdminCampaignPage() {
 			message: `Verifikasi ${selectedIds.length} campaign menjadi aktif?`,
 			confirmColor: "success",
 			onConfirm: async () => {
-				const tasks = selectedIds.map((id) => updateCampaignStatus(id, "ACTIVE"));
+				const tasks = selectedIds.map((id) =>
+					updateCampaignStatus(id, "ACTIVE"),
+				);
 				const results = await Promise.allSettled(tasks);
 				const ok = results.filter((r) => r.status === "fulfilled").length;
 				showSnackbar(`Berhasil memverifikasi ${ok} campaign`, "success");
@@ -400,13 +421,23 @@ export default function AdminCampaignPage() {
 	};
 
 	const bulkEnd = () => {
+		const allowedIds = selectedIds.filter((id) => {
+			const row = rows.find((r) => r.id === id);
+			return !isQuickDonation(row);
+		});
+
+		if (allowedIds.length === 0) {
+			showSnackbar("Campaign Donasi Cepat tidak bisa diakhiri.", "warning");
+			return;
+		}
+
 		setConfirmDialog({
 			open: true,
 			title: "Akhiri Massal",
-			message: `Akhiri ${selectedIds.length} campaign?`,
+			message: `Akhiri ${allowedIds.length} campaign?`,
 			confirmColor: "warning",
 			onConfirm: async () => {
-				const tasks = selectedIds.map((id) =>
+				const tasks = allowedIds.map((id) =>
 					updateCampaignStatus(id, "COMPLETED"),
 				);
 				const results = await Promise.allSettled(tasks);
@@ -786,7 +817,7 @@ export default function AdminCampaignPage() {
 					</MenuItem>
 				) : null}
 
-				{menu.row?.status === "active" ? (
+				{menu.row?.status === "active" && !isQuickDonation(menu.row) ? (
 					<MenuItem
 						onClick={() => {
 							const id = menu.row!.id;

@@ -9,7 +9,7 @@ import {
 } from "@/lib/midtrans-status";
 import { calculateMidtransFee } from "@/lib/fee-calculator";
 import { createNotification } from "@/actions/notification";
-import { NotificationType } from "@/generated/prisma";
+import { NotificationType } from "@prisma/client";
 
 export type CreateDonationInput = {
 	campaignId: string;
@@ -173,8 +173,7 @@ export async function checkPendingDonations(campaignId?: string) {
 							data: { status: newStatus },
 						});
 						updatedCount++;
-						// Create success notification if applicable
-						if ((newStatus === "PAID" || newStatus === "SETTLED") && d.userId) {
+						if (newStatus === "PAID" && d.userId) {
 							const amountNum = Number(d.amount);
 							const amountStr = isFinite(amountNum)
 								? amountNum.toLocaleString("id-ID")
