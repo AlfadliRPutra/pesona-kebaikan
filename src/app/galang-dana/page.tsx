@@ -45,7 +45,14 @@ import CampaignRoundedIcon from "@mui/icons-material/CampaignRounded";
 import MoreVertRoundedIcon from "@mui/icons-material/MoreVertRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 
-type StatusKey = "all" | "action" | "active" | "draft" | "ended" | "pending";
+type StatusKey =
+	| "all"
+	| "action"
+	| "active"
+	| "draft"
+	| "ended"
+	| "pending"
+	| "paused";
 
 type FundraiseMine = {
 	id: string;
@@ -68,6 +75,7 @@ const TABS: { key: StatusKey; label: string }[] = [
 	{ key: "action", label: "Butuh tindakan" },
 	{ key: "pending", label: "Menunggu Review" },
 	{ key: "active", label: "Aktif" },
+	{ key: "paused", label: "Dijeda" },
 	{ key: "draft", label: "Draft" },
 	{ key: "ended", label: "Selesai" },
 ];
@@ -78,6 +86,7 @@ function statusLabel(s: StatusKey) {
 	if (s === "action") return "Butuh Tindakan";
 	if (s === "ended") return "Selesai";
 	if (s === "pending") return "Menunggu Review";
+	if (s === "paused") return "Dijeda";
 	return "Semua";
 }
 
@@ -85,6 +94,7 @@ function statusColor(s: StatusKey) {
 	if (s === "active") return "success";
 	if (s === "action") return "error";
 	if (s === "pending") return "warning";
+	if (s === "paused") return "warning";
 	if (s === "ended") return "default";
 	return "default";
 }
@@ -244,6 +254,7 @@ export default function GalangDanaSayaPage() {
 			all: items.length,
 			action: 0,
 			active: 0,
+			paused: 0,
 			draft: 0,
 			ended: 0,
 			pending: 0,
@@ -612,6 +623,9 @@ export default function GalangDanaSayaPage() {
 													maximumFractionDigits: 0,
 												}).format(x.collected || 0)} terkumpul`;
 
+									const imgSrc =
+										x.thumbnail || (isDraft ? "/defaultimg.webp" : "");
+
 									return (
 										<Paper
 											key={x.id}
@@ -646,10 +660,10 @@ export default function GalangDanaSayaPage() {
 															borderColor: "divider",
 														}}
 													>
-														{x.thumbnail ? (
+														{imgSrc ? (
 															<Box
 																component="img"
-																src={x.thumbnail}
+																src={imgSrc}
 																alt=""
 																sx={{
 																	width: "100%",

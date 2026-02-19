@@ -348,7 +348,7 @@ export default function VerificationDialog({
 											Individu
 										</Typography>
 										<Typography variant="caption" color="text.secondary">
-											Untuk Useran pribadi dan donasi perorangan
+											Untuk pribadi dan donasi perorangan
 										</Typography>
 									</Box>
 								</Box>
@@ -634,17 +634,6 @@ export default function VerificationDialog({
 											>
 												Verifikasi & Lanjut
 											</Button>
-											<Button
-												onClick={() => setActiveStep((s) => s - 1)}
-												fullWidth
-												sx={{
-													mt: 1,
-													color: "text.secondary",
-													textTransform: "none",
-												}}
-											>
-												Kembali
-											</Button>
 										</Box>
 									</StepContent>
 								</Step>
@@ -767,17 +756,6 @@ export default function VerificationDialog({
 												}}
 											>
 												Verifikasi & Lanjut
-											</Button>
-											<Button
-												onClick={handleBack}
-												sx={{
-													mt: 1,
-													mr: 1,
-													color: "text.secondary",
-													textTransform: "none",
-												}}
-											>
-												Kembali
 											</Button>
 										</Box>
 									</StepContent>
@@ -982,17 +960,6 @@ export default function VerificationDialog({
 												}}
 											>
 												Lanjut
-											</Button>
-											<Button
-												onClick={handleBack}
-												sx={{
-													mt: 1,
-													mr: 1,
-													color: "text.secondary",
-													textTransform: "none",
-												}}
-											>
-												Kembali
 											</Button>
 										</Box>
 									</StepContent>
