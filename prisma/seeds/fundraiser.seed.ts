@@ -60,4 +60,27 @@ export async function seedFundraisers() {
 	}
 
 	console.log("Seeded fundraisers for active campaigns.");
+
+	const faCount = await prisma.fundraiserAmiin.count();
+	if (faCount === 0) {
+		const fundraisers = await prisma.fundraiser.findMany({
+			select: { id: true },
+			orderBy: { createdAt: "desc" },
+			take: 100,
+		});
+		const amiinsData = fundraisers.flatMap((f) => {
+			const n = faker.number.int({ min: 1, max: 5 });
+			return Array.from({ length: n }).map(() => ({
+				fundraiserId: f.id,
+				userId: pickRandom(users).id,
+				ipAddress: faker.internet.ip(),
+			}));
+		});
+		if (amiinsData.length) {
+			await prisma.fundraiserAmiin.createMany({
+				data: amiinsData,
+				skipDuplicates: true,
+			});
+		}
+	}
 }
