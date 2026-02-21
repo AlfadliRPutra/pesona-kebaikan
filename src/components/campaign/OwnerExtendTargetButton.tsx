@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
+import { StyledTextField } from "@/components/ui/StyledTextField";
 import {
 	Button,
 	Dialog,
 	DialogTitle,
 	DialogContent,
 	DialogActions,
-	TextField,
 	Stack,
 	Typography,
 	InputAdornment,
@@ -100,9 +100,8 @@ export default function OwnerExtendTargetButton({
 							<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
 								Perpanjangan masa aktif
 							</Typography>
-							<TextField
+							<StyledTextField
 								fullWidth
-								size="small"
 								type="number"
 								value={extraDays}
 								onChange={(e) => setExtraDays(e.target.value)}
@@ -119,9 +118,8 @@ export default function OwnerExtendTargetButton({
 							<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
 								Penambahan target donasi
 							</Typography>
-							<TextField
+							<StyledTextField
 								fullWidth
-								size="small"
 								type="number"
 								value={extraTarget}
 								onChange={(e) => setExtraTarget(e.target.value)}
