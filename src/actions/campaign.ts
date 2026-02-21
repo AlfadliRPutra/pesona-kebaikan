@@ -405,154 +405,14 @@ export async function getCampaignBySlug(slug: string) {
 	try {
 		const campaign = await prisma.campaign.findUnique({
 			where: { slug },
-			include: {
-				category: true,
-				createdBy: true,
-				donations: {
-					orderBy: { createdAt: "desc" },
-				},
-				media: true,
-				updates: {
-					include: { media: true },
-					orderBy: { createdAt: "desc" },
-				},
-				withdrawals: {
-					where: { status: "COMPLETED" },
-					orderBy: { updatedAt: "desc" },
-				},
-			},
+			select: { id: true },
 		});
 
 		if (!campaign) {
-			// Fallback to ID check if slug not found (in case slug param is actually an ID)
 			return getCampaignById(slug);
 		}
 
-		if (
-			campaign.end &&
-			new Date(campaign.end).getTime() < new Date().getTime()
-		) {
-			if (campaign.status !== "COMPLETED") {
-				await prisma.campaign.update({
-					where: { id: campaign.id },
-					data: { status: "COMPLETED" },
-				});
-				campaign.status = "COMPLETED";
-			}
-		}
-
-		const validDonations = campaign.donations.filter((d) =>
-			["PAID", "paid", "SETTLED", "COMPLETED"].includes(d.status),
-		);
-
-		const collected = validDonations.reduce(
-			(acc, d) => acc + Number(d.amount),
-			0,
-		);
-		const totalFees = validDonations.reduce(
-			(acc, d) => acc + (Number(d.fee) || 0),
-			0,
-		);
-		const donors = validDonations.length;
-		const thumbnail =
-			campaign.media.find((m) => m.isThumbnail)?.url ||
-			campaign.media[0]?.url ||
-			"";
-		const daysLeft = campaign.end
-			? Math.ceil(
-					(new Date(campaign.end).getTime() - new Date().getTime()) /
-						(1000 * 60 * 60 * 24),
-				)
-			: 0;
-
-		const timeline = [
-			...campaign.updates.map((u) => ({
-				id: u.id,
-				type: "update",
-				title: u.title,
-				content: u.content,
-				date: u.createdAt,
-				amount: Number(u.amount) || 0,
-				images: u.media.map((m) => m.url),
-			})),
-			...campaign.withdrawals.map((w) => ({
-				id: w.id,
-				type: "withdrawal",
-				title: "Pencairan Dana",
-				content: `Dana sebesar ${new Intl.NumberFormat("id-ID", {
-					style: "currency",
-					currency: "IDR",
-					maximumFractionDigits: 0,
-				}).format(Number(w.amount))} telah dicairkan. ${w.notes || ""}`,
-				date: w.updatedAt,
-				amount: Number(w.amount),
-				images: w.proofUrl ? [w.proofUrl] : [],
-			})),
-		].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-		let fundraisers: {
-			id: string;
-			title: string;
-			slug: string;
-			target: any;
-		}[] = [];
-		if ((prisma as any).fundraiser) {
-			fundraisers = await (prisma as any).fundraiser.findMany({
-				where: { campaignId: campaign.id },
-				select: { id: true, title: true, slug: true, target: true },
-			});
-		}
-
-		const data = {
-			id: campaign.id,
-			slug: campaign.slug,
-			title: campaign.title,
-			category: campaign.category.name,
-			categorySlug: campaign.category.slug,
-			type:
-				campaign.category.name === "Bantuan Medis & Kesehatan"
-					? "sakit"
-					: "lainnya",
-			ownerId: campaign.createdById,
-			ownerName: campaign.createdBy.name || "Unknown",
-			ownerEmail: campaign.createdBy.email || "-",
-			ownerPhone: campaign.createdBy.phone || "-",
-			ownerAvatar: campaign.createdBy.image || "",
-			ownerVerifiedAt: campaign.createdBy.verifiedAt || null,
-			ownerVerifiedAs: (campaign.createdBy as any).verifiedAs || null,
-			phone: campaign.phone || "-",
-			target: Number(campaign.target),
-			collected,
-			totalFees,
-			foundationFee: campaign.foundationFee,
-			donors,
-			daysLeft: daysLeft > 0 ? daysLeft : 0,
-			status:
-				campaign.status === "COMPLETED"
-					? "ended"
-					: campaign.status.toLowerCase(),
-			description: campaign.story,
-			createdAt: campaign.createdAt,
-			updatedAt: campaign.updatedAt,
-			thumbnail,
-			images: campaign.media.map((m) => m.url),
-			donations: validDonations.map((d) => ({
-				id: d.id,
-				name: d.donorName || "Hamba Allah",
-				amount: Number(d.amount),
-				date: d.createdAt,
-				comment: d.message,
-			})),
-			updates: timeline,
-			fundraisers: fundraisers.map((f) => ({
-				id: f.id,
-				title: f.title,
-				slug: f.slug,
-				target: Number(f.target),
-			})),
-		};
-
-		return { success: true, data };
+		return getCampaignById(campaign.id);
 	} catch (error) {
 		console.error("Get campaign by slug error:", error);
 		return { success: false, error: "Failed to fetch campaign" };
@@ -665,6 +525,7 @@ export async function getCampaignById(id: string) {
 			slug: campaign.slug,
 			title: campaign.title,
 			category: campaign.category.name,
+			categorySlug: campaign.category.slug,
 			type:
 				campaign.category.name === "Bantuan Medis & Kesehatan"
 					? "sakit"
@@ -691,6 +552,7 @@ export async function getCampaignById(id: string) {
 					: campaign.status.toLowerCase(),
 			metadata: campaign.metadata,
 			description: campaign.story,
+			createdAt: campaign.createdAt,
 			updatedAt: campaign.updatedAt,
 			thumbnail,
 			images: campaign.media.map((m) => m.url),
@@ -702,6 +564,12 @@ export async function getCampaignById(id: string) {
 				comment: d.message,
 			})),
 			updates: timeline,
+			fundraisers: fundraisers.map((f) => ({
+				id: f.id,
+				title: f.title,
+				slug: f.slug,
+				target: Number(f.target),
+			})),
 		};
 
 		return { success: true, data };

@@ -52,15 +52,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const imagesFromField =
 		Array.isArray(res.data.images) && res.data.images.length > 0
 			? res.data.images
-					.map((img: any) => (typeof img === "string" ? img : img?.url))
-					.filter(Boolean)
 			: [];
 
 	const fallbackImage =
 		res.data.thumbnail ||
-		(Array.isArray(res.data.media)
-			? res.data.media.find((m: any) => m?.isThumbnail)?.url
-			: undefined) ||
+		(imagesFromField.length > 0 ? imagesFromField[0] : undefined) ||
 		"/defaultimg.webp";
 
 	const ogImages = imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
@@ -153,25 +149,19 @@ export default async function CampaignDetailPage({ params }: Props) {
 	const imagesFromField =
 		Array.isArray(res.data.images) && res.data.images.length > 0
 			? res.data.images
-					.map((img: any) => (typeof img === "string" ? img : img?.url))
-					.filter(Boolean)
 			: [];
 
 	const fallbackImage =
 		res.data.thumbnail ||
-		(Array.isArray(res.data.media)
-			? res.data.media.find((m: any) => m?.isThumbnail)?.url
-			: undefined) ||
+		(imagesFromField.length > 0 ? imagesFromField[0] : undefined) ||
 		"/defaultimg.webp";
 
 	const ogImages = imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
-	const safeTarget = Number((res.data as any).target) || 0;
-	const safeCollected = Number((res.data as any).collected) || 0;
+	const safeTarget = Number(res.data.target) || 0;
+	const safeCollected = Number(res.data.collected) || 0;
 
 	const startDate = new Date(res.data.start || res.data.createdAt);
-	const endDate = (res.data as any).end
-		? new Date((res.data as any).end)
-		: null;
+	const endDate = res.data.end ? new Date(res.data.end) : null;
 
 	const jsonLd = {
 		"@context": "https://schema.org",

@@ -35,12 +35,19 @@ import {
   Close,
 } from "@mui/icons-material";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
-import { User } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import type { UserStats } from "@/actions/user";
 
+type UserRow = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  createdAt: string | Date;
+};
+
 interface UsersClientProps {
-  initialUsers: User[];
+  initialUsers: UserRow[];
   initialTotal: number;
   stats: UserStats;
 }
@@ -56,7 +63,7 @@ export default function UsersClient({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -121,7 +128,7 @@ export default function UsersClient({
 
   const handleMenuClick = (
     event: React.MouseEvent<HTMLButtonElement>,
-    user: User
+    user: UserRow
   ) => {
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
@@ -140,7 +147,7 @@ export default function UsersClient({
     setAddUserDialogOpen(false);
   };
 
-  const handleEditUserDialogOpen = (user: User) => {
+  const handleEditUserDialogOpen = (user: UserRow) => {
     setEditUser({ id: user.id, name: user.name ?? "", email: user.email });
     setEditUserDialogOpen(true);
     handleMenuClose();
@@ -150,7 +157,7 @@ export default function UsersClient({
     setEditUserDialogOpen(false);
   };
 
-  const handleDeleteDialogOpen = (user: User) => {
+  const handleDeleteDialogOpen = (user: UserRow) => {
     setSelectedUser(user);
     setDeleteDialogOpen(true);
     handleMenuClose();
@@ -247,7 +254,7 @@ export default function UsersClient({
   return (
     <div>
       <Grid container spacing={3} className="mb-4">
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6">Total Pengguna</Typography>
@@ -255,7 +262,7 @@ export default function UsersClient({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6">Pengguna Aktif</Typography>
@@ -263,7 +270,7 @@ export default function UsersClient({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6">Pengguna Baru (30 Hari)</Typography>
@@ -271,7 +278,7 @@ export default function UsersClient({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6">Tingkat Pertumbuhan</Typography>
