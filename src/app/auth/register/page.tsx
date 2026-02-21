@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { StyledTextField } from "@/components/ui/StyledTextField";
 import {
 	Box,
 	Typography,
@@ -9,7 +10,6 @@ import {
 	Stack,
 	Link as MuiLink,
 	Button,
-	TextField,
 	Alert,
 	InputAdornment,
 	IconButton,
@@ -211,14 +211,13 @@ export default function RegisterPage() {
 							>
 								Nama Lengkap
 							</Typography>
-							<TextField
+							<StyledTextField
 								name="name"
 								placeholder="Nama Lengkap Anda"
 								fullWidth
 								required
 								value={formData.name}
 								onChange={handleChange}
-								size="small"
 								InputProps={{
 									startAdornment: (
 										<InputAdornment position="start">
@@ -227,16 +226,6 @@ export default function RegisterPage() {
 											/>
 										</InputAdornment>
 									),
-									sx: { fontSize: "0.875rem" },
-								}}
-								sx={{
-									"& .MuiOutlinedInput-root": {
-										borderRadius: 2,
-										bgcolor: "rgba(241, 245, 249, 0.5)",
-										"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-										"&:hover fieldset": { borderColor: "primary.main" },
-										"&.Mui-focused fieldset": { borderColor: "primary.main" },
-									},
 								}}
 							/>
 						</Box>
@@ -254,7 +243,7 @@ export default function RegisterPage() {
 							>
 								Email
 							</Typography>
-							<TextField
+							<StyledTextField
 								name="email"
 								placeholder="nama@email.com"
 								type="email"
@@ -262,7 +251,6 @@ export default function RegisterPage() {
 								required
 								value={formData.email}
 								onChange={handleChange}
-								size="small"
 								InputProps={{
 									startAdornment: (
 										<InputAdornment position="start">
@@ -271,16 +259,6 @@ export default function RegisterPage() {
 											/>
 										</InputAdornment>
 									),
-									sx: { fontSize: "0.875rem" },
-								}}
-								sx={{
-									"& .MuiOutlinedInput-root": {
-										borderRadius: 2,
-										bgcolor: "rgba(241, 245, 249, 0.5)",
-										"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-										"&:hover fieldset": { borderColor: "primary.main" },
-										"&.Mui-focused fieldset": { borderColor: "primary.main" },
-									},
 								}}
 							/>
 						</Box>
@@ -298,7 +276,7 @@ export default function RegisterPage() {
 							>
 								Password
 							</Typography>
-							<TextField
+							<StyledTextField
 								name="password"
 								placeholder="Buat password"
 								type={showPassword ? "text" : "password"}
@@ -306,7 +284,6 @@ export default function RegisterPage() {
 								required
 								value={formData.password}
 								onChange={handleChange}
-								size="small"
 								InputProps={{
 									startAdornment: (
 										<InputAdornment position="start">
@@ -331,16 +308,6 @@ export default function RegisterPage() {
 											</IconButton>
 										</InputAdornment>
 									),
-									sx: { fontSize: "0.875rem" },
-								}}
-								sx={{
-									"& .MuiOutlinedInput-root": {
-										borderRadius: 2,
-										bgcolor: "rgba(241, 245, 249, 0.5)",
-										"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-										"&:hover fieldset": { borderColor: "primary.main" },
-										"&.Mui-focused fieldset": { borderColor: "primary.main" },
-									},
 								}}
 							/>
 							{formData.password && (
@@ -400,7 +367,7 @@ export default function RegisterPage() {
 							>
 								Konfirmasi Password
 							</Typography>
-							<TextField
+							<StyledTextField
 								name="confirmPassword"
 								placeholder="Ulangi password"
 								type={showConfirmPassword ? "text" : "password"}
@@ -408,7 +375,6 @@ export default function RegisterPage() {
 								required
 								value={formData.confirmPassword}
 								onChange={handleChange}
-								size="small"
 								InputProps={{
 									startAdornment: (
 										<InputAdornment position="start">
@@ -435,16 +401,6 @@ export default function RegisterPage() {
 											</IconButton>
 										</InputAdornment>
 									),
-									sx: { fontSize: "0.875rem" },
-								}}
-								sx={{
-									"& .MuiOutlinedInput-root": {
-										borderRadius: 2,
-										bgcolor: "rgba(241, 245, 249, 0.5)",
-										"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-										"&:hover fieldset": { borderColor: "primary.main" },
-										"&.Mui-focused fieldset": { borderColor: "primary.main" },
-									},
 								}}
 							/>
 						</Box>

@@ -40,6 +40,9 @@ export async function createDonation(input: CreateDonationInput) {
 				// Override identity with session/database data
 				if (user.name) input.donorName = user.name;
 				if (user.phone) input.donorPhone = user.phone;
+			} else {
+				// User from session not found in DB (e.g., after a reset), so treat as anonymous
+				userId = undefined;
 			}
 		}
 	} catch (e) {
