@@ -5,7 +5,7 @@ RUN corepack enable
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json yarn.lock ./
+COPY package.json ./
 RUN yarn install --non-interactive
 
 FROM base AS builder
