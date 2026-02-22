@@ -4,7 +4,8 @@ RUN apk add --no-cache libc6-compat openssl vips vips-dev
 RUN corepack enable
 
 FROM base AS deps
-COPY package.json ./
+WORKDIR /app
+COPY package.json yarn.lock ./
 RUN yarn install --non-interactive
 
 FROM base AS builder

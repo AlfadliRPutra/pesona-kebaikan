@@ -80,6 +80,7 @@ export default function BlogCard({
           sizes="400px"
           className="object-cover"
           priority={false}
+          unoptimized
         />
 
         {/* category badge */}

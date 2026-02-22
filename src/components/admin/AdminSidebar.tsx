@@ -211,6 +211,7 @@ export default function AdminSidebar({
 						fill
 						className="object-contain p-1.5"
 						sizes="40px"
+						unoptimized
 					/>
 				</div>
 
