@@ -7,7 +7,7 @@ services:
         DATABASE_URL: "postgresql://postgres:postgres@db-host:5432/pesonakebaikan?schema=public"
     container_name: pesonakebaikan-app
     ports:
-      - "3000:3000"
+      - "9000:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "db-host:host-gateway"
