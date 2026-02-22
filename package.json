@@ -42,7 +42,8 @@
 		"recharts": "^3.6.0",
 		"suneditor": "^2.47.8",
 		"suneditor-react": "^3.6.1",
-		"xlsx": "^0.18.5"
+		"xlsx": "^0.18.5",
+		"sharp": "^0.33.5"
 	},
 	"devDependencies": {
 		"@faker-js/faker": "^10.1.0",
