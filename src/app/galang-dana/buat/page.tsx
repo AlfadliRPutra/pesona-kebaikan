@@ -98,6 +98,17 @@ function textLen(html: string) {
 		.trim().length;
 }
 
+function makeSlug(value: string) {
+	return value
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9\s-]/g, "")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 60);
+}
+
 type Purpose = {
 	key: string;
 	title: string;
@@ -194,39 +205,14 @@ function BuatGalangDanaPageContent() {
 			const res = await getCampaignById(draftId!);
 			if (res.success && res.data) {
 				const c = res.data;
-
-				// Fix: Ensure URL params match the campaign type/category
-				const correctType = c.type === "sakit" ? "sakit" : "lainnya";
-				const currentType = sp.get("type");
-				const currentCategory = sp.get("category");
-
-				let needsRedirect = false;
-				const newParams = new URLSearchParams(sp.toString());
-
-				if (currentType !== correctType) {
-					newParams.set("type", correctType);
-					needsRedirect = true;
-				}
-
-				if (
-					correctType === "lainnya" &&
-					(c as any).categorySlug &&
-					currentCategory !== (c as any).categorySlug
-				) {
-					newParams.set("category", (c as any).categorySlug);
-					needsRedirect = true;
-				}
-
-				if (needsRedirect) {
-					router.replace(`/galang-dana/buat?${newParams.toString()}`);
-					return;
-				}
-
 				const m = ((c as any).metadata as any) || {};
 
 				if (c.type === "sakit") {
 					setTitle(c.title);
 					setSlug(c.slug || "");
+					if (c.slug) {
+						setSlugTouched(true);
+					}
 					setTarget(c.target.toString());
 					setStory(c.description);
 					if (isContentEdit) {
@@ -306,6 +292,9 @@ function BuatGalangDanaPageContent() {
 				} else {
 					setTitleOther(c.title);
 					setSlugOther(c.slug || "");
+					if (c.slug) {
+						setSlugOtherTouched(true);
+					}
 					setTargetOther(c.target.toString());
 					setStoryOther(c.description);
 					if (isContentEdit) {
@@ -453,6 +442,8 @@ function BuatGalangDanaPageContent() {
 	const [slug, setSlug] = React.useState("");
 	const [slugError, setSlugError] = React.useState("");
 	const [slugChecking, setSlugChecking] = React.useState(false);
+	const [slugAvailable, setSlugAvailable] = React.useState(false);
+	const [slugTouched, setSlugTouched] = React.useState(false);
 	const [coverName, setCoverName] = React.useState<string>("");
 	const [coverFile, setCoverFile] = React.useState<File | null>(null);
 	const [coverPreview, setCoverPreview] = React.useState<string>("");
@@ -599,6 +590,8 @@ function BuatGalangDanaPageContent() {
 	const [slugOther, setSlugOther] = React.useState("");
 	const [slugOtherError, setSlugOtherError] = React.useState("");
 	const [slugOtherChecking, setSlugOtherChecking] = React.useState(false);
+	const [slugOtherAvailable, setSlugOtherAvailable] = React.useState(false);
+	const [slugOtherTouched, setSlugOtherTouched] = React.useState(false);
 	const [coverNameOther, setCoverNameOther] = React.useState("");
 	const [coverFileOther, setCoverFileOther] = React.useState<File | null>(null);
 	const [coverPreviewOther, setCoverPreviewOther] = React.useState<string>("");
@@ -632,7 +625,9 @@ function BuatGalangDanaPageContent() {
 					!!inpatient &&
 					(inpatient === "ya" ? !!hospital : true) &&
 					treatment.trim().length >= 55 &&
-					!!prevCost
+					!!prevCost &&
+					(!!medicalResumeFile || !!medicalResumeUrl) &&
+					(!!medicalExamFile || !!medicalExamUrl)
 				);
 			if (stepKey === "target")
 				return (
@@ -693,6 +688,10 @@ function BuatGalangDanaPageContent() {
 		hospital,
 		treatment,
 		prevCost,
+		medicalResumeFile,
+		medicalResumeUrl,
+		medicalExamFile,
+		medicalExamUrl,
 		target,
 		duration,
 		customStart,
@@ -1497,7 +1496,8 @@ function BuatGalangDanaPageContent() {
 
 								<Box sx={{ mt: 2 }}>
 									<Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.75 }}>
-										Unggah dokumen medis pendukung
+										Unggah dokumen medis pendukung{" "}
+										<span style={{ color: "red" }}>*</span>
 									</Typography>
 									<Typography
 										sx={{ fontSize: 12.5, color: "text.secondary", mb: 1 }}
@@ -1725,7 +1725,15 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
 										value={title}
-										onChange={(e) => setTitle(e.target.value.slice(0, 55))}
+										onChange={(e) => {
+											const value = e.target.value.slice(0, 55);
+											setTitle(value);
+											if (!slugTouched || !slug) {
+												const generated = makeSlug(value);
+												setSlug(generated);
+												setSlugError("");
+											}
+										}}
 										fullWidth
 										placeholder="Contoh: Bantu Abi melawan kanker hati"
 										helperText={`${title.length}/55`}
@@ -1746,14 +1754,15 @@ function BuatGalangDanaPageContent() {
 											}}
 											value={slug}
 											onChange={(e) => {
+												setSlugTouched(true);
 												setSlugError("");
-												setSlug(
-													e.target.value.replace(/\s+/g, "").toLowerCase(),
-												);
+												setSlugAvailable(false);
+												setSlug(makeSlug(e.target.value));
 											}}
 											onBlur={async () => {
 												if (!slug) {
 													setSlugError("");
+													setSlugAvailable(false);
 													return;
 												}
 												setSlugChecking(true);
@@ -1777,6 +1786,9 @@ function BuatGalangDanaPageContent() {
 														setSlugError(
 															"URL publik sudah digunakan campaign lain",
 														);
+														setSlugAvailable(false);
+													} else {
+														setSlugAvailable(true);
 													}
 												} catch (e) {
 												} finally {
@@ -1791,8 +1803,20 @@ function BuatGalangDanaPageContent() {
 													: "contoh: bantudolawan...")
 											}
 											fullWidth
+											inputProps={{ maxLength: 60 }}
 											placeholder="contoh: bantudolawan..."
 										/>
+										{!slugError && !slugChecking && slug && slugAvailable && (
+											<Typography
+												sx={{
+													mt: 0.5,
+													fontSize: 12,
+													color: "success.main",
+												}}
+											>
+												URL public ini dapat digunakan
+											</Typography>
+										)}
 									</Box>
 
 									<Box>
@@ -2501,7 +2525,15 @@ function BuatGalangDanaPageContent() {
 											"& .MuiInputLabel-root": { fontSize: 13.5 },
 										}}
 										value={titleOther}
-										onChange={(e) => setTitleOther(e.target.value.slice(0, 55))}
+										onChange={(e) => {
+											const value = e.target.value.slice(0, 55);
+											setTitleOther(value);
+											if (!slugOtherTouched || !slugOther) {
+												const generated = makeSlug(value);
+												setSlugOther(generated);
+												setSlugOtherError("");
+											}
+										}}
 										fullWidth
 										placeholder="Contoh: Bantu renovasi masjid terdampak bencana"
 										helperText={`${titleOther.length}/55`}
@@ -2528,7 +2560,15 @@ function BuatGalangDanaPageContent() {
 														key={ex}
 														variant="outlined"
 														size="small"
-														onClick={() => setTitleOther(ex.slice(0, 55))}
+														onClick={() => {
+															const value = ex.slice(0, 55);
+															setTitleOther(value);
+															if (!slugOtherTouched || !slugOther) {
+																const generated = makeSlug(value);
+																setSlugOther(generated);
+																setSlugOtherError("");
+															}
+														}}
 														sx={{
 															textTransform: "none",
 															fontSize: 12,
@@ -2558,14 +2598,15 @@ function BuatGalangDanaPageContent() {
 											}}
 											value={slugOther}
 											onChange={(e) => {
+												setSlugOtherTouched(true);
 												setSlugOtherError("");
-												setSlugOther(
-													e.target.value.replace(/\s+/g, "").toLowerCase(),
-												);
+												setSlugOtherAvailable(false);
+												setSlugOther(makeSlug(e.target.value));
 											}}
 											onBlur={async () => {
 												if (!slugOther) {
 													setSlugOtherError("");
+													setSlugOtherAvailable(false);
 													return;
 												}
 												setSlugOtherChecking(true);
@@ -2586,6 +2627,9 @@ function BuatGalangDanaPageContent() {
 														setSlugOtherError(
 															"URL publik sudah digunakan campaign lain",
 														);
+														setSlugOtherAvailable(false);
+													} else {
+														setSlugOtherAvailable(true);
 													}
 												} catch (e) {
 												} finally {
@@ -2600,8 +2644,23 @@ function BuatGalangDanaPageContent() {
 													: "contoh: bantu-renovasi...")
 											}
 											fullWidth
+											inputProps={{ maxLength: 60 }}
 											placeholder="contoh: bantu-renovasi..."
 										/>
+										{!slugOtherError &&
+											!slugOtherChecking &&
+											slugOther &&
+											slugOtherAvailable && (
+												<Typography
+													sx={{
+														mt: 0.5,
+														fontSize: 12,
+														color: "success.main",
+													}}
+												>
+													Link ini dapat digunakan
+												</Typography>
+											)}
 									</Box>
 
 									<Box>

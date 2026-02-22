@@ -28,6 +28,7 @@ export default async function PencairanPage({
 				},
 				select: {
 					amount: true,
+					fee: true,
 				},
 			},
 			withdrawals: {
@@ -52,10 +53,18 @@ export default async function PencairanPage({
 		redirect("/galang-dana");
 	}
 
-	// Calculate finances
+	// Calculate finances (gross collected, fees, foundation fee)
 	const collected = campaign.donations.reduce(
 		(acc, d) => acc + Number(d.amount),
-		0
+		0,
+	);
+	const totalFees = campaign.donations.reduce(
+		(acc, d) => acc + (Number((d as any).fee) || 0),
+		0,
+	);
+	const foundationFeePercentage = Number((campaign as any).foundationFee || 0);
+	const foundationFeeAmount = Math.round(
+		collected * (foundationFeePercentage / 100),
 	);
 
 	const campaignData = {
@@ -63,6 +72,8 @@ export default async function PencairanPage({
 		slug: campaign.slug,
 		title: campaign.title,
 		collected,
+		totalFees,
+		foundationFeeAmount,
 	};
 
 	// Convert Decimal to number for Client Component

@@ -20,10 +20,14 @@ import {
 	Divider,
 	Tabs,
 	Tab,
+	IconButton,
+	MenuItem,
 } from "@mui/material";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
+import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { LinkIconButton } from "@/components/ui/LinkButton";
 import { requestWithdrawal, createCampaignUpdate } from "@/actions/campaign";
 import { useRouter } from "next/navigation";
@@ -77,12 +81,18 @@ export default function WithdrawalList({
 	});
 	const [updateError, setUpdateError] = useState("");
 
-	const available =
-		campaign.collected -
-		withdrawals.reduce(
-			(acc, w) => acc + (w.status !== "REJECTED" ? Number(w.amount) : 0),
-			0,
-		);
+	const [bankChoice, setBankChoice] = useState("");
+
+	const available = Math.max(
+		0,
+		(campaign.collected || 0) -
+			(campaign.totalFees || 0) -
+			(campaign.foundationFeeAmount || 0) -
+			withdrawals.reduce(
+				(acc, w) => acc + (w.status !== "REJECTED" ? Number(w.amount) : 0),
+				0,
+			),
+	);
 
 	const handleWithdrawalSubmit = async () => {
 		if (
@@ -440,39 +450,182 @@ export default function WithdrawalList({
 				onClose={() => setOpenWithdrawal(false)}
 				maxWidth="sm"
 				fullWidth
+				PaperProps={{
+					sx: {
+						borderRadius: 3,
+						p: 0.5,
+					},
+				}}
 			>
-				<DialogTitle>Ajukan Pencairan Dana</DialogTitle>
-				<DialogContent>
-					<Stack spacing={2} sx={{ mt: 1 }}>
+				<DialogTitle
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						px: 3,
+						pt: 2.5,
+						pb: 1.5,
+					}}
+				>
+					<Stack direction="row" spacing={1.5} alignItems="center">
+						<Box
+							sx={{
+								width: 40,
+								height: 40,
+								borderRadius: 999,
+								bgcolor: "rgba(15,118,110,0.08)",
+								color: "#0f766e",
+								display: "grid",
+								placeItems: "center",
+							}}
+						>
+							<AccountBalanceWalletRoundedIcon fontSize="small" />
+						</Box>
+						<Box>
+							<Typography sx={{ fontWeight: 800, fontSize: 16 }}>
+								Ajukan Pencairan Dana
+							</Typography>
+							<Typography
+								sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.2 }}
+							>
+								Tarik dana yang sudah terkumpul ke rekening penerima.
+							</Typography>
+						</Box>
+					</Stack>
+					<IconButton
+						size="small"
+						onClick={() => setOpenWithdrawal(false)}
+						sx={{
+							color: "text.secondary",
+						}}
+					>
+						<CloseRoundedIcon fontSize="small" />
+					</IconButton>
+				</DialogTitle>
+				<DialogContent sx={{ px: 3, pb: 2.5, pt: 0 }}>
+					<Paper
+						variant="outlined"
+						sx={{
+							p: 1.75,
+							mb: 2.5,
+							borderRadius: 2,
+							bgcolor: "rgba(240,253,250,1)",
+							borderColor: "rgba(16,185,129,0.25)",
+						}}
+					>
+						<Stack direction="row" justifyContent="space-between" spacing={1}>
+							<Box>
+								<Typography
+									sx={{ fontSize: 11.5, color: "text.secondary", mb: 0.5 }}
+								>
+									Saldo tersedia untuk dicairkan
+								</Typography>
+								<Typography sx={{ fontWeight: 800, fontSize: 18 }}>
+									{idr(available)}
+								</Typography>
+							</Box>
+							<Chip
+								label="Dana bersih setelah fee"
+								size="small"
+								sx={{
+									alignSelf: "center",
+									fontSize: 11,
+									fontWeight: 700,
+									bgcolor: "rgba(16,185,129,0.08)",
+									color: "#047857",
+								}}
+							/>
+						</Stack>
+					</Paper>
+
+					<Stack spacing={1.75}>
 						{withdrawalError && (
-							<Alert severity="error">{withdrawalError}</Alert>
+							<Alert severity="error" sx={{ borderRadius: 2 }}>
+								{withdrawalError}
+							</Alert>
 						)}
 						<TextField
-							label="Jumlah Penarikan (Rp)"
+							label="Jumlah penarikan"
 							fullWidth
 							value={withdrawalForm.amount}
-							onChange={(e) =>
+							onChange={(e) => {
+								const raw = e.target.value || "";
+								const digits = raw.replace(/\D/g, "");
+								if (!digits) {
+									setWithdrawalForm({
+										...withdrawalForm,
+										amount: "",
+									});
+									return;
+								}
+								const numeric = Number(digits);
+								const max = Math.max(0, Number(available) || 0);
+								const safe = Math.min(numeric, max);
 								setWithdrawalForm({
 									...withdrawalForm,
-									amount: formatIDR(e.target.value),
-								})
-							}
-							helperText={`Maksimal: ${idr(available)}`}
+									amount: formatIDR(String(safe)),
+								});
+							}}
+							InputProps={{
+								startAdornment: (
+									<Box sx={{ mr: 1, fontSize: 13, color: "text.secondary" }}>
+										Rp
+									</Box>
+								),
+							}}
+							placeholder="Contoh: 5.000.000"
+							helperText={`Maksimal ${idr(available)}`}
 						/>
+						<Divider />
 						<TextField
-							label="Nama Bank"
+							select
+							label="Nama bank"
 							fullWidth
-							placeholder="Contoh: BCA, Mandiri, BRI"
-							value={withdrawalForm.bankName}
-							onChange={(e) =>
-								setWithdrawalForm({
-									...withdrawalForm,
-									bankName: e.target.value,
-								})
-							}
-						/>
+							value={bankChoice}
+							onChange={(e) => {
+								const v = e.target.value;
+								setBankChoice(v);
+								if (v !== "OTHER") {
+									setWithdrawalForm({
+										...withdrawalForm,
+										bankName: v,
+									});
+								} else {
+									setWithdrawalForm({
+										...withdrawalForm,
+										bankName: "",
+									});
+								}
+							}}
+							helperText="Pilih bank tujuan pencairan"
+						>
+							<MenuItem value="">Pilih bank</MenuItem>
+							<MenuItem value="BCA">BCA</MenuItem>
+							<MenuItem value="MANDIRI">Mandiri</MenuItem>
+							<MenuItem value="BRI">BRI</MenuItem>
+							<MenuItem value="BNI">BNI</MenuItem>
+							<MenuItem value="BSI">BSI</MenuItem>
+							<MenuItem value="BTN">BTN</MenuItem>
+							<MenuItem value="CIMB">CIMB Niaga</MenuItem>
+							<MenuItem value="PERMATA">Permata</MenuItem>
+							<MenuItem value="OTHER">Lainnya</MenuItem>
+						</TextField>
+						{bankChoice === "OTHER" && (
+							<TextField
+								label="Nama bank lainnya"
+								fullWidth
+								placeholder="Contoh: Bank Jago, Bank Digital lain"
+								value={withdrawalForm.bankName}
+								onChange={(e) =>
+									setWithdrawalForm({
+										...withdrawalForm,
+										bankName: e.target.value,
+									})
+								}
+							/>
+						)}
 						<TextField
-							label="Nomor Rekening"
+							label="Nomor rekening"
 							fullWidth
 							type="number"
 							value={withdrawalForm.bankAccount}
@@ -484,7 +637,7 @@ export default function WithdrawalList({
 							}
 						/>
 						<TextField
-							label="Atas Nama"
+							label="Atas nama"
 							fullWidth
 							value={withdrawalForm.accountHolder}
 							onChange={(e) =>
@@ -495,10 +648,11 @@ export default function WithdrawalList({
 							}
 						/>
 						<TextField
-							label="Catatan Keperluan"
+							label="Catatan keperluan (opsional)"
 							fullWidth
 							multiline
 							rows={3}
+							placeholder="Contoh: Pencairan tahap 1 untuk biaya rumah sakit."
 							value={withdrawalForm.notes}
 							onChange={(e) =>
 								setWithdrawalForm({ ...withdrawalForm, notes: e.target.value })
@@ -506,14 +660,32 @@ export default function WithdrawalList({
 						/>
 					</Stack>
 				</DialogContent>
-				<DialogActions>
-					<Button onClick={() => setOpenWithdrawal(false)}>Batal</Button>
+				<DialogActions
+					sx={{
+						px: 3,
+						py: 2,
+						bgcolor: "rgba(248,250,252,1)",
+					}}
+				>
+					<Button
+						onClick={() => setOpenWithdrawal(false)}
+						sx={{ fontWeight: 700, textTransform: "none" }}
+					>
+						Batal
+					</Button>
 					<Button
 						variant="contained"
 						onClick={handleWithdrawalSubmit}
 						disabled={submittingWithdrawal}
+						sx={{
+							borderRadius: 999,
+							px: 3,
+							fontWeight: 800,
+							textTransform: "none",
+							boxShadow: "none",
+						}}
 					>
-						{submittingWithdrawal ? "Mengirim..." : "Ajukan"}
+						{submittingWithdrawal ? "Mengirim..." : "Ajukan pencairan"}
 					</Button>
 				</DialogActions>
 			</Dialog>

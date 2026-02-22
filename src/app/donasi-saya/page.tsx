@@ -310,6 +310,12 @@ export default function MyDonationPage() {
 					const isProd =
 						process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true";
 
+					const amountNumber = Number(finalAmount);
+					const amountParam = isFinite(amountNumber)
+						? amountNumber.toString()
+						: "";
+					const methodLabel = "E-Wallet";
+
 					(window as any).snap.pay(j.token, {
 						language: "id",
 						...(isProd ? { uiMode: "qr" } : {}),
@@ -318,7 +324,13 @@ export default function MyDonationPage() {
 							if (reCampaignId === quickCampaignId) {
 								router.push("/");
 							} else {
-								router.push(`/donasi/${reCampaignId}?donation_success=true`);
+								const qs = new URLSearchParams({
+									donation_success: "true",
+									donation_status: "paid",
+									donation_amount: amountParam,
+									donation_method: methodLabel,
+								});
+								router.push(`/donasi/${reCampaignId}?${qs.toString()}`);
 							}
 						},
 						onPending: () => {
@@ -326,7 +338,13 @@ export default function MyDonationPage() {
 							if (reCampaignId === quickCampaignId) {
 								router.push("/");
 							} else {
-								router.push(`/donasi/${reCampaignId}?donation_success=true`);
+								const qs = new URLSearchParams({
+									donation_success: "true",
+									donation_status: "pending",
+									donation_amount: amountParam,
+									donation_method: methodLabel,
+								});
+								router.push(`/donasi/${reCampaignId}?${qs.toString()}`);
 							}
 						},
 						onError: () => {
@@ -441,9 +459,7 @@ export default function MyDonationPage() {
 	const dailyDonations = React.useMemo(() => {
 		if (!selectedDate) return [];
 		return donations.filter(
-			(d) =>
-				d.rawDate === selectedDate &&
-				d.status === "Berhasil",
+			(d) => d.rawDate === selectedDate && d.status === "Berhasil",
 		);
 	}, [selectedDate, donations]);
 

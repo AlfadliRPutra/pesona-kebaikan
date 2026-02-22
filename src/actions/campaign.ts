@@ -30,7 +30,7 @@ export async function createCampaign(formData: FormData) {
 		const rawTitle = (formData.get("title") as string) || "";
 		const rawSlug = (formData.get("slug") as string) || "";
 
-		if (!rawTitle.trim() && !rawSlug.trim()) {
+		if (status !== "DRAFT" && !rawTitle.trim() && !rawSlug.trim()) {
 			return {
 				success: false,
 				error: "Judul dan link campaign wajib diisi",
@@ -524,7 +524,7 @@ export async function getCampaignBySlug(slug: string) {
 			target: Number(campaign.target),
 			collected,
 			totalFees,
-			foundationFee: campaign.foundationFee,
+			foundationFee: Number(campaign.foundationFee),
 			donors,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
 			status:
@@ -682,7 +682,7 @@ export async function getCampaignById(id: string) {
 			end: campaign.end,
 			collected,
 			totalFees,
-			foundationFee: campaign.foundationFee,
+			foundationFee: Number(campaign.foundationFee),
 			donors,
 			daysLeft: daysLeft > 0 ? daysLeft : 0,
 			status:
@@ -860,10 +860,52 @@ export async function updateCampaignStatus(
 	}
 }
 
+export async function updateCampaignFee(
+	campaignId: string,
+	foundationFee: number,
+) {
+	try {
+		const session = await auth();
+		if (!session?.user || session.user.role !== "ADMIN") {
+			return { success: false, error: "Unauthorized" };
+		}
+
+		if (foundationFee < 0 || foundationFee > 100) {
+			return {
+				success: false,
+				error: "Fee yayasan harus di antara 0% dan 100%",
+			};
+		}
+
+		const updated = await prisma.campaign.update({
+			where: { id: campaignId },
+			data: { foundationFee },
+			select: { slug: true },
+		});
+
+		revalidatePath("/admin/campaign");
+		revalidatePath(`/admin/campaign/${campaignId}`);
+		if (updated.slug) {
+			revalidatePath(`/galang-dana/${updated.slug}`);
+		}
+		revalidatePath("/galang-dana");
+		revalidatePath("/");
+
+		return { success: true };
+	} catch (error: any) {
+		console.error("Update campaign fee error:", error);
+		return {
+			success: false,
+			error: error.message || "Failed to update campaign fee",
+		};
+	}
+}
+
 export async function requestCampaignChange(
 	campaignId: string,
 	extraDays: number | null,
 	extraTarget: number | null,
+	reason?: string,
 ) {
 	try {
 		const session = await auth();
@@ -895,6 +937,7 @@ export async function requestCampaignChange(
 				extraTarget: safeExtraTarget
 					? new Prisma.Decimal(safeExtraTarget)
 					: undefined,
+				note: reason && reason.trim() ? reason.trim() : undefined,
 			},
 		});
 
@@ -939,29 +982,211 @@ export async function requestCampaignChange(
 	}
 }
 
-export async function getCampaignChangeRequests(page = 1, limit = 20) {
+export async function getCampaignChangeRequests(
+	page = 1,
+	limit = 20,
+	status: "all" | "PENDING" | "APPROVED" | "REJECTED" = "all",
+) {
 	try {
+		const where: any = {};
+		if (status !== "all") {
+			where.status = status;
+		}
+
 		const [requests, total] = await Promise.all([
 			prisma.campaignChangeRequest.findMany({
 				skip: (page - 1) * limit,
 				take: limit,
 				orderBy: { createdAt: "desc" },
+				where,
 				include: {
 					campaign: { select: { id: true, title: true, slug: true } },
 					user: { select: { id: true, name: true, email: true } },
 				},
 			}),
-			prisma.campaignChangeRequest.count(),
+			prisma.campaignChangeRequest.count({ where }),
 		]);
 
+		const plainRequests = requests.map((r) => ({
+			...r,
+			extraTarget: r.extraTarget ? Number(r.extraTarget) : null,
+		}));
+
 		return {
-			requests,
+			requests: plainRequests,
 			total,
 			totalPages: Math.ceil(total / limit),
 		};
 	} catch (error) {
 		console.error("Get campaign change requests error:", error);
 		return { requests: [], total: 0, totalPages: 0 };
+	}
+}
+
+export async function resolveCampaignChangeRequest(
+	requestId: string,
+	decision: "APPROVE" | "REJECT",
+	options?: {
+		applyDays?: boolean;
+		applyTarget?: boolean;
+		extraDaysOverride?: number | null;
+		extraTargetOverride?: number | null;
+		note?: string | null;
+	},
+) {
+	try {
+		const session = await auth();
+		if (!session?.user || session.user.role !== "ADMIN") {
+			return { success: false, error: "Unauthorized" };
+		}
+
+		const req = await prisma.campaignChangeRequest.findUnique({
+			where: { id: requestId },
+			include: {
+				campaign: {
+					select: {
+						id: true,
+						title: true,
+						slug: true,
+						target: true,
+						end: true,
+						createdById: true,
+					},
+				},
+			},
+		});
+
+		if (!req) {
+			return { success: false, error: "Request not found" };
+		}
+
+		if (req.status !== "PENDING") {
+			return { success: false, error: "Request already processed" };
+		}
+
+		if (decision === "REJECT") {
+			await prisma.campaignChangeRequest.update({
+				where: { id: requestId },
+				data: {
+					status: "REJECTED",
+					note: options?.note || null,
+					processedAt: new Date(),
+					processedById: session.user.id,
+				},
+			});
+
+			if (req.campaign?.createdById) {
+				await createNotification(
+					req.campaign.createdById,
+					"Pengajuan Perubahan Ditolak",
+					`Pengajuan perubahan untuk campaign "${req.campaign.title}" ditolak admin.`,
+					NotificationType.KABAR,
+				);
+			}
+
+			revalidatePath("/admin/pengajuan-campaign");
+			if (req.campaign) {
+				revalidatePath("/admin/campaign");
+				revalidatePath(`/admin/campaign/${req.campaign.id}`);
+				if (req.campaign.slug) {
+					revalidatePath(`/galang-dana/${req.campaign.slug}`);
+				}
+			}
+
+			return { success: true };
+		}
+
+		const campaign = req.campaign;
+		if (!campaign) {
+			return { success: false, error: "Campaign not found for request" };
+		}
+
+		const updates: Prisma.CampaignUpdateInput = {};
+
+		const useDays =
+			typeof options?.applyDays === "boolean"
+				? options.applyDays
+				: !!req.extraDays;
+		const useTarget =
+			typeof options?.applyTarget === "boolean"
+				? options.applyTarget
+				: !!req.extraTarget;
+
+		const daysValue =
+			typeof options?.extraDaysOverride === "number"
+				? options.extraDaysOverride
+				: req.extraDays || 0;
+		const targetValueRaw =
+			typeof options?.extraTargetOverride === "number"
+				? options.extraTargetOverride
+				: req.extraTarget
+					? Number(req.extraTarget)
+					: 0;
+
+		if (useDays && daysValue && daysValue > 0) {
+			const baseEnd = campaign.end ? new Date(campaign.end) : new Date();
+			baseEnd.setDate(baseEnd.getDate() + daysValue);
+			updates.end = baseEnd;
+		}
+
+		if (useTarget && targetValueRaw && targetValueRaw > 0) {
+			const currentTarget = Number(campaign.target || 0);
+			const extra = Number(targetValueRaw);
+			const nextTarget = currentTarget + (Number.isNaN(extra) ? 0 : extra);
+			updates.target = nextTarget;
+		}
+
+		if (Object.keys(updates).length > 0) {
+			await prisma.campaign.update({
+				where: { id: campaign.id },
+				data: updates,
+			});
+		}
+
+		let summary = "";
+		const days = useDays ? daysValue || 0 : 0;
+		const extraTarget = useTarget ? targetValueRaw || 0 : 0;
+
+		if (days && extraTarget) {
+			summary = `Perpanjangan ${days} hari dan penambahan target Rp${extraTarget.toLocaleString(
+				"id-ID",
+			)}`;
+		} else if (days) {
+			summary = `Perpanjangan ${days} hari`;
+		} else if (extraTarget) {
+			summary = `Penambahan target Rp${extraTarget.toLocaleString("id-ID")}`;
+		}
+
+		await prisma.campaignChangeRequest.update({
+			where: { id: requestId },
+			data: {
+				status: "APPROVED",
+				note: summary || null,
+				processedAt: new Date(),
+				processedById: session.user.id,
+			},
+		});
+
+		if (campaign.createdById) {
+			await createNotification(
+				campaign.createdById,
+				"Pengajuan Perubahan Disetujui",
+				`Pengajuan perubahan untuk campaign "${campaign.title}" disetujui. ${summary}`,
+				NotificationType.KABAR,
+			);
+		}
+
+		revalidatePath("/admin/pengajuan-campaign");
+		revalidatePath("/admin/campaign");
+		revalidatePath(`/admin/campaign/${campaign.id}`);
+		if (campaign.slug) {
+			revalidatePath(`/galang-dana/${campaign.slug}`);
+		}
+
+		return { success: true };
+	} catch (error) {
+		console.error("Resolve campaign change request error:", error);
+		return { success: false, error: "Failed to process request" };
 	}
 }
 
@@ -1018,6 +1243,11 @@ export async function updateCampaign(id: string, formData: FormData) {
 			metadata = { ...(metadata || {}), medicalDocs };
 		}
 
+		const existing = await prisma.campaign.findUnique({
+			where: { id },
+			select: { metadata: true, slug: true },
+		});
+
 		const target = parseFloat(targetStr?.replace(/[^\d]/g, "") || "0") || 0;
 
 		let category = await prisma.campaignCategory.findUnique({
@@ -1067,6 +1297,15 @@ export async function updateCampaign(id: string, formData: FormData) {
 			}
 		}
 
+		let mergedMetadata = metadata;
+		if (
+			metadata &&
+			existing?.metadata &&
+			typeof existing.metadata === "object"
+		) {
+			mergedMetadata = { ...(existing.metadata as any), ...(metadata as any) };
+		}
+
 		await prisma.campaign.update({
 			where: { id },
 			data: {
@@ -1078,14 +1317,16 @@ export async function updateCampaign(id: string, formData: FormData) {
 				start: startStr ? new Date(startStr) : undefined,
 				end: endStr ? new Date(endStr) : undefined,
 				categoryId: category.id,
-				...(metadata ? { metadata } : {}),
+				...(mergedMetadata ? { metadata: mergedMetadata } : {}),
 				...(status ? { status } : {}),
 			},
 		});
 
 		revalidatePath("/admin/campaign");
 		revalidatePath(`/admin/campaign/${id}`);
-		revalidatePath(`/campaign/${slug}`);
+		revalidatePath(
+			`/campaign/${slug || existing?.metadata ? (existing as any).slug : ""}`,
+		);
 		revalidatePath("/");
 
 		return { success: true };
@@ -1186,6 +1427,22 @@ export async function deleteCampaign(id: string) {
 	}
 
 	try {
+		const campaign = await prisma.campaign.findUnique({
+			where: { id },
+			select: { status: true },
+		});
+
+		if (!campaign) {
+			return { success: false, error: "Campaign not found" };
+		}
+
+		if (["ACTIVE", "COMPLETED"].includes(campaign.status)) {
+			return {
+				success: false,
+				error: "Campaign aktif atau sudah selesai tidak dapat dihapus",
+			};
+		}
+
 		// Delete related donations first manually since schema doesn't have cascade
 		await prisma.donation.deleteMany({
 			where: { campaignId: id },

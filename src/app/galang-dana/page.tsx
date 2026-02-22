@@ -4,11 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { getMyCampaigns, deleteCampaign } from "@/actions/campaign";
+import { getMyCampaigns } from "@/actions/campaign";
 
 import HealingRoundedIcon from "@mui/icons-material/HealingRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 import {
 	Box,
@@ -20,9 +19,6 @@ import {
 	Divider,
 	Card,
 	CardContent,
-	IconButton,
-	Snackbar,
-	Alert,
 	Dialog,
 	DialogTitle,
 	DialogContent,
@@ -38,11 +34,9 @@ import {
 
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ImageNotSupportedRoundedIcon from "@mui/icons-material/ImageNotSupportedRounded";
 import CampaignRoundedIcon from "@mui/icons-material/CampaignRounded";
-import MoreVertRoundedIcon from "@mui/icons-material/MoreVertRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 
 type StatusKey =
@@ -58,6 +52,7 @@ type FundraiseMine = {
 	id: string;
 	title: string;
 	status: Exclude<StatusKey, "all">;
+	type: "sakit" | "lainnya";
 	stepsDone: number; // 0..7
 	stepsTotal: number; // 7
 	updatedAt: string; // "18 Desember 2025"
@@ -199,6 +194,7 @@ export default function GalangDanaSayaPage() {
 				id: c.id,
 				title: c.title,
 				status: c.status,
+				type: c.type === "sakit" ? "sakit" : "lainnya",
 				stepsDone: calculateStepsDone(c),
 				stepsTotal: 7,
 				updatedAt: c.updatedAt,
@@ -217,16 +213,6 @@ export default function GalangDanaSayaPage() {
 	React.useEffect(() => {
 		fetchCampaigns();
 	}, [fetchCampaigns]);
-
-	const [snack, setSnack] = React.useState({
-		open: false,
-		msg: "",
-		type: "info" as "info" | "success",
-	});
-
-	const [confirm, setConfirm] = React.useState<{ open: boolean; id?: string }>({
-		open: false,
-	});
 
 	// Drawer pilih jenis (sakit / lainnya)
 	const [openPick, setOpenPick] = React.useState(false);
@@ -271,30 +257,6 @@ export default function GalangDanaSayaPage() {
 		if (tab === "all") return items;
 		return items.filter((x) => x.status === tab);
 	}, [items, tab]);
-
-	const askDelete = (id: string) => setConfirm({ open: true, id });
-
-	const doDelete = async () => {
-		const id = confirm.id;
-		setConfirm({ open: false, id: undefined });
-		if (!id) return;
-
-		const res = await deleteCampaign(id);
-		if (res.success) {
-			setItems((prev) => prev.filter((x) => x.id !== id));
-			setSnack({
-				open: true,
-				msg: "Campaign berhasil dihapus.",
-				type: "success",
-			});
-		} else {
-			setSnack({
-				open: true,
-				msg: res.error || "Gagal menghapus campaign.",
-				type: "info",
-			});
-		}
-	};
 
 	if (status === "loading") {
 		return (
@@ -695,12 +657,6 @@ export default function GalangDanaSayaPage() {
 															>
 																{x.title}
 															</Typography>
-															<IconButton
-																size="small"
-																onClick={() => askDelete(x.id)}
-															>
-																<MoreVertRoundedIcon fontSize="small" />
-															</IconButton>
 														</Stack>
 
 														<Stack
@@ -795,7 +751,7 @@ export default function GalangDanaSayaPage() {
 												component={Link}
 												href={
 													isDraft
-														? `/galang-dana/buat?draft=${x.id}`
+														? `/galang-dana/buat?draft=${x.id}&type=${x.type}`
 														: `/galang-dana/${x.slug || x.id}`
 												}
 												sx={{
@@ -821,69 +777,6 @@ export default function GalangDanaSayaPage() {
 					</Box>
 				</Box>
 			</Container>
-
-			{/* Confirm delete */}
-			<Dialog
-				open={confirm.open}
-				onClose={() => setConfirm({ open: false })}
-				PaperProps={{
-					sx: { borderRadius: 4, width: "100%", maxWidth: 360, m: 2 },
-				}}
-			>
-				<DialogTitle sx={{ fontWeight: 800, textAlign: "center", pt: 3 }}>
-					Hapus Campaign?
-				</DialogTitle>
-				<DialogContent>
-					<DialogContentText sx={{ textAlign: "center", fontSize: 14 }}>
-						Campaign yang dihapus tidak dapat dikembalikan. Apakah kamu yakin
-						ingin melanjutkan?
-					</DialogContentText>
-				</DialogContent>
-				<DialogActions sx={{ p: 3, pt: 0, justifyContent: "center", gap: 1 }}>
-					<Button
-						onClick={() => setConfirm({ open: false })}
-						variant="outlined"
-						sx={{
-							borderRadius: 99,
-							fontWeight: 700,
-							px: 3,
-							color: "text.primary",
-							borderColor: "divider",
-						}}
-					>
-						Batal
-					</Button>
-					<Button
-						onClick={doDelete}
-						variant="contained"
-						color="error"
-						sx={{ borderRadius: 99, fontWeight: 700, px: 3, boxShadow: "none" }}
-					>
-						Ya, Hapus
-					</Button>
-				</DialogActions>
-			</Dialog>
-
-			{/* Toast */}
-			<Snackbar
-				open={snack.open}
-				autoHideDuration={2200}
-				onClose={() => setSnack((s) => ({ ...s, open: false }))}
-				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-			>
-				<Alert
-					severity={snack.type}
-					variant="filled"
-					onClose={() => setSnack((s) => ({ ...s, open: false }))}
-					sx={{
-						borderRadius: 3,
-						fontWeight: 600,
-						boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-					}}
-				>
-					{snack.msg}
-				</Alert>
-			</Snackbar>
 
 			{/* ===== Drawer pilih jenis (sakit / lainnya) ===== */}
 			<Drawer

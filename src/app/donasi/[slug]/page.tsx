@@ -35,7 +35,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	const rawFundraiserTitle = (res.data as any).fundraiserTitle;
 	const effectiveTitle =
-		typeof rawFundraiserTitle === "string" && rawFundraiserTitle.trim().length > 0
+		typeof rawFundraiserTitle === "string" &&
+		rawFundraiserTitle.trim().length > 0
 			? rawFundraiserTitle
 			: res.data.title;
 
@@ -57,13 +58,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 			: [];
 
 	const fallbackImage =
-		res.data.thumbnail ||
-		(Array.isArray(res.data.media)
-			? res.data.media.find((m: any) => m?.isThumbnail)?.url
-			: undefined) ||
-		"/defaultimg.webp";
+		res.data.thumbnail || imagesFromField[0] || "/defaultimg.webp";
 
-	const ogImages = imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
+	const ogImages =
+		imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
 	const primaryImage = ogImages[0];
 
 	return {
@@ -138,7 +136,8 @@ export default async function CampaignDetailPage({ params }: Props) {
 
 	const rawFundraiserTitle = (res.data as any).fundraiserTitle;
 	const effectiveTitle =
-		typeof rawFundraiserTitle === "string" && rawFundraiserTitle.trim().length > 0
+		typeof rawFundraiserTitle === "string" &&
+		rawFundraiserTitle.trim().length > 0
 			? rawFundraiserTitle
 			: res.data.title;
 
@@ -158,17 +157,16 @@ export default async function CampaignDetailPage({ params }: Props) {
 			: [];
 
 	const fallbackImage =
-		res.data.thumbnail ||
-		(Array.isArray(res.data.media)
-			? res.data.media.find((m: any) => m?.isThumbnail)?.url
-			: undefined) ||
-		"/defaultimg.webp";
+		res.data.thumbnail || imagesFromField[0] || "/defaultimg.webp";
 
-	const ogImages = imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
+	const ogImages =
+		imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
 	const safeTarget = Number((res.data as any).target) || 0;
 	const safeCollected = Number((res.data as any).collected) || 0;
 
-	const startDate = new Date(res.data.start || res.data.createdAt);
+	const startDate = new Date(
+		(res.data as any).start || (res.data as any).createdAt || Date.now(),
+	);
 	const endDate = (res.data as any).end
 		? new Date((res.data as any).end)
 		: null;

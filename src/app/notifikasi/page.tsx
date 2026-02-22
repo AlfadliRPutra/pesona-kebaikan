@@ -44,6 +44,9 @@ export default function NotificationPage() {
 	React.useEffect(() => {
 		if (session?.user?.id) {
 			fetchNotifications();
+		} else {
+			setNotifications([]);
+			setLoading(false);
 		}
 	}, [session?.user?.id]);
 
@@ -223,6 +226,19 @@ export default function NotificationPage() {
 														}}
 													>
 														{item.message}
+													</Typography>
+													<Typography
+														component="span"
+														variant="caption"
+														sx={{
+															display: "block",
+															fontSize: 11,
+															color: "#94a3b8",
+														}}
+													>
+														{item.isBroadcast
+															? "Untuk semua pengguna"
+															: "Untuk Anda"}
 													</Typography>
 													<Typography
 														component="span"

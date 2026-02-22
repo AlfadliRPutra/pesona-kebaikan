@@ -3,18 +3,33 @@
 import { signIn } from "@/auth";
 import { InvalidEmailError, InvalidPasswordError } from "@/auth";
 import { AuthError } from "next-auth";
+import { prisma } from "@/lib/prisma";
 
 export async function loginAction(
 	prevState: string | undefined,
 	formData: FormData,
 ) {
 	try {
+		const email = formData.get("email") as string | null;
+
 		await signIn("credentials", {
-			email: formData.get("email"),
+			email,
 			password: formData.get("password"),
 			redirect: false,
 		});
-		return { success: true };
+
+		let role: string | null = null;
+		if (email) {
+			try {
+				const user = await prisma.user.findUnique({
+					where: { email },
+					select: { role: true },
+				});
+				role = user?.role ?? null;
+			} catch (e) {}
+		}
+
+		return { success: true, role };
 	} catch (error) {
 		if (
 			error instanceof InvalidEmailError ||

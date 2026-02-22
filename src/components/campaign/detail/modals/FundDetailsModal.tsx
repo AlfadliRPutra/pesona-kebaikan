@@ -70,6 +70,21 @@ export default function FundDetailsModal({
 	const durationText =
 		years > 0 ? `${years} tahun, ${days} hari` : `${days} hari`;
 
+	const totalNetForFundraising = totalCollected - fees - foundationFeeAmount;
+	const fundraisingPercentage =
+		totalCollected > 0
+			? Math.max(
+					0,
+					Math.min(100, (totalNetForFundraising / totalCollected) * 100),
+				)
+			: 0;
+	const safeFoundationFeePercentage = Math.max(
+		0,
+		Math.min(100, foundationFeePercentage),
+	);
+	const formatPercentage = (value: number) =>
+		value.toFixed(2).replace(/\.?0+$/, "");
+
 	// Format UpdatedAt
 	const formattedDate = updatedAt
 		? new Intl.DateTimeFormat("id-ID", {
@@ -177,7 +192,7 @@ export default function FundDetailsModal({
 							>
 								<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 									<Chip
-										label={`${100 - (foundationFeePercentage || 0)}%`}
+										label={`${formatPercentage(fundraisingPercentage)}%`}
 										size="small"
 										sx={{
 											bgcolor: "#0ba976",
@@ -192,7 +207,7 @@ export default function FundDetailsModal({
 									</Typography>
 								</Box>
 								<Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-									{formatIDR(totalCollected)}
+									{formatIDR(totalNetForFundraising)}
 								</Typography>
 							</Box>
 
@@ -261,7 +276,7 @@ export default function FundDetailsModal({
 						>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 								<Chip
-									label={`${foundationFeePercentage}%`}
+									label={`${formatPercentage(safeFoundationFeePercentage)}%`}
 									size="small"
 									sx={{
 										bgcolor: "rgba(11,169,118,0.08)",
@@ -295,7 +310,8 @@ export default function FundDetailsModal({
 								>
 									Donasi untuk operasional Yayasan Pesona Kebaikan agar donasi
 									semakin aman, mudah & transparan. Maksimal{" "}
-									{foundationFeePercentage}% dari donasi terkumpul,{" "}
+									{formatPercentage(safeFoundationFeePercentage)}% dari donasi
+									terkumpul,{" "}
 									<Link href="#" underline="hover">
 										selengkapnya
 									</Link>

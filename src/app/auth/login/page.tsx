@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
 	Box,
@@ -72,16 +71,13 @@ export default function LoginPage() {
 				return;
 			}
 
-			// Force reload session to get latest data
-			const session = await getSession();
-			console.log("Login session:", session); // Debugging
-
 			const callbackUrl = searchParams.get("callbackUrl");
 			if (callbackUrl) {
 				router.push(callbackUrl);
 				return;
 			}
-			if (session?.user?.role === "ADMIN") {
+
+			if (result?.role === "ADMIN") {
 				router.push("/admin");
 			} else {
 				router.push("/profil");
