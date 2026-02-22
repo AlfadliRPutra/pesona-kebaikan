@@ -115,6 +115,13 @@ export default function CampaignDetailView({
 	const [openFundDetailsModal, setOpenFundDetailsModal] = React.useState(false);
 	const [snackbarOpen, setSnackbarOpen] = React.useState(false);
 	const [donationSuccessOpen, setDonationSuccessOpen] = React.useState(false);
+	const [donationStatus, setDonationStatus] = React.useState<
+		"paid" | "pending" | null
+	>(null);
+	const [donationSummary, setDonationSummary] = React.useState<{
+		amount?: number;
+		method?: string;
+	} | null>(null);
 	const [openReportModal, setOpenReportModal] = React.useState(false);
 	const [reportSuccessOpen, setReportSuccessOpen] = React.useState(false);
 	const [openFundraiserModal, setOpenFundraiserModal] = React.useState(false);
@@ -129,10 +136,22 @@ export default function CampaignDetailView({
 
 	// Donation success check (stable deps)
 	const donationSuccessParam = searchParams.get("donation_success");
+	const donationStatusParam = searchParams.get("donation_status");
+	const donationAmountParam = searchParams.get("donation_amount");
+	const donationMethodParam = searchParams.get("donation_method");
 	React.useEffect(() => {
 		const checkStatus = async () => {
 			if (donationSuccessParam === "true") {
 				setDonationSuccessOpen(true);
+				setDonationStatus(donationStatusParam === "paid" ? "paid" : "pending");
+
+				const amountNum = donationAmountParam
+					? Number(donationAmountParam)
+					: NaN;
+				setDonationSummary({
+					amount: isFinite(amountNum) ? amountNum : undefined,
+					method: donationMethodParam || undefined,
+				});
 
 				// Clean up URL first
 				router.replace(`/donasi/${data.slug || data.id}`, { scroll: false });
@@ -149,7 +168,15 @@ export default function CampaignDetailView({
 			}
 		};
 		checkStatus();
-	}, [donationSuccessParam, data.slug, data.id, router]);
+	}, [
+		donationSuccessParam,
+		donationStatusParam,
+		donationAmountParam,
+		donationMethodParam,
+		data.slug,
+		data.id,
+		router,
+	]);
 
 	const effectiveTitle =
 		(data as any).fundraiserTitle && !showFundraiser
@@ -742,7 +769,11 @@ export default function CampaignDetailView({
 					severity="success"
 					sx={{ width: "100%", borderRadius: "12px", boxShadow: 3 }}
 				>
-					Terima kasih! Donasi Anda berhasil dibuat. Silakan lakukan pembayaran.
+					{donationStatus === "paid"
+						? `Terima kasih! Pembayaran donasi${donationSummary?.amount ? ` Rp ${donationSummary.amount.toLocaleString("id-ID")}` : ""}${
+								donationSummary?.method ? ` via ${donationSummary.method}` : ""
+							} telah kami terima.`
+						: "Terima kasih! Donasi Anda berhasil dibuat. Silakan lakukan pembayaran."}
 				</Alert>
 			</Snackbar>
 		</Box>

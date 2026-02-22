@@ -86,6 +86,9 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 	React.useEffect(() => {
 		if (session?.user?.id) {
 			fetchNotifications();
+		} else {
+			setNotifications([]);
+			setUnreadCount(0);
 		}
 	}, [session?.user?.id]);
 
@@ -544,6 +547,19 @@ export default function SimpleAppBar({ variant = "solid" }: SimpleAppBarProps) {
 															}}
 														>
 															{item.message}
+														</Typography>
+														<Typography
+															component="span"
+															variant="caption"
+															sx={{
+																display: "block",
+																fontSize: 11,
+																color: "#94a3b8",
+															}}
+														>
+															{item.isBroadcast
+																? "Untuk semua pengguna"
+																: "Untuk Anda"}
 														</Typography>
 														<Typography
 															component="span"

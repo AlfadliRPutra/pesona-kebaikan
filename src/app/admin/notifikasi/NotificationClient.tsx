@@ -296,9 +296,11 @@ export default function NotificationClient({
 										/>
 									</TableCell>
 									<TableCell>
-										{notif.user
-											? notif.user.name || notif.user.email
-											: "Tidak diketahui"}
+										{notif.isBroadcast
+											? "Semua pengguna"
+											: notif.user
+												? notif.user.name || notif.user.email
+												: "Tidak diketahui"}
 									</TableCell>
 									<TableCell>
 										{new Date(notif.createdAt).toLocaleDateString("id-ID", {

@@ -8,20 +8,23 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import Badge from "@mui/material/Badge";
+import Typography from "@mui/material/Typography";
+import Link from "next/link";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
-import MenuIcon from "@mui/icons-material/Menu"; // Hamburger
+import MenuIcon from "@mui/icons-material/Menu";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
-import Badge from "@mui/material/Badge";
-import Link from "next/link";
 import { ColorModeContext } from "@/components/layout/ThemeWrapper";
 import { useTheme } from "@mui/material/styles";
 import { signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { getNotifications } from "@/actions/notification";
 
 export default function AdminHeader({
   onMobileToggle,
@@ -30,11 +33,14 @@ export default function AdminHeader({
 }) {
   const theme = useTheme();
   const colorMode = useContext(ColorModeContext);
+  const { data: session } = useSession();
 
   const [anchorElProfile, setAnchorElProfile] = useState<null | HTMLElement>(
     null
   );
   const [anchorElNotif, setAnchorElNotif] = useState<null | HTMLElement>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const openProfile = Boolean(anchorElProfile);
   const openNotif = Boolean(anchorElNotif);
@@ -48,9 +54,29 @@ export default function AdminHeader({
 
   const handleNotifClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElNotif(event.currentTarget);
+    fetchNotifications();
   };
   const handleNotifClose = () => {
     setAnchorElNotif(null);
+  };
+
+  const fetchNotifications = async () => {
+    if (!session?.user?.id) return;
+    try {
+      const { notifications } = await getNotifications(session.user.id);
+      const adminNotifications = notifications.filter(
+        (n: any) =>
+          n.title === "Pengajuan Perubahan Campaign" ||
+          (typeof n.message === "string" &&
+            n.message.includes("CAMPAIGN_CHANGE_REQUEST:"))
+      );
+      setNotifications(adminNotifications);
+      setUnreadCount(
+        adminNotifications.filter((n: any) => !n.isRead).length
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -104,7 +130,11 @@ export default function AdminHeader({
             aria-expanded={openNotif ? "true" : undefined}
             className="!h-9 !w-9 !rounded-lg !border !border-gray-200 dark:!border-gray-800 hover:!bg-gray-50 dark:hover:!bg-[#0b1324]"
           >
-            <Badge color="error" variant="dot">
+            <Badge
+              color="error"
+              variant={unreadCount > 0 ? "standard" : "dot"}
+              badgeContent={unreadCount > 0 ? unreadCount : undefined}
+            >
               <NotificationsNoneIcon
                 fontSize="small"
                 className="text-gray-700 dark:text-gray-300"
@@ -123,15 +153,115 @@ export default function AdminHeader({
               elevation: 0,
               sx: {
                 overflow: "visible",
-                filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
                 mt: 1.5,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+                boxShadow: "0 18px 45px rgba(15,23,42,0.18)",
+                minWidth: 320,
+                maxWidth: 380,
+                background:
+                  "linear-gradient(135deg, #ffffff 0%, #f8fafc 40%, #eef2ff 100%)",
               },
             },
           }}
           transformOrigin={{ horizontal: "right", vertical: "top" }}
           anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
         >
-          <MenuItem onClick={handleNotifClose}>Tidak ada notifikasi baru</MenuItem>
+          {notifications.length === 0
+            ? [
+                <MenuItem
+                  key="empty"
+                  onClick={handleNotifClose}
+                  sx={{
+                    py: 1.75,
+                    px: 2,
+                    color: "text.secondary",
+                    fontSize: 13,
+                  }}
+                >
+                  Tidak ada notifikasi
+                </MenuItem>,
+              ]
+            : [
+                ...notifications.slice(0, 5).map((n) => (
+                  <MenuItem
+                    key={n.id}
+                    onClick={handleNotifClose}
+                    sx={{
+                      width: "100%",
+                      alignItems: "flex-start",
+                      py: 1.5,
+                      px: 2,
+                      gap: 0.75,
+                      borderLeft: "3px solid",
+                      borderLeftColor: n.isRead ? "transparent" : "#0ba976",
+                      bgcolor: n.isRead
+                        ? "transparent"
+                        : "rgba(11,169,118,0.06)",
+                      "&:hover": {
+                        bgcolor: n.isRead
+                          ? "rgba(148,163,184,0.12)"
+                          : "rgba(11,169,118,0.12)",
+                      },
+                    }}
+                  >
+                    <div className="flex flex-col gap-0.5 w-full">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: n.isRead ? 600 : 700,
+                          letterSpacing: 0.1,
+                          color: "#0f172a",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {n.title}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "#64748b",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                          fontSize: 12,
+                        }}
+                      >
+                        {n.message}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "#94a3b8", fontSize: 11, mt: 0.25 }}
+                      >
+                        {new Date(n.createdAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Typography>
+                    </div>
+                  </MenuItem>
+                )),
+                <Divider key="divider" />,
+                <MenuItem
+                  key="see-all"
+                  onClick={handleNotifClose}
+                  sx={{ py: 1.25, justifyContent: "center" }}
+                >
+                  <Link
+                    href="/notifikasi"
+                    className="text-sm font-semibold text-emerald-600"
+                  >
+                    Lihat semua notifikasi
+                  </Link>
+                </MenuItem>,
+              ]}
         </Menu>
 
         {/* Profile */}

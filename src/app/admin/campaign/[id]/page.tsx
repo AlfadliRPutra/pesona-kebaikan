@@ -27,6 +27,7 @@ import {
 	alpha,
 	Checkbox,
 	FormControlLabel,
+	InputAdornment,
 } from "@mui/material";
 
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
@@ -49,6 +50,7 @@ import PlayCircleFilledRoundedIcon from "@mui/icons-material/PlayCircleFilledRou
 import {
 	getCampaignById,
 	updateCampaignStatus,
+	updateCampaignFee,
 	deleteCampaign,
 	addCampaignMedia,
 	finishCampaign,
@@ -205,7 +207,13 @@ export default function AdminCampaignDetailPage() {
 	const [data, setData] = React.useState<any>(null);
 
 	const [tab, setTab] = React.useState<
-		"overview" | "story" | "docs" | "verify" | "timeline" | "transactions"
+		| "overview"
+		| "story"
+		| "docs"
+		| "fee"
+		| "verify"
+		| "timeline"
+		| "transactions"
 	>("overview");
 
 	const [snack, setSnack] = React.useState<{
@@ -224,6 +232,9 @@ export default function AdminCampaignDetailPage() {
 	// transactions state
 	const [txRows, setTxRows] = React.useState<TxRow[]>([]);
 	const [txLoading, setTxLoading] = React.useState(false);
+
+	const [feeValue, setFeeValue] = React.useState<string>("0");
+	const [feeLoading, setFeeLoading] = React.useState(false);
 
 	const restartInitialDays =
 		data &&
@@ -295,6 +306,11 @@ export default function AdminCampaignDetailPage() {
 				const cleanStory = c.description
 					.replace(/\s*Detail Pasien:[\s\S]*/i, "")
 					.replace(/\s*Tujuan:[\s\S]*/i, "")
+					.trim();
+
+				const plainStory = cleanStory
+					.replace(/<[^>]+>/g, " ")
+					.replace(/\s+/g, " ")
 					.trim();
 
 				const meta = (c as any).metadata || {};
@@ -425,7 +441,12 @@ export default function AdminCampaignDetailPage() {
 					restartInfo:
 						((c as any).metadata && (c as any).metadata.restartInfo) || null,
 					daysLeft: daysLeft > 0 ? daysLeft : 0,
-					shortInvite: cleanStory.substring(0, 100) + "...",
+					foundationFee: (c as any).foundationFee ?? 0,
+					shortInvite:
+						plainStory.length > 0
+							? plainStory.substring(0, 100) +
+								(plainStory.length > 100 ? "..." : "")
+							: "",
 					story: c.description,
 					meta: {
 						sakit: sakitMeta,
@@ -433,6 +454,7 @@ export default function AdminCampaignDetailPage() {
 					},
 				};
 				setData(mappedData);
+				setFeeValue(String((c as any).foundationFee ?? 0));
 
 				const base: DocItem[] = [
 					{
@@ -803,26 +825,65 @@ export default function AdminCampaignDetailPage() {
 	};
 
 	const onApprove = async () => {
+		if (feeLoading) return;
 		setConfirmApprove(false);
-		const res = await updateCampaignStatus(id, "ACTIVE");
-		if (res.success) {
-			setData((d: any) => ({ ...d, status: "active", updatedAt: "Hari ini" }));
-			pushAudit({
-				title: "Campaign disetujui",
-				meta: "Status berubah menjadi Aktif.",
-				tone: "success",
-			});
+
+		const parsedFee = Number(feeValue || "0");
+		if (Number.isNaN(parsedFee) || parsedFee < 0 || parsedFee > 100) {
 			setSnack({
 				open: true,
-				msg: "Campaign approved.",
-				type: "success",
-			});
-		} else {
-			setSnack({
-				open: true,
-				msg: "Gagal approve campaign.",
+				msg: "Fee yayasan harus antara 0% dan 100%.",
 				type: "error",
 			});
+			return;
+		}
+
+		setFeeLoading(true);
+		try {
+			const feeRes = await updateCampaignFee(id, parsedFee);
+			if (!feeRes.success) {
+				setSnack({
+					open: true,
+					msg: feeRes.error || "Gagal mengupdate fee yayasan.",
+					type: "error",
+				});
+				return;
+			}
+
+			const res = await updateCampaignStatus(id, "ACTIVE");
+			if (res.success) {
+				setData((d: any) => ({
+					...d,
+					status: "active",
+					updatedAt: "Hari ini",
+					foundationFee: parsedFee,
+				}));
+				pushAudit({
+					title: "Campaign disetujui",
+					meta: `Status berubah menjadi Aktif. Fee yayasan: ${parsedFee}%`,
+					tone: "success",
+				});
+				setSnack({
+					open: true,
+					msg: "Campaign approved.",
+					type: "success",
+				});
+			} else {
+				setSnack({
+					open: true,
+					msg: res.error || "Gagal approve campaign.",
+					type: "error",
+				});
+			}
+		} catch (e) {
+			console.error(e);
+			setSnack({
+				open: true,
+				msg: "Terjadi kesalahan saat approve campaign.",
+				type: "error",
+			});
+		} finally {
+			setFeeLoading(false);
 		}
 	};
 
@@ -899,6 +960,57 @@ export default function AdminCampaignDetailPage() {
 				msg: res.error || "Gagal melanjutkan campaign.",
 				type: "error",
 			});
+		}
+	};
+
+	const onSaveFee = async () => {
+		if (feeLoading) return;
+
+		const parsedFee = Number(feeValue || "0");
+		if (Number.isNaN(parsedFee) || parsedFee < 0 || parsedFee > 100) {
+			setSnack({
+				open: true,
+				msg: "Fee yayasan harus antara 0% dan 100%.",
+				type: "error",
+			});
+			return;
+		}
+
+		setFeeLoading(true);
+		try {
+			const res = await updateCampaignFee(id, parsedFee);
+			if (res.success) {
+				setData((d: any) => ({
+					...d,
+					foundationFee: parsedFee,
+					updatedAt: "Hari ini",
+				}));
+				pushAudit({
+					title: "Fee yayasan diupdate",
+					meta: `Fee yayasan: ${parsedFee}%`,
+					tone: "info",
+				});
+				setSnack({
+					open: true,
+					msg: "Fee yayasan berhasil diperbarui.",
+					type: "success",
+				});
+			} else {
+				setSnack({
+					open: true,
+					msg: res.error || "Gagal mengupdate fee yayasan.",
+					type: "error",
+				});
+			}
+		} catch (e) {
+			console.error(e);
+			setSnack({
+				open: true,
+				msg: "Terjadi kesalahan saat mengupdate fee yayasan.",
+				type: "error",
+			});
+		} finally {
+			setFeeLoading(false);
 		}
 	};
 
@@ -1217,6 +1329,11 @@ export default function AdminCampaignDetailPage() {
 								label="Dokumen"
 								active={tab === "docs"}
 								onClick={() => setTab("docs")}
+							/>
+							<SegTab
+								label="Fee Yayasan"
+								active={tab === "fee"}
+								onClick={() => setTab("fee")}
 							/>
 							<SegTab
 								label="Verifikasi"
@@ -1548,6 +1665,92 @@ export default function AdminCampaignDetailPage() {
 										onRemove={() => handleRemoveDoc(d.key)}
 									/>
 								))}
+							</Stack>
+						</Paper>
+					)}
+
+					{tab === "fee" && (
+						<Paper elevation={0} sx={{ ...shellSx, p: 1.5 }}>
+							<Stack
+								direction="row"
+								alignItems="center"
+								justifyContent="space-between"
+								sx={{ gap: 1, flexWrap: "wrap" }}
+							>
+								<Box>
+									<Typography sx={{ fontWeight: 1000, fontSize: 14 }}>
+										Fee Yayasan
+									</Typography>
+									<Typography
+										sx={{ mt: 0.5, fontSize: 12.5, color: "text.secondary" }}
+									>
+										Atur persentase fee operasional yayasan khusus untuk
+										campaign ini.
+									</Typography>
+								</Box>
+
+								<Chip
+									label={`${Number(feeValue || "0")} %`}
+									variant="outlined"
+									sx={{
+										borderRadius: 999,
+										fontWeight: 900,
+										borderColor: alpha(theme.palette.primary.main, 0.3),
+										bgcolor: alpha(
+											theme.palette.primary.main,
+											theme.palette.mode === "dark" ? 0.16 : 0.08,
+										),
+										color: theme.palette.primary.main,
+									}}
+								/>
+							</Stack>
+
+							<Divider sx={{ my: 1.25 }} />
+
+							<Stack spacing={1.5}>
+								<TextField
+									label="Fee Yayasan (%)"
+									type="number"
+									fullWidth
+									value={feeValue}
+									onChange={(e) => {
+										const val = e.target.value;
+										const num = Number(val);
+										if (Number.isNaN(num)) {
+											setFeeValue(val);
+											return;
+										}
+										if (num > 100 || num < 0) return;
+										setFeeValue(val);
+									}}
+									inputProps={{ step: 0.1 }}
+									InputProps={{
+										endAdornment: (
+											<InputAdornment position="end">%</InputAdornment>
+										),
+									}}
+									helperText="Rentang 0-100%. Nilai ini akan digunakan untuk semua donasi campaign ini."
+								/>
+
+								<Stack
+									direction={{ xs: "column", sm: "row" }}
+									spacing={1}
+									sx={{ mt: 0.5 }}
+								>
+									<Button
+										variant="contained"
+										onClick={onSaveFee}
+										disabled={feeLoading}
+										startIcon={<SaveRoundedIcon />}
+										sx={{
+											borderRadius: 999,
+											fontWeight: 900,
+											boxShadow: "none",
+										}}
+									>
+										{feeLoading ? "Menyimpan..." : "Simpan Fee"}
+									</Button>
+								</Stack>
 							</Stack>
 						</Paper>
 					)}
@@ -2063,7 +2266,7 @@ export default function AdminCampaignDetailPage() {
 			<Dialog
 				open={confirmApprove}
 				onClose={() => setConfirmApprove(false)}
-				maxWidth="xs"
+				maxWidth="sm"
 				fullWidth
 			>
 				<DialogTitle sx={{ fontWeight: 1000 }}>Approve campaign?</DialogTitle>
@@ -2071,6 +2274,29 @@ export default function AdminCampaignDetailPage() {
 					<DialogContentText>
 						Status akan menjadi <b>Aktif</b>. Pastikan checklist sudah benar.
 					</DialogContentText>
+					<Box sx={{ mt: 2 }}>
+						<TextField
+							label="Fee Yayasan (%)"
+							type="number"
+							fullWidth
+							value={feeValue}
+							onChange={(e) => {
+								const val = e.target.value;
+								const num = Number(val);
+								if (Number.isNaN(num)) {
+									setFeeValue(val);
+									return;
+								}
+								if (num > 100 || num < 0) return;
+								setFeeValue(val);
+							}}
+							inputProps={{ step: 0.1 }}
+							InputProps={{
+								endAdornment: <InputAdornment position="end">%</InputAdornment>,
+							}}
+							helperText="Atur persentase fee operasional yayasan untuk campaign ini (0-100%)."
+						/>
+					</Box>
 				</DialogContent>
 				<DialogActions sx={{ p: 2, pt: 0 }}>
 					<Button
@@ -2083,9 +2309,10 @@ export default function AdminCampaignDetailPage() {
 					<Button
 						onClick={onApprove}
 						variant="contained"
+						disabled={feeLoading}
 						sx={{ borderRadius: 999, fontWeight: 900, boxShadow: "none" }}
 					>
-						Approve
+						{feeLoading ? "Menyimpan..." : "Approve"}
 					</Button>
 				</DialogActions>
 			</Dialog>

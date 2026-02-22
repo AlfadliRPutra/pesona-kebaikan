@@ -35,7 +35,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	const rawFundraiserTitle = (res.data as any).fundraiserTitle;
 	const effectiveTitle =
-		typeof rawFundraiserTitle === "string" && rawFundraiserTitle.trim().length > 0
+		typeof rawFundraiserTitle === "string" &&
+		rawFundraiserTitle.trim().length > 0
 			? rawFundraiserTitle
 			: res.data.title;
 
@@ -59,7 +60,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		(imagesFromField.length > 0 ? imagesFromField[0] : undefined) ||
 		"/defaultimg.webp";
 
-	const ogImages = imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
+	const ogImages =
+		imagesFromField.length > 0 ? imagesFromField : [fallbackImage];
 	const primaryImage = ogImages[0];
 
 	return {
@@ -134,7 +136,8 @@ export default async function CampaignDetailPage({ params }: Props) {
 
 	const rawFundraiserTitle = (res.data as any).fundraiserTitle;
 	const effectiveTitle =
-		typeof rawFundraiserTitle === "string" && rawFundraiserTitle.trim().length > 0
+		typeof rawFundraiserTitle === "string" &&
+		rawFundraiserTitle.trim().length > 0
 			? rawFundraiserTitle
 			: res.data.title;
 

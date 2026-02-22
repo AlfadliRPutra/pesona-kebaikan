@@ -28,6 +28,12 @@ import {
 	DialogActions,
 	Snackbar,
 	Alert,
+	TableContainer,
+	Table,
+	TableHead,
+	TableRow,
+	TableCell,
+	TableBody,
 } from "@mui/material";
 
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
@@ -42,10 +48,15 @@ import CategoryRoundedIcon from "@mui/icons-material/CategoryRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
 import PhotoRoundedIcon from "@mui/icons-material/PhotoRounded";
 import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
-import { getCampaigns, updateCampaignStatus } from "@/actions/campaign";
+import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
+import {
+	deleteCampaign,
+	getCampaigns,
+	updateCampaignStatus,
+} from "@/actions/campaign";
 
 type CampaignType = "sakit" | "lainnya";
-type CampaignStatus = "draft" | "review" | "active" | "ended" | "rejected";
+type CampaignStatus = "draft" | "pending" | "active" | "ended" | "rejected";
 
 type VerifyDocKey = "cover" | "ktp" | "resume_medis" | "surat_rs" | "pendukung";
 
@@ -227,7 +238,7 @@ export default function AdminCampaignVerifikasiPage() {
 					target: c.target,
 					collected: c.collected,
 					donors: c.donors,
-					status: "review",
+					status: (c.status || "pending") as CampaignStatus,
 					updatedAt: c.updatedAt,
 					docs: {
 						cover: !!c.thumbnail,
@@ -271,9 +282,7 @@ export default function AdminCampaignVerifikasiPage() {
 	}, [rows]);
 
 	const filtered = React.useMemo(() => {
-		let base = rows
-			.filter((r) => r.status === "review")
-			.filter((r) => matchQuery(q, r));
+		let base = rows.filter((r) => matchQuery(q, r));
 
 		if (filter === "ready")
 			base = base.filter((r) => missingRequired(r).length === 0);
@@ -332,6 +341,34 @@ export default function AdminCampaignVerifikasiPage() {
 		} catch (error) {
 			console.error(error);
 			showSnackbar("Terjadi kesalahan saat reject", "error");
+		}
+	};
+
+	const onDelete = async () => {
+		if (!selected || selected.status !== "draft") return;
+		try {
+			const res = await deleteCampaign(selected.id);
+			if (res.success) {
+				setRows((prev) => prev.filter((x) => x.id !== selected.id));
+				setSnackbar({
+					open: true,
+					message: "Campaign draft berhasil dihapus",
+					severity: "success",
+				});
+			} else {
+				setSnackbar({
+					open: true,
+					message: res.error || "Gagal menghapus campaign",
+					severity: "error",
+				});
+			}
+		} catch (error) {
+			console.error(error);
+			setSnackbar({
+				open: true,
+				message: "Terjadi kesalahan saat menghapus campaign",
+				severity: "error",
+			});
 		}
 	};
 
@@ -518,56 +555,219 @@ export default function AdminCampaignVerifikasiPage() {
 
 					<Divider sx={{ mb: 1.25 }} />
 
-					<Box
+					<TableContainer
+						component={Paper}
+						elevation={0}
 						sx={{
-							display: "grid",
-							gap: 1.25,
-							gridTemplateColumns: {
-								xs: "1fr",
-								sm: "repeat(2, minmax(0, 1fr))",
-							},
+							borderRadius: 2,
+							border: "1px solid",
+							borderColor: alpha(theme.palette.divider, 0.5),
+							bgcolor: alpha(
+								theme.palette.background.paper,
+								theme.palette.mode === "dark" ? 0.96 : 1,
+							),
+							overflowX: "hidden",
 						}}
 					>
-						{loading
-							? Array.from({ length: 6 }).map((_, i) => (
-									<Paper
-										key={i}
-										variant="outlined"
-										sx={{
-											borderRadius: 2.5,
-											p: 1.25,
-											// borderColor: alpha(theme.palette.divider, 1),
-											border: "none",
-											bgcolor: alpha(
-												theme.palette.background.default,
-												theme.palette.mode === "dark" ? 0.2 : 1,
-											),
-										}}
-									>
-										<Skeleton variant="rounded" height={14} width="85%" />
-										<Skeleton
-											variant="rounded"
-											height={12}
-											width="60%"
-											sx={{ mt: 1 }}
-										/>
-										<Skeleton
-											variant="rounded"
-											height={36}
-											width="100%"
-											sx={{ mt: 1.25, borderRadius: 2 }}
-										/>
-									</Paper>
-								))
-							: paged.map((row) => (
-									<VerifyCard
-										key={row.id}
-										row={row}
-										selected={row.id === selectedId}
-										onClick={() => setSelectedId(row.id)}
-									/>
-								))}
-					</Box>
+						<Table
+							size="small"
+							sx={{
+								width: "100%",
+								tableLayout: "fixed",
+								"& td, & th": { px: 1.75, py: 1.25 },
+							}}
+						>
+							<TableHead>
+								<TableRow>
+									<TableCell sx={{ fontWeight: 900 }}>Judul</TableCell>
+									<TableCell sx={{ fontWeight: 900 }} align="center">
+										Info
+									</TableCell>
+									<TableCell sx={{ fontWeight: 900 }} align="center">
+										Dana
+									</TableCell>
+									<TableCell sx={{ fontWeight: 900 }} align="center">
+										Dokumen
+									</TableCell>
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{loading ? (
+									Array.from({ length: 6 }).map((_, i) => (
+										<TableRow key={i}>
+											<TableCell colSpan={4}>
+												<Skeleton variant="rounded" height={18} width="82%" />
+												<Skeleton
+													variant="rounded"
+													height={14}
+													width="60%"
+													sx={{ mt: 1 }}
+												/>
+											</TableCell>
+										</TableRow>
+									))
+								) : paged.length === 0 ? (
+									<TableRow>
+										<TableCell colSpan={4}>
+											<Box sx={{ py: 4, textAlign: "center" }}>
+												<Typography
+													sx={{
+														fontWeight: 900,
+														color: "text.primary",
+														fontSize: 13,
+													}}
+												>
+													Tidak ada antrian review
+												</Typography>
+												<Typography
+													sx={{
+														mt: 0.5,
+														fontSize: 12.5,
+														color: "text.secondary",
+													}}
+												>
+													Campaign yang menunggu verifikasi akan tampil di sini.
+												</Typography>
+											</Box>
+										</TableCell>
+									</TableRow>
+								) : (
+									paged.map((row) => {
+										const missing = missingRequired(row);
+										const ready = missing.length === 0;
+										const selectedRow = row.id === selectedId;
+										return (
+											<TableRow
+												key={row.id}
+												hover
+												selected={selectedRow}
+												onClick={() => setSelectedId(row.id)}
+												sx={{
+													cursor: "pointer",
+													"&.Mui-selected": {
+														bgcolor: alpha(
+															theme.palette.primary.main,
+															theme.palette.mode === "dark" ? 0.12 : 0.06,
+														),
+													},
+												}}
+											>
+												<TableCell>
+													<Stack spacing={0.5}>
+														<Typography
+															sx={{
+																fontWeight: 900,
+																fontSize: 13,
+																color: "text.primary",
+																display: "-webkit-box",
+																WebkitLineClamp: 2,
+																WebkitBoxOrient: "vertical",
+																overflow: "hidden",
+															}}
+														>
+															{row.title}
+														</Typography>
+														<Typography
+															sx={{
+																fontSize: 11.5,
+																color: "text.secondary",
+															}}
+														>
+															{row.category}
+														</Typography>
+													</Stack>
+												</TableCell>
+												<TableCell align="center">
+													<Stack
+														direction="column"
+														spacing={0.5}
+														alignItems="center"
+													>
+														<Chip
+															label={
+																row.type === "sakit" ? "Medis" : row.category
+															}
+															size="small"
+															sx={{
+																height: 22,
+																fontWeight: 900,
+																borderRadius: 999,
+																bgcolor:
+																	row.type === "sakit"
+																		? "rgba(56,189,248,.16)"
+																		: "rgba(11,169,118,.14)",
+																color:
+																	row.type === "sakit"
+																		? "rgba(2,132,199,.95)"
+																		: "rgba(22,101,52,.95)",
+																"& .MuiChip-label": { px: 1, fontSize: 11 },
+															}}
+														/>
+														<Typography
+															sx={{
+																fontSize: 11.5,
+																color: "text.secondary",
+															}}
+														>
+															oleh {row.ownerName}
+														</Typography>
+													</Stack>
+												</TableCell>
+												<TableCell align="center">
+													<Stack spacing={0.25} alignItems="center">
+														<Typography
+															sx={{
+																fontWeight: 900,
+																fontSize: 12,
+																color: "text.primary",
+															}}
+														>
+															{idr(row.collected)}
+														</Typography>
+														<Typography
+															sx={{ fontSize: 11.5, color: "text.secondary" }}
+														>
+															dari {idr(row.target)} •{" "}
+															<b>{pct(row.collected, row.target)}%</b>
+														</Typography>
+													</Stack>
+												</TableCell>
+												<TableCell align="center">
+													<Stack
+														direction="column"
+														spacing={0.5}
+														alignItems="center"
+													>
+														<Chip
+															label={
+																ready
+																	? "Siap approve"
+																	: `${missing.length} dokumen kurang`
+															}
+															size="small"
+															color={ready ? "success" : "warning"}
+															variant={ready ? "outlined" : "outlined"}
+															sx={{
+																height: 22,
+																borderRadius: 999,
+																fontWeight: 900,
+																"& .MuiChip-label": { px: 1, fontSize: 11 },
+															}}
+														/>
+														<Typography
+															sx={{ fontSize: 11, color: "text.secondary" }}
+														>
+															Update {row.updatedAt}
+														</Typography>
+													</Stack>
+												</TableCell>
+											</TableRow>
+										);
+									})
+								)}
+							</TableBody>
+						</Table>
+					</TableContainer>
 
 					{/* Pagination */}
 					<Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
@@ -644,7 +844,7 @@ export default function AdminCampaignVerifikasiPage() {
 										sx={{ fontSize: 12.5, color: "text.secondary" }}
 										className="line-clamp-1"
 									>
-										{selected.category} • <b>{selected.id}</b>
+										{selected.category}
 									</Typography>
 
 									<Stack
@@ -654,7 +854,9 @@ export default function AdminCampaignVerifikasiPage() {
 									>
 										<Chip
 											size="small"
-											label={selected.type === "sakit" ? "Medis" : "Lainnya"}
+											label={
+												selected.type === "sakit" ? "Medis" : selected.category
+											}
 											variant="outlined"
 											sx={(t) => ({
 												borderRadius: 999,
@@ -679,18 +881,42 @@ export default function AdminCampaignVerifikasiPage() {
 										/>
 										<Chip
 											size="small"
-											label="Review"
+											label={
+												selected.status === "draft"
+													? "Draft"
+													: selected.status === "pending"
+														? "Pending"
+														: selected.status === "active"
+															? "Aktif"
+															: selected.status === "ended"
+																? "Berakhir"
+																: "Ditolak"
+											}
 											variant="outlined"
-											sx={(t) => ({
-												borderRadius: 999,
-												fontWeight: 900,
-												borderColor: alpha(t.palette.warning.main, 0.25),
-												bgcolor: alpha(
-													t.palette.warning.main,
-													t.palette.mode === "dark" ? 0.16 : 0.08,
-												),
-												color: t.palette.warning.main,
-											})}
+											sx={(t) => {
+												const status = selected.status;
+												let baseColor = t.palette.warning.main;
+												if (status === "draft") {
+													baseColor = t.palette.text.secondary;
+												} else if (status === "active") {
+													baseColor = t.palette.success.main;
+												} else if (
+													status === "ended" ||
+													status === "rejected"
+												) {
+													baseColor = t.palette.error.main;
+												}
+												return {
+													borderRadius: 999,
+													fontWeight: 900,
+													borderColor: alpha(baseColor, 0.25),
+													bgcolor: alpha(
+														baseColor,
+														t.palette.mode === "dark" ? 0.16 : 0.08,
+													),
+													color: baseColor,
+												};
+											}}
 										/>
 										<Chip
 											size="small"
@@ -865,6 +1091,18 @@ export default function AdminCampaignVerifikasiPage() {
 								</Button>
 
 								<Box sx={{ flex: 1 }} />
+
+								{selected.status === "draft" ? (
+									<Button
+										variant="outlined"
+										color="error"
+										startIcon={<DeleteRoundedIcon />}
+										onClick={onDelete}
+										sx={{ borderRadius: 999, fontWeight: 900 }}
+									>
+										Hapus Draft
+									</Button>
+								) : null}
 
 								<Button
 									variant="contained"
