@@ -15,10 +15,11 @@ import StepLabel from "@mui/material/StepLabel";
 import StepContent from "@mui/material/StepContent";
 import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
+import { StyledTextField } from "@/components/ui/StyledTextField";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Grid from "@mui/material/Grid";
 import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
 import CloseIcon from "@mui/icons-material/Close";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import PersonIcon from "@mui/icons-material/Person";
@@ -74,6 +75,7 @@ export default function VerificationDialog({
 	const [phone, setPhone] = React.useState<string>("");
 	const [waOtp, setWaOtp] = React.useState<string>("");
 	const [waLoading, setWaLoading] = React.useState<boolean>(false);
+	const [isEmailVerified, setIsEmailVerified] = React.useState<boolean>(false);
 
 	const [emailOtp, setEmailOtp] = React.useState<string>("");
 	const [emailLoading, setEmailLoading] = React.useState<boolean>(false);
@@ -134,16 +136,20 @@ export default function VerificationDialog({
 			getVerificationStatus().then((res) => {
 				if (res.success && res.data) {
 					const { phoneVerified, emailVerified } = res.data;
+					setIsEmailVerified(!!emailVerified);
 					if (phoneVerified) {
-						setActiveStep(1);
-						if (emailVerified) {
-							setActiveStep(2);
-						}
+						setActiveStep(emailVerified ? 2 : 1);
 					}
 				}
 			});
 		}
 	}, [open, session]);
+
+	React.useEffect(() => {
+		if (activeStep === 1 && isEmailVerified) {
+			setActiveStep(2);
+		}
+	}, [activeStep, isEmailVerified]);
 
 	React.useEffect(() => {
 		let timer: NodeJS.Timeout;
@@ -466,25 +472,13 @@ export default function VerificationDialog({
 										</Alert>
 										<Stack spacing={2} sx={{ mb: 3 }}>
 											<Box>
-												<Typography
-													variant="caption"
-													sx={{
-														fontWeight: 600,
-														color: "text.secondary",
-														mb: 1,
-														display: "block",
-													}}
-												>
-													Nomor WhatsApp
-												</Typography>
 												<Stack direction="row" spacing={1}>
-													<TextField
-														fullWidth
-														size="small"
-														placeholder="Contoh: 081234567890"
+													<StyledTextField
+														label="Nomor WhatsApp"
 														value={phone}
 														onChange={(e) => setPhone(e.target.value)}
-														InputProps={{ sx: { borderRadius: 1.5 } }}
+														fullWidth
+														placeholder="Contoh: 081234567890"
 														disabled={waCooldown > 0}
 													/>
 													<Button
@@ -535,50 +529,14 @@ export default function VerificationDialog({
 											</Box>
 
 											<Box>
-												<Typography
-													variant="caption"
-													sx={{
-														fontWeight: 600,
-														color: "text.secondary",
-														mb: 1,
-														display: "block",
-													}}
-												>
-													Kode OTP (6 Digit)
-												</Typography>
-												<Stack
-													direction="row"
-													spacing={1}
-													justifyContent="space-between"
-													onPaste={handlePaste}
-												>
-													{[0, 1, 2, 3, 4, 5].map((index) => (
-														<TextField
-															key={index}
-															id={`otp-input-${index}`}
-															size="small"
-															value={waOtp[index] || ""}
-															onChange={(e) =>
-																handleOtpChange(e.target.value, index)
-															}
-															onKeyDown={(e) => handleKeyDown(e, index)}
-															inputProps={{
-																maxLength: 1,
-																style: { textAlign: "center", padding: "8px" },
-															}}
-															sx={{
-																width: "48px",
-																"& .MuiOutlinedInput-root": {
-																	borderRadius: 1.5,
-																	"&.Mui-focused fieldset": {
-																		borderColor: "#0ba976",
-																		borderWidth: 2,
-																	},
-																},
-															}}
-														/>
-													))}
-												</Stack>
+												<StyledTextField
+													label="Kode OTP WhatsApp"
+													value={waOtp}
+													onChange={(e) => setWaOtp(e.target.value)}
+													fullWidth
+													placeholder="Masukkan 6 digit kode"
+													disabled={waLoading}
+												/>
 											</Box>
 										</Stack>
 
@@ -651,51 +609,14 @@ export default function VerificationDialog({
 										</Alert>
 
 										<Box sx={{ mb: 3 }}>
-											<Typography
-												variant="caption"
-												sx={{
-													fontWeight: 600,
-													color: "text.secondary",
-													mb: 1,
-													display: "block",
-												}}
-											>
-												Kode OTP Email (6 Digit)
-											</Typography>
-											<Stack
-												direction="row"
-												spacing={1}
-												justifyContent="space-between"
-												onPaste={handleEmailPaste}
-												sx={{ mb: 2 }}
-											>
-												{[0, 1, 2, 3, 4, 5].map((index) => (
-													<TextField
-														key={index}
-														id={`email-otp-${index}`}
-														size="small"
-														value={emailOtp[index] || ""}
-														onChange={(e) =>
-															handleEmailOtpChange(e.target.value, index)
-														}
-														onKeyDown={(e) => handleEmailKeyDown(e, index)}
-														inputProps={{
-															maxLength: 1,
-															style: { textAlign: "center", padding: "8px" },
-														}}
-														sx={{
-															width: "48px",
-															"& .MuiOutlinedInput-root": {
-																borderRadius: 1.5,
-																"&.Mui-focused fieldset": {
-																	borderColor: "#0ba976",
-																	borderWidth: 2,
-																},
-															},
-														}}
-													/>
-												))}
-											</Stack>
+											<StyledTextField
+												label="Kode OTP Email"
+												value={emailOtp}
+												onChange={(e) => setEmailOtp(e.target.value)}
+												fullWidth
+												placeholder="Masukkan 6 digit kode"
+												disabled={emailLoading}
+											/>
 											<Button
 												variant="outlined"
 												fullWidth
@@ -856,8 +777,8 @@ export default function VerificationDialog({
 													</Typography>
 												</>
 											)}
-										</Box>
-										<TextField
+										</Box>{" "}
+										<StyledTextField
 											label={
 												verificationType === "individu"
 													? "Nomor NIK KTP"

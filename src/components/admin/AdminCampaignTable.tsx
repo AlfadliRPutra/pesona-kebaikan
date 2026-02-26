@@ -570,7 +570,11 @@ export default function AdminCampaignTable({
 												flexWrap="wrap"
 											>
 												<Chip
-													label={row.type === "sakit" ? "Medis" : "Lainnya"}
+													label={
+														row.type === "sakit"
+															? "Medis"
+															: row.category
+													}
 													size="small"
 													sx={{
 														height: 22,

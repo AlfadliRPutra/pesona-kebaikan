@@ -90,6 +90,11 @@ function isQuickDonation(row?: CampaignRow) {
 	return false;
 }
 
+function canDeleteCampaign(row?: CampaignRow) {
+	if (!row) return false;
+	return row.status !== "active" && row.status !== "ended";
+}
+
 function idr(n: number) {
 	const v = Number(n) || 0;
 	const s = Math.round(v).toString();
@@ -172,9 +177,8 @@ function statusChip(status: CampaignStatus) {
 }
 
 const FILTERS: { key: "all" | CampaignStatus; label: string }[] = [
-	{ key: "all", label: "Semua" },
-	{ key: "pending", label: "Pending" },
 	{ key: "active", label: "Aktif" },
+	{ key: "all", label: "Semua" },
 	{ key: "draft", label: "Draft" },
 	{ key: "ended", label: "Berakhir" },
 	{ key: "rejected", label: "Ditolak" },
@@ -189,7 +193,7 @@ export default function AdminCampaignPage() {
 	const [totalRows, setTotalRows] = React.useState(0);
 
 	const [q, setQ] = React.useState("");
-	const [filter, setFilter] = React.useState<"all" | CampaignStatus>("all");
+	const [filter, setFilter] = React.useState<"all" | CampaignStatus>("active");
 
 	const [provinceId, setProvinceId] = React.useState<string>("all");
 	const [startDate, setStartDate] = React.useState<string>("");
@@ -265,7 +269,19 @@ export default function AdminCampaignPage() {
 			);
 
 			if (res.success && res.data) {
-				setRows(res.data as any);
+				let nextRows = (res.data as any as CampaignRow[]).filter(
+					(r) => r.status !== "pending" && r.status !== "review",
+				);
+
+				if (filter === "all") {
+					const activeRows = nextRows.filter((r) => r.status === "active");
+					const nonActive = nextRows.filter((r) => r.status !== "active");
+					const draftRows = nonActive.filter((r) => r.status === "draft");
+					const others = nonActive.filter((r) => r.status !== "draft");
+					nextRows = [...activeRows, ...others, ...draftRows];
+				}
+
+				setRows(nextRows);
 				setTotalPages(res.totalPages || 1);
 				setTotalRows(res.total || 0);
 			} else {
@@ -454,10 +470,25 @@ export default function AdminCampaignPage() {
 		setConfirmDialog({
 			open: true,
 			title: "Hapus Massal",
-			message: `Hapus ${selectedIds.length} campaign? Tindakan tidak dapat dibatalkan.`,
+			message:
+				"Hanya campaign yang tidak sedang berjalan atau sudah berakhir yang dapat dihapus.",
 			confirmColor: "error",
 			onConfirm: async () => {
-				const tasks = selectedIds.map((id) => deleteCampaign(id));
+				const allowedIds = selectedIds.filter((id) => {
+					const row = rows.find((r) => r.id === id);
+					return canDeleteCampaign(row);
+				});
+
+				if (allowedIds.length === 0) {
+					showSnackbar(
+						"Campaign yang sedang berjalan atau sudah berakhir tidak bisa dihapus.",
+						"warning",
+					);
+					setConfirmDialog((prev) => ({ ...prev, open: false }));
+					return;
+				}
+
+				const tasks = allowedIds.map((id) => deleteCampaign(id));
 				const results = await Promise.allSettled(tasks);
 				const ok = results.filter(
 					(r) => r.status === "fulfilled" && (r.value as any)?.success,
@@ -836,22 +867,24 @@ export default function AdminCampaignPage() {
 					</MenuItem>
 				) : null}
 
-				<MenuItem
-					onClick={() => {
-						const id = menu.row!.id;
-						closeMenu();
-						onDelete(id);
-					}}
-					sx={{ py: 1.2, color: "#ef4444" }}
-				>
-					<DeleteRoundedIcon
-						fontSize="small"
-						style={{ marginRight: 10, opacity: 0.85 }}
-					/>
-					<Typography sx={{ fontWeight: 900, fontSize: 13.5 }}>
-						Hapus
-					</Typography>
-				</MenuItem>
+				{canDeleteCampaign(menu.row) ? (
+					<MenuItem
+						onClick={() => {
+							const id = menu.row!.id;
+							closeMenu();
+							onDelete(id);
+						}}
+						sx={{ py: 1.2, color: "#ef4444" }}
+					>
+						<DeleteRoundedIcon
+							fontSize="small"
+							style={{ marginRight: 10, opacity: 0.85 }}
+						/>
+						<Typography sx={{ fontWeight: 900, fontSize: 13.5 }}>
+							Hapus
+						</Typography>
+					</MenuItem>
+				) : null}
 			</Menu>
 
 			<Dialog

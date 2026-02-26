@@ -111,14 +111,32 @@ export default function DonationForm({
 				if (j.success && j.token && (window as any).snap) {
 					const isProd =
 						process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true";
+					const amountNumber = Number(amount);
+					const amountParam = isFinite(amountNumber)
+						? amountNumber.toString()
+						: "";
+					const methodLabel = "E-Wallet";
+
 					(window as any).snap.pay(j.token, {
 						language: "id",
 						...(isProd ? { uiMode: "qr" } : {}),
 						onSuccess: () => {
-							router.push(`/donasi/${campaignSlug}?donation_success=true`);
+							const qs = new URLSearchParams({
+								donation_success: "true",
+								donation_status: "paid",
+								donation_amount: amountParam,
+								donation_method: methodLabel,
+							});
+							router.push(`/donasi/${campaignSlug}?${qs.toString()}`);
 						},
 						onPending: () => {
-							router.push(`/donasi/${campaignSlug}?donation_success=true`);
+							const qs = new URLSearchParams({
+								donation_success: "true",
+								donation_status: "pending",
+								donation_amount: amountParam,
+								donation_method: methodLabel,
+							});
+							router.push(`/donasi/${campaignSlug}?${qs.toString()}`);
 						},
 						onError: () => {
 							setError("Pembayaran gagal");

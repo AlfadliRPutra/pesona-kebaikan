@@ -2,13 +2,27 @@ import { getCampaigns } from "@/actions/campaign";
 import DonationExplorer, {
 	CampaignItem,
 } from "@/components/donation/DonationExplorer";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
 	title: "Donasi | Pesona Kebaikan",
 	description:
 		"Temukan dan bantu mereka yang membutuhkan melalui Pesona Kebaikan.",
+	openGraph: {
+		title: "Donasi | Pesona Kebaikan",
+		description:
+			"Temukan dan bantu mereka yang membutuhkan melalui Pesona Kebaikan.",
+		url: "/donasi",
+		siteName: "Pesona Kebaikan",
+		type: "website",
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "Donasi | Pesona Kebaikan",
+		description:
+			"Temukan dan bantu mereka yang membutuhkan melalui Pesona Kebaikan.",
+	},
 };
 
 export default async function DonationPage({
@@ -20,8 +34,14 @@ export default async function DonationPage({
 	const page = 1;
 	const limit = 50; // Load many for exploration
 	const search = typeof params.q === "string" ? params.q : "";
-	const category =
-		typeof params.category === "string" ? params.category : undefined;
+	// Support both `category` and legacy alias `kategori`
+	const rawCategory =
+		typeof params.category === "string"
+			? params.category
+			: typeof params.kategori === "string"
+			? params.kategori
+			: undefined;
+	const category = rawCategory;
 	const isEmergency = params.urgent === "true";
 	const isVerified = params.verified === "true";
 	const sort = typeof params.sort === "string" ? params.sort : "newest";

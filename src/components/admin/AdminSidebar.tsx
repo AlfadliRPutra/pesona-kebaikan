@@ -25,6 +25,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import VrpanoIcon from "@mui/icons-material/Vrpano";
 import PersonPinIcon from "@mui/icons-material/PersonPin";
 import StarOutlineIcon from "@mui/icons-material/StarOutline";
+import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 
 type MenuItem = {
 	label: string;
@@ -81,7 +82,7 @@ const menus: { title: string; items: MenuItem[] }[] = [
 			{
 				label: "Pengajuan Campaign",
 				href: "/admin/pengajuan-campaign",
-				icon: <CampaignIcon fontSize="small" />,
+				icon: <TrendingUpRoundedIcon fontSize="small" />,
 				desc: "Perpanjangan & tambah target",
 			},
 		],
@@ -200,6 +201,47 @@ export default function AdminSidebar({
 }) {
 	const pathname = usePathname();
 
+	const [reviewCount, setReviewCount] = React.useState<number | null>(null);
+	const [activeCampaignCount, setActiveCampaignCount] = React.useState<
+		number | null
+	>(null);
+
+	React.useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const res = await fetch("/api/admin/campaign-review-count");
+				if (!res.ok) return;
+				const data = (await res.json()) as { count?: number };
+				if (!active) return;
+				setReviewCount(
+					typeof data.count === "number" && data.count >= 0 ? data.count : 0,
+				);
+			} catch {}
+		})();
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	React.useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const res = await fetch("/api/admin/campaign-active-count");
+				if (!res.ok) return;
+				const data = (await res.json()) as { count?: number };
+				if (!active) return;
+				setActiveCampaignCount(
+					typeof data.count === "number" && data.count >= 0 ? data.count : 0,
+				);
+			} catch {}
+		})();
+		return () => {
+			active = false;
+		};
+	}, []);
+
 	const SidebarContent = (
 		<div className="h-full flex flex-col">
 			{/* Brand */}
@@ -211,6 +253,7 @@ export default function AdminSidebar({
 						fill
 						className="object-contain p-1.5"
 						sizes="40px"
+						unoptimized
 					/>
 				</div>
 
@@ -236,6 +279,8 @@ export default function AdminSidebar({
 						<nav className="mt-2 space-y-1">
 							{section.items.map((m) => {
 								const isActive = pathname === m.href;
+								const isCampaignMenu = m.href === "/admin/campaign";
+								const isVerifyMenu = m.href === "/admin/campaign/verifikasi";
 								return (
 									<Link
 										key={m.href}
@@ -249,6 +294,11 @@ export default function AdminSidebar({
 													? "bg-slate-100 dark:bg-[#1e293b] text-slate-900 dark:text-slate-50"
 													: "text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-[#0b1324]"
 											}
+                      ${
+												isVerifyMenu
+													? "border border-emerald-500/40 bg-gradient-to-r from-emerald-50/80 via-white to-emerald-50/80 dark:from-emerald-500/10 dark:via-[#0f172a] dark:to-emerald-500/5"
+													: "border border-transparent"
+											}
                     `}
 									>
 										<span
@@ -261,6 +311,11 @@ export default function AdminSidebar({
 														? "bg-white dark:bg-[#0f172a] shadow-sm"
 														: "bg-white dark:bg-[#0f172a] group-hover:bg-slate-50 dark:group-hover:bg-[#0b1324]"
 												}
+                        ${
+													isVerifyMenu
+														? "bg-gradient-to-br from-emerald-500/10 via-emerald-400/5 to-emerald-500/15 border-emerald-400/40"
+														: ""
+												}
                       `}
 											style={{
 												boxShadow: isActive
@@ -269,9 +324,13 @@ export default function AdminSidebar({
 											}}
 										>
 											{React.cloneElement(m.icon as React.ReactElement<any>, {
-												className: isActive
-													? "text-green-600 dark:text-green-400"
-													: "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300",
+												className: isVerifyMenu
+													? isActive
+														? "text-emerald-600 dark:text-emerald-400"
+														: "text-emerald-500 dark:text-emerald-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-300"
+													: isActive
+														? "text-green-600 dark:text-green-400"
+														: "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300",
 											})}
 										</span>
 
@@ -290,6 +349,26 @@ export default function AdminSidebar({
 													{m.desc}
 												</span>
 											) : null}
+											{isCampaignMenu && (
+												<span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-300/60 dark:bg-slate-800/60 dark:text-slate-200">
+													<span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+													<span>
+														{activeCampaignCount === null
+															? "Memuat…"
+															: `${activeCampaignCount} aktif`}
+													</span>
+												</span>
+											)}
+											{isVerifyMenu && (
+												<span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 shadow-sm ring-1 ring-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+													<span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+													<span>
+														{reviewCount === null
+															? "Memuat…"
+															: `${reviewCount} antrian`}
+													</span>
+												</span>
+											)}
 										</span>
 
 										{isActive && (

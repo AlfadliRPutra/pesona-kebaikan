@@ -18,6 +18,8 @@ import TextField from "@mui/material/TextField";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import PhotoCamera from "@mui/icons-material/PhotoCamera";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import PageContainer from "@/components/profile/PageContainer";
 import { getMyProfile, updateMyProfile } from "@/actions/user";
@@ -46,6 +48,18 @@ export default function AccountInfoPage() {
 		name: "",
 		email: "",
 		phone: "",
+	});
+	const [nameError, setNameError] = React.useState<string | null>(null);
+	const [confirmNameDialogOpen, setConfirmNameDialogOpen] =
+		React.useState(false);
+	const [snackbar, setSnackbar] = React.useState<{
+		open: boolean;
+		message: string;
+		severity: "success" | "error" | "info" | "warning";
+	}>({
+		open: false,
+		message: "",
+		severity: "info",
 	});
 
 	// Crop state
@@ -100,12 +114,19 @@ export default function AccountInfoPage() {
 			email: user.email,
 			phone: user.phone || "",
 		});
+		setNameError(null);
 		setOpenEdit(true);
 	};
 
 	const handleSaveEdit = () => {
+		setNameError(null);
+		const previousName = user?.name || "";
+		const newName = editForm.name;
+		const nameChanged =
+			newName.trim() !== "" && newName.trim() !== previousName.trim();
+
 		updateMyProfile({
-			name: editForm.name,
+			name: newName,
 			email: editForm.email,
 			phone: editForm.phone,
 			image: avatarUrl,
@@ -143,9 +164,36 @@ export default function AccountInfoPage() {
 						image: profile.image,
 					});
 				}
+				if (nameChanged) {
+					setSnackbar({
+						open: true,
+						message:
+							"Nama berhasil diubah. Anda dapat mengubah nama lagi setelah 30 hari dari sekarang.",
+						severity: "success",
+					});
+				}
 				setOpenEdit(false);
+			} else if (res?.error) {
+				setNameError(res.error);
+			} else {
+				setNameError("Gagal menyimpan profil.");
 			}
 		});
+	};
+
+	const handleRequestSaveEdit = () => {
+		setNameError(null);
+		const previousName = user?.name || "";
+		const newName = editForm.name;
+		const nameChanged =
+			newName.trim() !== "" && newName.trim() !== previousName.trim();
+
+		if (nameChanged) {
+			setConfirmNameDialogOpen(true);
+			return;
+		}
+
+		handleSaveEdit();
 	};
 
 	const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,30 +279,6 @@ export default function AccountInfoPage() {
 					>
 						{user?.initial || "A"}
 					</Avatar>
-					<input
-						id="avatar-upload"
-						type="file"
-						accept="image/*"
-						style={{ display: "none" }}
-						onChange={handleAvatarChange}
-					/>
-					<Tooltip title="Ubah Foto">
-						<IconButton
-							component="label"
-							htmlFor="avatar-upload"
-							sx={{
-								position: "absolute",
-								right: -8,
-								bottom: -8,
-								bgcolor: "#fff",
-								border: "1px solid rgba(0,0,0,0.1)",
-								"&:hover": { bgcolor: "#f5f5f5" },
-							}}
-							size="small"
-						>
-							<PhotoCamera fontSize="small" />
-						</IconButton>
-					</Tooltip>
 				</Box>
 				<Box sx={{ flex: 1 }}>
 					<Typography sx={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>
@@ -370,44 +394,197 @@ export default function AccountInfoPage() {
 				</List>
 			</Paper>
 			<Dialog open={openEdit} onClose={() => setOpenEdit(false)} fullWidth>
-				<DialogTitle>Edit Profil</DialogTitle>
-				<DialogContent sx={{ pt: 1 }}>
-					<TextField
-						label="Nama Lengkap"
-						value={editForm.name}
-						onChange={(e) =>
-							setEditForm((f) => ({ ...f, name: e.target.value }))
-						}
-						fullWidth
-						margin="dense"
-					/>
-					<TextField
-						label="Email"
-						type="email"
-						value={editForm.email}
-						onChange={(e) =>
-							setEditForm((f) => ({ ...f, email: e.target.value }))
-						}
-						fullWidth
-						margin="dense"
-					/>
-					<TextField
-						label="Nomor HP"
-						value={editForm.phone}
-						onChange={(e) =>
-							setEditForm((f) => ({ ...f, phone: e.target.value }))
-						}
-						fullWidth
-						margin="dense"
-					/>
+				<DialogTitle
+					sx={{
+						fontSize: 18,
+						fontWeight: 800,
+						color: "#0f172a",
+						pb: 1.5,
+						borderBottom: "1px solid rgba(15,23,42,0.06)",
+					}}
+				>
+					Edit Profil
+				</DialogTitle>
+				<DialogContent
+					sx={{
+						pt: 3,
+						pb: 3,
+						px: 3,
+						bgcolor: "rgba(15,23,42,0.02)",
+					}}
+				>
+					<Box
+						sx={{
+							bgcolor: "#fff",
+							borderRadius: 3,
+							boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+							border: "1px solid rgba(148,163,184,0.35)",
+							p: 3,
+						}}
+					>
+						<Box
+							sx={{
+								display: "flex",
+								flexDirection: "column",
+								alignItems: "center",
+								gap: 1,
+								mb: 2.5,
+							}}
+						>
+							<Box sx={{ position: "relative" }}>
+								<Avatar
+									src={avatarUrl ?? undefined}
+									sx={{
+										width: 72,
+										height: 72,
+										bgcolor: "#0ba976",
+										fontSize: 26,
+										fontWeight: 800,
+										boxShadow: "0 8px 20px rgba(15,23,42,0.25)",
+										border: "2px solid #e2e8f0",
+									}}
+								>
+									{user?.initial || "A"}
+								</Avatar>
+								<input
+									id="avatar-upload"
+									type="file"
+									accept="image/*"
+									style={{ display: "none" }}
+									onChange={handleAvatarChange}
+								/>
+								<Tooltip title="Ubah Foto">
+									<IconButton
+										component="label"
+										htmlFor="avatar-upload"
+										sx={{
+											position: "absolute",
+											right: -6,
+											bottom: -6,
+											bgcolor: "#0ba976",
+											color: "#fff",
+											border: "2px solid #fff",
+											boxShadow: "0 4px 10px rgba(15,23,42,0.18)",
+											"&:hover": { bgcolor: "#059669" },
+										}}
+										size="small"
+									>
+										<PhotoCamera fontSize="small" />
+									</IconButton>
+								</Tooltip>
+							</Box>
+							<Typography
+								variant="caption"
+								sx={{ color: "rgba(15,23,42,0.6)" }}
+							>
+								Klik ikon kamera untuk ubah foto profil
+							</Typography>
+						</Box>
+						<TextField
+							label="Nama Lengkap"
+							value={editForm.name}
+							onChange={(e) =>
+								setEditForm((f) => ({ ...f, name: e.target.value }))
+							}
+							error={Boolean(nameError)}
+							helperText={nameError || " "}
+							fullWidth
+							margin="dense"
+						/>
+						<TextField
+							label="Email"
+							type="email"
+							value={editForm.email}
+							disabled
+							fullWidth
+							margin="dense"
+						/>
+						<TextField
+							label="Nomor HP"
+							value={editForm.phone}
+							disabled
+							fullWidth
+							margin="dense"
+						/>
+					</Box>
 				</DialogContent>
-				<DialogActions>
-					<Button onClick={() => setOpenEdit(false)}>Batal</Button>
-					<Button variant="contained" onClick={handleSaveEdit}>
+				<DialogActions
+					sx={{
+						px: 3,
+						pb: 2.5,
+						pt: 2,
+						borderTop: "1px solid rgba(15,23,42,0.06)",
+					}}
+				>
+					<Button
+						onClick={() => setOpenEdit(false)}
+						sx={{ borderRadius: 999, textTransform: "none" }}
+					>
+						Batal
+					</Button>
+					<Button
+						variant="contained"
+						onClick={handleRequestSaveEdit}
+						sx={{ borderRadius: 999, textTransform: "none", px: 3 }}
+					>
 						Simpan
 					</Button>
 				</DialogActions>
 			</Dialog>
+
+			<Dialog
+				open={confirmNameDialogOpen}
+				onClose={() => setConfirmNameDialogOpen(false)}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle>Konfirmasi Ubah Nama</DialogTitle>
+				<DialogContent>
+					<Typography sx={{ fontSize: 14, color: "rgba(15,23,42,0.8)" }}>
+						Anda yakin ingin mengubah nama akun saat ini?
+					</Typography>
+					<Typography
+						sx={{ mt: 1, fontSize: 12, color: "rgba(148,163,184,1)" }}
+					>
+						Setelah disimpan, Anda dianjurkan hanya mengubah nama kembali
+						setelah 30 hari ke depan.
+					</Typography>
+				</DialogContent>
+				<DialogActions>
+					<Button
+						onClick={() => setConfirmNameDialogOpen(false)}
+						sx={{ textTransform: "none" }}
+					>
+						Batal
+					</Button>
+					<Button
+						variant="contained"
+						onClick={() => {
+							setConfirmNameDialogOpen(false);
+							handleSaveEdit();
+						}}
+						sx={{ textTransform: "none" }}
+					>
+						Simpan
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Snackbar
+				open={snackbar.open}
+				autoHideDuration={4000}
+				onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+				anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+			>
+				<Alert
+					onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+					severity={snackbar.severity}
+					variant="filled"
+					sx={{ borderRadius: 999, fontWeight: 600 }}
+				>
+					{snackbar.message}
+				</Alert>
+			</Snackbar>
 
 			{/* Crop Dialog */}
 			<Dialog

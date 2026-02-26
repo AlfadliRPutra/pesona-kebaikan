@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
 	Box,
 	Typography,
@@ -16,18 +16,22 @@ import {
 	IconButton,
 	Container,
 } from "@mui/material";
+import { StyledTextField } from "@/components/ui/StyledTextField";
 import {
 	EmailOutlined,
 	LockOutlined,
 	Visibility,
 	VisibilityOff,
 	ArrowBack,
+	VisibilityOffOutlined,
+	VisibilityOutlined,
 } from "@mui/icons-material";
 import { loginAction } from "./action";
 
 export default function LoginPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
+	const { update } = useSession();
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
@@ -66,26 +70,27 @@ export default function LoginPage() {
 						"Email atau password yang Anda masukkan tidak terdaftar atau salah",
 					);
 				}
+				setLoading(false);
 				return;
 			}
 
-			// Force reload session to get latest data
-			const session = await getSession();
-			console.log("Login session:", session); // Debugging
+			// Force update session to ensure fresh state
+			await update();
+			router.refresh();
 
 			const callbackUrl = searchParams.get("callbackUrl");
 			if (callbackUrl) {
 				router.push(callbackUrl);
 				return;
 			}
-			if (session?.user?.role === "ADMIN") {
+
+			if (result?.role === "ADMIN") {
 				router.push("/admin");
 			} else {
 				router.push("/profil");
 			}
 		} catch (err) {
 			setError("Terjadi kesalahan saat login");
-		} finally {
 			setLoading(false);
 		}
 	};
@@ -210,7 +215,7 @@ export default function LoginPage() {
 								>
 									Email
 								</Typography>
-								<TextField
+								<StyledTextField
 									name="email"
 									placeholder="nama@email.com"
 									type="email"
@@ -218,7 +223,6 @@ export default function LoginPage() {
 									required
 									value={formData.email}
 									onChange={handleChange}
-									size="small"
 									InputProps={{
 										startAdornment: (
 											<InputAdornment position="start">
@@ -227,16 +231,6 @@ export default function LoginPage() {
 												/>
 											</InputAdornment>
 										),
-										sx: { fontSize: "0.875rem" },
-									}}
-									sx={{
-										"& .MuiOutlinedInput-root": {
-											borderRadius: 2,
-											bgcolor: "rgba(241, 245, 249, 0.5)",
-											"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-											"&:hover fieldset": { borderColor: "primary.main" },
-											"&.Mui-focused fieldset": { borderColor: "primary.main" },
-										},
 									}}
 								/>
 							</Box>
@@ -272,15 +266,14 @@ export default function LoginPage() {
 										Lupa Password?
 									</MuiLink>
 								</Box>
-								<TextField
+								<StyledTextField
 									name="password"
-									placeholder="Masukkan password anda"
+									placeholder="••••••••"
 									type={showPassword ? "text" : "password"}
 									fullWidth
 									required
 									value={formData.password}
 									onChange={handleChange}
-									size="small"
 									InputProps={{
 										startAdornment: (
 											<InputAdornment position="start">
@@ -292,29 +285,18 @@ export default function LoginPage() {
 										endAdornment: (
 											<InputAdornment position="end">
 												<IconButton
-													aria-label="toggle password visibility"
 													onClick={() => setShowPassword(!showPassword)}
 													edge="end"
 													size="small"
 												>
 													{showPassword ? (
-														<VisibilityOff sx={{ fontSize: 18 }} />
+														<VisibilityOffOutlined sx={{ fontSize: 18 }} />
 													) : (
-														<Visibility sx={{ fontSize: 18 }} />
+														<VisibilityOutlined sx={{ fontSize: 18 }} />
 													)}
 												</IconButton>
 											</InputAdornment>
 										),
-										sx: { fontSize: "0.875rem" },
-									}}
-									sx={{
-										"& .MuiOutlinedInput-root": {
-											borderRadius: 2,
-											bgcolor: "rgba(241, 245, 249, 0.5)",
-											"& fieldset": { borderColor: "rgba(226, 232, 240, 0.8)" },
-											"&:hover fieldset": { borderColor: "primary.main" },
-											"&.Mui-focused fieldset": { borderColor: "primary.main" },
-										},
 									}}
 								/>
 							</Box>

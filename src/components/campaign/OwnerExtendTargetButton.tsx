@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
+import { StyledTextField } from "@/components/ui/StyledTextField";
 import {
 	Button,
 	Dialog,
 	DialogTitle,
 	DialogContent,
 	DialogActions,
-	TextField,
 	Stack,
 	Typography,
 	InputAdornment,
@@ -27,6 +27,7 @@ export default function OwnerExtendTargetButton({
 	const [open, setOpen] = React.useState(false);
 	const [extraDays, setExtraDays] = React.useState<string>("7");
 	const [extraTarget, setExtraTarget] = React.useState<string>("");
+	const [reason, setReason] = React.useState<string>("");
 	const [submitting, setSubmitting] = React.useState(false);
 
 	const handleOpen = () => setOpen(true);
@@ -40,6 +41,7 @@ export default function OwnerExtendTargetButton({
 
 		const days = parseInt(extraDays || "0", 10);
 		const target = parseInt(extraTarget || "0", 10);
+		const trimmedReason = reason.trim();
 
 		setSubmitting(true);
 
@@ -48,6 +50,7 @@ export default function OwnerExtendTargetButton({
 				campaignId,
 				Number.isNaN(days) ? 0 : days,
 				Number.isNaN(target) ? 0 : target,
+				trimmedReason || undefined,
 			);
 			setOpen(false);
 		} finally {
@@ -100,9 +103,8 @@ export default function OwnerExtendTargetButton({
 							<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
 								Perpanjangan masa aktif
 							</Typography>
-							<TextField
+							<StyledTextField
 								fullWidth
-								size="small"
 								type="number"
 								value={extraDays}
 								onChange={(e) => setExtraDays(e.target.value)}
@@ -119,9 +121,8 @@ export default function OwnerExtendTargetButton({
 							<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
 								Penambahan target donasi
 							</Typography>
-							<TextField
+							<StyledTextField
 								fullWidth
-								size="small"
 								type="number"
 								value={extraTarget}
 								onChange={(e) => setExtraTarget(e.target.value)}
@@ -134,6 +135,23 @@ export default function OwnerExtendTargetButton({
 							/>
 							<Typography sx={{ fontSize: 12, color: "text.secondary" }}>
 								Kosongkan jika tidak ingin menambah target donasi.
+							</Typography>
+						</Stack>
+
+						<Stack spacing={1}>
+							<Typography sx={{ fontWeight: 600, fontSize: 14 }}>
+								Alasan pengajuan
+							</Typography>
+							<StyledTextField
+								fullWidth
+								multiline
+								minRows={3}
+								value={reason}
+								onChange={(e) => setReason(e.target.value)}
+								placeholder="Jelaskan alasan perpanjangan dan/atau penambahan target..."
+							/>
+							<Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+								Alasan ini akan membantu tim admin menilai pengajuan kamu.
 							</Typography>
 						</Stack>
 					</Stack>
